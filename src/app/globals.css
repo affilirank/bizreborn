@@ -1,0 +1,39 @@
+@import "tailwindcss";
+@layer base {
+  :root {
+    --brand-50: #eef2ff;
+    --brand-100: #e0e7ff;
+    --brand-200: #c7d2fe;
+    --brand-300: #a5b4fc;
+    --brand-400: #818cf8;
+    --brand-500: #6366f1;
+    --brand-600: #4f46e5;
+    --brand-700: #4338ca;
+    --brand-800: #3730a3;
+    --brand-900: #312e81;
+    --glow-50: #ecfdf5;
+    --glow-100: #d1fae5;
+    --glow-200: #a7f3d0;
+    --glow-300: #6ee7b7;
+    --glow-400: #34d399;
+    --glow-500: #10b981;
+    --glow-600: #059669;
+    --glow-700: #047857;
+    --glow-800: #065f46;
+    --glow-900: #064e3b;
+    --ink-50: #f6f6f9;
+    --ink-100: #ececf3;
+    --ink-200: #d5d5e3;
+    --ink-300: #b1b2cc;
+    --ink-400: #8889ab;
+    --ink-500: #6b6d91;
+    --ink-600: #565877;
+    --ink-700: #474960;
+    --ink-800: #3d3e52;
+    --ink-900: #0b0f17;
+    --ink-950: #070a12;
+    --fog: #9ca3af;
+    --mist: #d1d5db;
+    --mute: #6b7280;
+  }
+}
