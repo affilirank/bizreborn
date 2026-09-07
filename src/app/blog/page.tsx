@@ -1,80 +1,47 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { getSupabase } from "@/lib/supabase";
-import { Calendar, Clock } from "lucide-react";
+import { Container, Eyebrow } from "@/components/ui/section";
+import { BlogListing } from "@/components/blog/blog-listing";
+import { fetchPublishedPosts } from "@/lib/blog-db";
 
 export const metadata: Metadata = {
-  title: "Blog & Guides — Biz Reborn Marketing",
+  title: "The 112-Guide Marketing Library",
   description:
-    "Actionable marketing guides, local SEO tips, and strategies to help your business dominate the local market.",
+    "100 full-length, SEO-optimized service guides plus 12 category playbooks — one for every business vertical. Local SEO, video, funnels, reviews, SMS, ads, branding, and automation.",
+  openGraph: {
+    title: "Biz Reborn Guide Library — 112 SEO Marketing Guides",
+    description:
+      "Full-length marketing guides for every service module and business vertical: pricing, ROI, stats, pain points, and solutions for local businesses.",
+    type: "website",
+  },
 };
 
-export default async function BlogPage() {
-  const supabase = getSupabase();
-  const { data: posts } = supabase
-    ? await supabase
-        .from("blog_posts")
-        .select("*")
-        .eq("published", true)
-        .order("created_at", { ascending: false })
-    : { data: [] };
+export const revalidate = 300;
 
+export default async function BlogIndexPage() {
+  const articles = await fetchPublishedPosts();
   return (
-    <div className="relative">
-      <div className="absolute inset-0 bg-gradient-to-b from-brand-950/20 via-ink-950 to-ink-950" />
-      <div className="relative mx-auto max-w-7xl px-4 pb-20 pt-16 sm:px-6 sm:pt-24 lg:px-8">
-        <div className="mx-auto max-w-2xl text-center">
-          <h1 className="font-sora text-3xl font-bold text-white sm:text-4xl">
-            Blog & Guides
+    <div className="relative pt-28">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="grid-lines absolute inset-0" />
+        <div className="absolute -top-20 left-1/2 h-[400px] w-[800px] -translate-x-1/2 rounded-full bg-brand-500/10 blur-[160px]" />
+      </div>
+
+      <Container className="relative">
+        <div className="mx-auto mb-12 max-w-3xl text-center">
+          <Eyebrow className="mb-4">The Guide Library</Eyebrow>
+          <h1 className="font-display text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">
+            112 Marketing Guides.{" "}
+            <span className="text-gradient-brand">For Every Business.</span>
           </h1>
-          <p className="mt-3 text-sm leading-relaxed text-ink-400">
-            Actionable marketing insights, local SEO strategies, and growth
-            guides built for local business owners.
+          <p className="mx-auto mt-4 max-w-xl text-base text-fog sm:text-lg">
+            A full-length guide for every service in the Biz Reborn menu plus a
+            category playbook for each business vertical — stats, pain points,
+            and the exact fixes that move your number.
           </p>
         </div>
 
-        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {!posts || posts.length === 0 ? (
-            <div className="col-span-full py-20 text-center">
-              <p className="text-sm text-ink-500">No posts published yet.</p>
-            </div>
-          ) : (
-            posts.map((post) => (
-              <Link
-                key={post.id}
-                href={`/blog/${post.slug}`}
-                className="group rounded-xl border border-ink-800/60 bg-ink-900/50 p-6 transition-all hover:border-brand-500/30"
-              >
-                {post.pillar && (
-                  <span className="mb-3 inline-flex items-center rounded-full border border-brand-500/20 bg-brand-500/5 px-2.5 py-0.5 text-[10px] font-medium text-brand-400">
-                    {post.pillar}
-                  </span>
-                )}
-                <h3 className="font-sora text-sm font-bold leading-snug text-white group-hover:text-brand-300">
-                  {post.title}
-                </h3>
-                {post.intro && (
-                  <p className="mt-2 text-xs leading-relaxed text-ink-400 line-clamp-2">
-                    {post.intro}
-                  </p>
-                )}
-                <div className="mt-4 flex items-center gap-3 text-[11px] text-ink-500">
-                  {post.read_time && (
-                    <span className="flex items-center gap-1">
-                      <Clock size={12} />
-                      {post.read_time}
-                    </span>
-                  )}
-                  <span className="flex items-center gap-1">
-                    <Calendar size={12} />
-                    {new Date(post.created_at).toLocaleDateString()}
-                  </span>
-                </div>
-              </Link>
-            ))
-          )}
-        </div>
-      </div>
+        <BlogListing articles={articles} />
+      </Container>
     </div>
   );
 }

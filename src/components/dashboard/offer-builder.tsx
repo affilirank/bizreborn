@@ -1,0 +1,548 @@
+"use client";
+
+import * as React from "react";
+import {
+  BadgePercent,
+  Check,
+  CheckCircle2,
+  Copy,
+  DollarSign,
+  ExternalLink,
+  Loader2,
+  Mail,
+  Plus,
+  Send,
+  Trash2,
+  X,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  createOffer,
+  deleteOffer,
+  listOffers,
+  updateOfferStatus,
+} from "@/lib/data";
+import { ALL_SERVICES, PILLARS } from "@/data/services";
+import type { Offer } from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+const PILLAR_NAME: Record<string, string> = Object.fromEntries(
+  PILLARS.map((p) => [p.id, p.name]),
+);
+
+const STATUS_STYLE: Record<Offer["status"], string> = {
+  draft: "border-brand-500/30 bg-brand-500/10 text-brand-300",
+  sent: "border-amber-500/30 bg-amber-500/10 text-amber-300",
+  paid: "border-glow-500/30 bg-glow-500/10 text-glow-400",
+  declined: "border-rose-500/30 bg-rose-500/10 text-rose-300",
+};
+
+function mailtoForOffer(offer: Offer, paymentLink: string | null): string {
+  const url = `${window.location.origin}/offer/${offer.token}`;
+  const subject = `Your Customized Biz Reborn Proposal — ${offer.clientName}`;
+  const body = [
+    `Hi ${offer.clientName},`,
+    "",
+    "We put together a customized package tailored to your business.",
+    "",
+    `Review your proposal here: ${url}`,
+    paymentLink ? `\nSecure payment link: ${paymentLink}\n` : "",
+    "We're ready when you are — the plan starts the moment you accept.",
+    "",
+    "Talk soon,",
+    "The Biz Reborn Team",
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
+  return `mailto:${offer.clientEmail || ""}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function OfferBuilder() {
+  const [offers, setOffers] = React.useState<Offer[]>([]);
+  const [loaded, setLoaded] = React.useState(false);
+  const [clientName, setClientName] = React.useState("");
+  const [clientEmail, setClientEmail] = React.useState("");
+  const [selected, setSelected] = React.useState<number[]>([]);
+  const [offerPrice, setOfferPrice] = React.useState("");
+  const [notes, setNotes] = React.useState("");
+  const [creating, setCreating] = React.useState(false);
+  const [created, setCreated] = React.useState<Offer | null>(null);
+  const [copiedToken, setCopiedToken] = React.useState<string | null>(null);
+  const [busyToken, setBusyToken] = React.useState<string | null>(null);
+  const [error, setError] = React.useState("");
+
+  React.useEffect(() => {
+    void listOffers()
+      .then((rows) => {
+        setOffers(rows);
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, []);
+
+  const toggle = (id: number) =>
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+
+  const listTotal = selected.reduce(
+    (s, id) => s + (ALL_SERVICES.find((x) => x.id === id)?.oneTime ?? 0) + (ALL_SERVICES.find((x) => x.id === id)?.monthly ?? 0),
+    0,
+  );
+  const finalPrice = Number(offerPrice) || listTotal;
+  const discountPct =
+    listTotal > finalPrice
+      ? Math.round(((listTotal - finalPrice) / listTotal) * 100)
+      : 0;
+
+  const resetForm = () => {
+    setClientName("");
+    setClientEmail("");
+    setSelected([]);
+    setOfferPrice("");
+    setNotes("");
+    setCreated(null);
+  };
+
+  const handleCreate = async () => {
+    setError("");
+    if (!clientName.trim() || selected.length === 0) {
+      setError("Add a client name and pick at least one service.");
+      return;
+    }
+    setCreating(true);
+    try {
+      const offer = await createOffer({
+        clientName: clientName.trim(),
+        clientEmail: clientEmail.trim(),
+        services: selected,
+        offerPrice: finalPrice,
+        notes: notes.trim(),
+      });
+      setCreated(offer);
+      setOffers((prev) => [offer, ...prev]);
+      setClientName("");
+      setClientEmail("");
+      setSelected([]);
+      setOfferPrice("");
+      setNotes("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create the offer.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handlePaymentLink = async (offer: Offer) => {
+    setBusyToken(offer.id);
+    try {
+      const res = await fetch(`/api/offers/${offer.token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "payment-link" }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.url) {
+        const withLink = { ...offer, stripePaymentLink: json.url as string, status: "sent" as const };
+        setOffers((prev) => prev.map((o) => (o.id === offer.id ? withLink : o)));
+        setCreated((prev) => (prev?.id === offer.id ? withLink : prev));
+        await copyText(json.url);
+        setCopiedToken(offer.id);
+      } else {
+        setError(json?.error ?? "Could not generate the payment link.");
+      }
+    } finally {
+      setBusyToken(null);
+    }
+  };
+
+  const copyOfferLink = async (offer: Offer) => {
+    const ok = await copyText(`${window.location.origin}/offer/${offer.token}`);
+    if (ok) {
+      setCopiedToken(offer.id);
+      window.setTimeout(() => setCopiedToken(null), 2000);
+    }
+  };
+
+  const setStatus = (offer: Offer, status: Offer["status"]) => {
+    setOffers((prev) => prev.map((o) => (o.id === offer.id ? { ...o, status } : o)));
+    void updateOfferStatus(offer.id, status).catch(() => {});
+  };
+
+  const removeOffer = (offer: Offer) => {
+    setOffers((prev) => prev.filter((o) => o.id !== offer.id));
+    if (offer.status !== "paid") void deleteOffer(offer.id).catch(() => {});
+  };
+
+  const toggleAll = (groupIds: number[]) => {
+    const allOn = groupIds.every((id) => selected.includes(id));
+    setSelected((prev) =>
+      allOn
+        ? prev.filter((id) => !groupIds.includes(id))
+        : Array.from(new Set([...prev, ...groupIds])),
+    );
+  };
+
+  const groups = PILLARS.map((p) => ({
+    pillar: p,
+    services: ALL_SERVICES.filter((s) => s.pillar === p.id),
+  }));
+
+  return (
+    <div className="space-y-6">
+      {/* Builder */}
+      <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+        <div className="rounded-2xl border border-white/8 bg-ink-850/50 p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-display text-base font-bold text-white">Compose an offer</h3>
+              <p className="text-xs text-fog">
+                Pick modules, set your price, and send a Stripe-powered proposal.
+              </p>
+            </div>
+            {selected.length > 0 && (
+              <button
+                onClick={resetForm}
+                className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-fog transition hover:border-white/25 hover:text-white"
+              >
+                <X className="h-3.5 w-3.5" /> Reset
+              </button>
+            )}
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <input
+              value={clientName}
+              onChange={(e) => setClientName(e.target.value)}
+              placeholder="Client name (e.g. Ace Plumbing)"
+              className="rounded-xl border border-white/10 bg-ink-800 px-3 py-2.5 text-sm text-white placeholder:text-mute outline-none transition focus:border-brand-400/60"
+            />
+            <input
+              value={clientEmail}
+              onChange={(e) => setClientEmail(e.target.value)}
+              placeholder="client@business.com"
+              type="email"
+              className="rounded-xl border border-white/10 bg-ink-800 px-3 py-2.5 text-sm text-white placeholder:text-mute outline-none transition focus:border-brand-400/60"
+            />
+          </div>
+
+          <div className="mt-4 max-h-[300px] space-y-4 overflow-y-auto pr-1">
+            {groups.map(({ pillar, services }) => {
+              const groupIds = services.map((s) => s.id);
+              const on = groupIds.every((id) => selected.includes(id));
+              const some = groupIds.some((id) => selected.includes(id));
+              return (
+                <div key={pillar.id} className="rounded-xl border border-white/5 bg-ink-800/30 p-3">
+                  <button
+                    onClick={() => toggleAll(groupIds)}
+                    className="flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wider text-fog"
+                  >
+                    <span>{PILLAR_NAME[pillar.id] ?? pillar.name}</span>
+                    <span
+                      className={cn(
+                        "rounded-full border px-2 py-0.5 text-[10px]",
+                        on
+                          ? "border-glow-500/40 bg-glow-500/10 text-glow-400"
+                          : some
+                            ? "border-brand-500/40 bg-brand-500/10 text-brand-300"
+                            : "border-white/10 text-mute",
+                      )}
+                    >
+                      {on ? "All selected" : some ? "Some selected" : `${services.length} services`}
+                    </span>
+                  </button>
+                  <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                    {services.map((s) => {
+                      const isOn = selected.includes(s.id);
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={() => toggle(s.id)}
+                          className={cn(
+                            "flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-xs transition",
+                            isOn
+                              ? "border-brand-400/50 bg-brand-500/15 text-white"
+                              : "border-white/5 bg-ink-900/40 text-fog hover:border-white/20",
+                          )}
+                        >
+                          <span className="min-w-0 flex-1 truncate">{s.title}</span>
+                          <span className="shrink-0 text-mute">
+                            {s.oneTime + s.monthly > 0
+                              ? `$${(s.oneTime + s.monthly).toLocaleString()}`
+                              : "—"}
+                          </span>
+                          {isOn && <Check className="h-3.5 w-3.5 shrink-0 text-glow-400" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1.4fr]">
+            <label className="block">
+              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-mute">
+                Offer price (USD)
+              </span>
+              <input
+                value={offerPrice}
+                onChange={(e) => setOfferPrice(e.target.value.replace(/[^0-9]/g, ""))}
+                placeholder={String(listTotal || "0")}
+                inputMode="numeric"
+                className="w-full rounded-xl border border-white/10 bg-ink-800 px-3 py-2.5 text-sm text-white placeholder:text-mute outline-none transition focus:border-brand-400/60"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-mute">
+                Personal note (optional)
+              </span>
+              <input
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder='e.g. "50% off to celebrate your new location"'
+                className="w-full rounded-xl border border-white/10 bg-ink-800 px-3 py-2.5 text-sm text-white placeholder:text-mute outline-none transition focus:border-brand-400/60"
+              />
+            </label>
+          </div>
+
+          {error && (
+            <p className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-xs text-rose-300">
+              {error}
+            </p>
+          )}
+
+          <button
+            onClick={handleCreate}
+            disabled={creating || selected.length === 0}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 py-3 text-sm font-semibold text-white transition hover:bg-brand-400 disabled:opacity-50"
+          >
+            {creating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Creating…
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" /> Create offer &amp; generate Stripe link
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Live preview */}
+        <div className="h-fit rounded-2xl border border-white/8 bg-ink-850/50 p-5">
+          <h3 className="font-display text-base font-bold text-white">Proposal preview</h3>
+          <div className="mt-4 rounded-2xl border border-white/5 bg-ink-900/40 p-5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-brand-300">
+              Prepared for
+            </p>
+            <p className="mt-1 truncate font-display text-lg font-bold text-white">
+              {clientName.trim() || "Your Client"}
+            </p>
+            <div className="mt-4 space-y-2">
+              {selected.length === 0 && (
+                <p className="text-xs text-mute">Pick modules to see your package.</p>
+              )}
+              {selected.map((id) => {
+                const s = ALL_SERVICES.find((x) => x.id === id);
+                return s ? (
+                  <div key={id} className="flex items-center gap-2 text-xs text-fog">
+                    <Check className="h-3.5 w-3.5 shrink-0 text-glow-400" />
+                    <span className="truncate">{s.title}</span>
+                  </div>
+                ) : null;
+              })}
+            </div>
+            <div className="mt-5 flex items-end justify-between border-t border-white/5 pt-4">
+              <div>
+                <p className="text-[11px] text-mute">Regular price</p>
+                <p className="text-sm font-semibold text-mute line-through">
+                  ${listTotal.toLocaleString()}
+                </p>
+              </div>
+              {discountPct > 0 && (
+                <Badge variant="emerald" className="px-2.5 py-1">
+                  <BadgePercent className="h-3 w-3" /> Save {discountPct}%
+                </Badge>
+              )}
+              <div className="text-right">
+                <p className="text-[11px] text-mute">Offer price</p>
+                <p className="font-display text-2xl font-extrabold text-glow-400">
+                  ${finalPrice.toLocaleString()}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {created && (
+            <div className="mt-4 rounded-2xl border border-glow-500/30 bg-glow-500/10 p-4">
+              <p className="flex items-center gap-2 text-sm font-semibold text-glow-400">
+                <CheckCircle2 className="h-4 w-4" /> Offer created
+              </p>
+              <div className="mt-3 flex flex-col gap-2">
+                <button
+                  onClick={() => copyOfferLink(created)}
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-white/10 py-2 text-xs font-semibold text-mist transition hover:border-white/25 hover:text-white"
+                >
+                  {copiedToken === created.id ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-glow-400" /> Copied link
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5" /> Copy proposal link
+                    </>
+                  )}
+                </button>
+                <a
+                  href={mailtoForOffer(created, created.stripePaymentLink)}
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-brand-500/40 bg-brand-500/10 py-2 text-xs font-semibold text-brand-300 transition hover:bg-brand-500/20"
+                >
+                  <Mail className="h-3.5 w-3.5" /> Email to client
+                </a>
+                {created.stripePaymentLink ? (
+                  <a
+                    href={created.stripePaymentLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-1.5 rounded-lg bg-glow-500/20 py-2 text-xs font-semibold text-glow-400 transition hover:bg-glow-500/30"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" /> Open Stripe payment link
+                  </a>
+                ) : (
+                  <button
+                    onClick={() => handlePaymentLink(created)}
+                    className="flex items-center justify-center gap-1.5 rounded-lg bg-glow-500/20 py-2 text-xs font-semibold text-glow-400 transition hover:bg-glow-500/30"
+                  >
+                    {busyToken === created.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <DollarSign className="h-3.5 w-3.5" />
+                    )}{" "}
+                    Generate payment link
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Offer list */}
+      <div className="rounded-2xl border border-white/8 bg-ink-850/50 p-5">
+        <div className="flex items-center justify-between">
+          <h3 className="font-display text-base font-bold text-white">Recorded offers</h3>
+          <Badge variant="brand">{offers.length} offers</Badge>
+        </div>
+        {!loaded ? (
+          <p className="mt-4 text-sm text-fog">Loading offers…</p>
+        ) : offers.length === 0 ? (
+          <p className="mt-4 rounded-xl border border-dashed border-white/15 p-8 text-center text-sm text-fog">
+            No offers yet — compose your first one above. Paid offers create the
+            client order and queue their fulfillment tasks automatically.
+          </p>
+        ) : (
+          <ul className="mt-4 space-y-2">
+            {offers.map((o) => (
+              <li
+                key={o.id}
+                className="flex flex-wrap items-center gap-3 rounded-xl border border-white/5 bg-ink-800/40 px-4 py-3"
+              >
+                <span
+                  className={cn(
+                    "rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase",
+                    STATUS_STYLE[o.status],
+                  )}
+                >
+                  {o.status}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-mist">{o.clientName}</p>
+                  <p className="truncate text-[11px] text-mute">
+                    {o.services.length} modules ·{" "}
+                    {o.discountPct > 0 && (
+                      <span className="line-through">${o.listPrice.toLocaleString()}</span>
+                    )}{" "}
+                    ${o.offerPrice.toLocaleString()}
+                    {o.discountPct > 0 ? ` · save ${o.discountPct}%` : ""} ·{" "}
+                    {new Date(o.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => copyOfferLink(o)}
+                    title="Copy proposal link"
+                    className="rounded-lg border border-white/10 p-2 text-mist transition hover:border-white/25 hover:text-white"
+                  >
+                    {copiedToken === o.id ? (
+                      <Check className="h-3.5 w-3.5 text-glow-400" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                  <a
+                    href={mailtoForOffer(o, o.stripePaymentLink)}
+                    title="Email to client"
+                    className="rounded-lg border border-white/10 p-2 text-mist transition hover:border-white/25 hover:text-white"
+                  >
+                    <Mail className="h-3.5 w-3.5" />
+                  </a>
+                  {!o.stripePaymentLink && o.status !== "paid" && (
+                    <button
+                      onClick={() => handlePaymentLink(o)}
+                      title="Generate payment link"
+                      className="rounded-lg border border-white/10 p-2 text-mist transition hover:border-glow-500/40 hover:text-glow-400"
+                    >
+                      {busyToken === o.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <DollarSign className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  )}
+                  {o.status === "draft" && (
+                    <button
+                      onClick={() => setStatus(o, "sent")}
+                      title="Mark sent"
+                      className="rounded-lg border border-white/10 p-2 text-mist transition hover:border-amber-500/40 hover:text-amber-300"
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {o.status !== "paid" && o.status !== "declined" && (
+                    <button
+                      onClick={() => setStatus(o, "declined")}
+                      title="Mark declined"
+                      className="rounded-lg border border-white/10 p-2 text-mist transition hover:border-rose-500/40 hover:text-rose-300"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {o.status !== "paid" && (
+                    <button
+                      onClick={() => removeOffer(o)}
+                      title="Delete offer"
+                      className="rounded-lg border border-white/10 p-2 text-mist transition hover:border-rose-500/40 hover:text-rose-300"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}

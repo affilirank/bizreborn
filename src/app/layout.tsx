@@ -1,38 +1,51 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Sora } from "next/font/google";
 import "./globals.css";
-import DemoBanner from "@/components/demo-banner";
-import Navbar from "@/components/navbar";
-import Footer from "@/components/footer";
-import ChatWidget from "@/components/chat-widget";
+import { Navbar } from "@/components/layout/navbar";
+import { Footer } from "@/components/layout/footer";
+import { DemoBanner } from "@/components/layout/demo-banner";
+import { ChatWidget } from "@/components/chat/chat-widget";
 
 const inter = Inter({
-  subsets: ["latin"],
   variable: "--font-inter",
+  subsets: ["latin"],
 });
 
 const sora = Sora({
-  subsets: ["latin"],
   variable: "--font-sora",
+  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Biz Reborn Marketing \u2014 Dominate Your Local Market",
+  title: {
+    default: "Biz Reborn Marketing — Dominate Your Local Market",
+    template: "%s · Biz Reborn Marketing",
+  },
   description:
-    "AI-driven local marketing agency. Get more customers with brand audits, reputation management, and automated systems.",
+    "AI-driven local audit systems, high-converting content infrastructure, and modular marketing pipelines designed to dominate your local market.",
+  openGraph: {
+    title: "Biz Reborn Marketing",
+    description:
+      "Stop burning cash on invisible marketing. Reborn your business into a local category leader.",
+    type: "website",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0B0F17",
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
-    <html lang="en" className={`${inter.variable} ${sora.variable}`}>
-      <body className="bg-ink-950 text-mist antialiased font-sans">
+    <html lang="en" className={`${inter.variable} ${sora.variable} h-full antialiased`}>
+      <body className="flex min-h-full flex-col bg-ink-900 text-mist">
         <DemoBanner />
         <Navbar />
-        <main>{children}</main>
+        <main className="flex-1">{children}</main>
         <Footer />
         <ChatWidget />
       </body>
