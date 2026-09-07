@@ -21,6 +21,8 @@ export async function POST(req: Request) {
     : [];
   const offerPrice = Math.round(Number(body?.offerPrice ?? 0));
   const notes = String(body?.notes ?? "").trim();
+  const videoUrl = String(body?.videoUrl ?? "").trim() || null;
+  const prospectId = String(body?.prospectId ?? "").trim() || null;
 
   if (!clientName || services.length === 0 || offerPrice <= 0) {
     return NextResponse.json(
@@ -63,23 +65,38 @@ export async function POST(req: Request) {
     return null;
   });
 
-  const { data, error } = await admin
+  const baseRow = {
+    token,
+    client_name: clientName,
+    client_email: clientEmail || null,
+    services,
+    service_titles: serviceTitles,
+    list_price: listPrice,
+    offer_price: offerPrice,
+    discount_pct: discountPct,
+    status: "draft",
+    stripe_payment_link: paymentLink,
+    notes: notes || null,
+  };
+
+  let { data, error } = await admin
     .from("offers")
-    .insert({
-      token,
-      client_name: clientName,
-      client_email: clientEmail || null,
-      services,
-      service_titles: serviceTitles,
-      list_price: listPrice,
-      offer_price: offerPrice,
-      discount_pct: discountPct,
-      status: "draft",
-      stripe_payment_link: paymentLink,
-      notes: notes || null,
-    })
+    .insert({ ...baseRow, video_url: videoUrl, prospect_id: prospectId })
     .select("*")
     .single();
+
+  // The video columns arrive with supabase/leadgen.sql; until it has been run,
+  // keep the proposal working and carry the video link inside the notes.
+  if (error && /video_url|prospect_id|schema cache/i.test(error.message ?? "")) {
+    const fallbackNotes = [notes, videoUrl ? `Watch your pitch video: ${videoUrl}` : ""]
+      .filter(Boolean)
+      .join("\n\n");
+    ({ data, error } = await admin
+      .from("offers")
+      .insert({ ...baseRow, notes: fallbackNotes || null })
+      .select("*")
+      .single());
+  }
 
   if (error || !data) {
     return NextResponse.json(
@@ -123,6 +140,7 @@ function offerFromRow(r: Record<string, unknown>): Offer {
     status: (r.status ?? "draft") as Offer["status"],
     stripePaymentLink: (r.stripe_payment_link as string | null) ?? null,
     notes: (r.notes as string | null) ?? "",
+    videoUrl: (r.video_url as string | null) ?? null,
     paidAt: (r.paid_at as string | null) ?? null,
     createdAt: String(r.created_at),
   };

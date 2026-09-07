@@ -136,6 +136,27 @@ export type ProspectStatus =
   | "ready"
   | "failed";
 
+/** Brand audit snapshot stored on a prospect (website + socials + reputation). */
+export interface ProspectAudit {
+  health_score: number;
+  grade: string;
+  breakdowns: { key: string; label: string; score: number; issues: string[] }[];
+  pain_points: string[];
+  fixes: string[];
+}
+
+/** Projected return if the prospect buys the recommended services. */
+export interface RoiProjection {
+  acv: number;
+  leads_per_month: number;
+  projected_monthly: number;
+  lost_monthly: number;
+  investment_one_time: number;
+  investment_monthly: number;
+  roas: number;
+  payback_months: number;
+}
+
 export interface Prospect {
   id: string;
   business_name: string;
@@ -143,6 +164,12 @@ export interface Prospect {
   website: string | null;
   email: string | null;
   phone: string | null;
+  instagram: string | null;
+  facebook: string | null;
+  tiktok: string | null;
+  audit_report: ProspectAudit | null;
+  roi_projection: RoiProjection | null;
+  recommended_services: number[] | null;
   google_rating: number | null;
   review_count: number | null;
   unanswered_reviews: number | null;

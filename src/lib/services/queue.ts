@@ -1,4 +1,5 @@
 import { scrapeReputation } from "@/lib/services/scraper";
+import { buildBrandAudit } from "@/lib/services/brand-audit";
 import { generatePitchScript } from "@/lib/services/script";
 import { generateVoiceover } from "@/lib/services/tts";
 import { renderPitchVideo } from "@/lib/services/renderer";
@@ -47,6 +48,21 @@ class BatchQueue {
     return this.queue.length + this.active.size;
   }
 
+  /** Resolves once every queued prospect has finished (for serverless `after()`). */
+  whenIdle(): Promise<void> {
+    if (this.size() === 0) return Promise.resolve();
+    return new Promise((resolve) => this.idleWaiters.push(resolve));
+  }
+
+  private idleWaiters: Array<() => void> = [];
+
+  private settleIdle() {
+    if (this.size() > 0) return;
+    const waiters = this.idleWaiters;
+    this.idleWaiters = [];
+    waiters.forEach((w) => w());
+  }
+
   private emit(event: QueueEvent) {
     for (const fn of this.listeners) fn(event);
   }
@@ -67,6 +83,7 @@ class BatchQueue {
       this.process(id).finally(() => {
         this.active.delete(id);
         this.pump();
+        this.settleIdle();
       });
     }
     this.processing = false;
@@ -87,7 +104,11 @@ class BatchQueue {
       });
       await updateProspect(id, { ...scraped });
 
-      // 2. Write audit summary + generate pitch script
+      // 2. Brand audit (website + socials + reputation) and ROI projection
+      const audit = buildBrandAudit({ ...prospect, ...scraped });
+      await updateProspect(id, { ...audit });
+
+      // 3. Pitch script: flaws + cost + projected return
       const script = await generatePitchScript({
         business_name: prospect.business_name,
         city: prospect.city,
@@ -96,19 +117,18 @@ class BatchQueue {
         unanswered_reviews: scraped.unanswered_reviews,
         competitor_name: scraped.competitor_name,
         competitor_reviews: scraped.competitor_reviews,
+        audit: audit.audit_report,
+        roi: audit.roi_projection,
       });
       await updateProspect(id, { pitch_script: script });
 
-      // 3. Voiceover
+      // 4. Voiceover (optional — the player narrates in-browser otherwise)
       await setProspectStatus(id, "rendering");
       this.emit({ id, status: "rendering" });
-      const { voiceover_url } = await generateVoiceover(
-        script,
-        prospect.business_name,
-      );
+      const { voiceover_url } = await generateVoiceover(script, prospect.business_name);
       await updateProspect(id, { voiceover_url });
 
-      // 4. Render video + thumbnails
+      // 5. Render video / poster
       const next = (await getProspectById(id))!;
       const rendered = await renderPitchVideo(next);
       await setProspectStatus(id, "ready", rendered);

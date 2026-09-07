@@ -32,17 +32,28 @@ export async function POST(req: Request) {
     website?: string;
     email?: string;
     phone?: string;
+    instagram?: string;
+    facebook?: string;
+    tiktok?: string;
   }> = [];
+
+  const str = (v: unknown) => {
+    const s = String(v ?? "").trim();
+    return s || undefined;
+  };
 
   for (const row of rows) {
     const name = String(row.business_name || row.name || row.business || "").trim();
     if (!name) continue;
     valid.push({
       business_name: name,
-      city: row.city,
-      website: row.website,
-      email: row.email,
-      phone: row.phone,
+      city: str(row.city),
+      website: str(row.website || row.url),
+      email: str(row.email),
+      phone: str(row.phone),
+      instagram: str(row.instagram || row.ig),
+      facebook: str(row.facebook || row.fb),
+      tiktok: str(row.tiktok),
     });
   }
 

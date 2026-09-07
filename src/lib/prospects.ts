@@ -18,13 +18,53 @@ import { slugify } from "@/lib/utils";
 // does not block the admin back-office CRUD. Falls back to the anon client when
 // no service key, and the in-memory store when no Supabase is configured at all.
 function serviceDb() {
+  if (tableMissing) return null;
   return createServiceClient() ?? getSupabase();
 }
 
 // Public reads use the anon client so RLS can restrict what is exposed, e.g.
 // only returning prospects whose status is 'ready' on the public pitch page.
 function anonDb() {
+  if (tableMissing) return null;
   return getSupabase();
+}
+
+// Supabase is configured but `prospects` has not been created yet (schema not
+// run). We detect that from the PostgREST error and fall back to memory so the
+// admin can still exercise the module — while the UI shows the setup banner.
+let tableMissing = false;
+let lastStoreError: string | null = null;
+
+function noteError(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  lastStoreError = error.message ?? error.code ?? "unknown";
+  if (
+    error.code === "PGRST205" ||
+    error.code === "42P01" ||
+    /Could not find the table/i.test(error.message ?? "") ||
+    /relation .* does not exist/i.test(error.message ?? "")
+  ) {
+    tableMissing = true;
+  }
+  return true;
+}
+
+export interface ProspectStoreStatus {
+  backend: "supabase" | "memory";
+  supabaseConfigured: boolean;
+  setupRequired: boolean;
+  lastError: string | null;
+}
+
+/** Which backend the prospects store is actually using right now. */
+export function getProspectStoreStatus(): ProspectStoreStatus {
+  const configured = Boolean(createServiceClient() ?? getSupabase());
+  return {
+    backend: configured && !tableMissing ? "supabase" : "memory",
+    supabaseConfigured: configured,
+    setupRequired: configured && tableMissing,
+    lastError: lastStoreError,
+  };
 }
 
 const memoryStore = new Map<string, Prospect>();
@@ -47,6 +87,12 @@ function toMemoryRow(input: Partial<Prospect> & { business_name: string }): Pros
     website: input.website ?? null,
     email: input.email ?? null,
     phone: input.phone ?? null,
+    instagram: input.instagram ?? null,
+    facebook: input.facebook ?? null,
+    tiktok: input.tiktok ?? null,
+    audit_report: input.audit_report ?? null,
+    roi_projection: input.roi_projection ?? null,
+    recommended_services: input.recommended_services ?? null,
     google_rating: input.google_rating ?? null,
     review_count: input.review_count ?? null,
     unanswered_reviews: input.unanswered_reviews ?? null,
@@ -60,7 +106,9 @@ function toMemoryRow(input: Partial<Prospect> & { business_name: string }): Pros
     pitch_script: input.pitch_script ?? null,
     slug:
       input.slug ??
-      slugify(`${input.business_name}${input.city ? `-${input.city}` : ""}`),
+      `${slugify(`${input.business_name}${input.city ? `-${input.city}` : ""}`)}-${Math.random()
+        .toString(36)
+        .slice(2, 6)}`,
     status: input.status ?? "pending",
     error: input.error ?? null,
     created_at: input.created_at ?? now,
@@ -68,25 +116,33 @@ function toMemoryRow(input: Partial<Prospect> & { business_name: string }): Pros
   };
 }
 
+function memoryList(): Prospect[] {
+  return Array.from(memoryStore.values()).sort((a, b) =>
+    b.created_at.localeCompare(a.created_at),
+  );
+}
+
 export async function listProspects(): Promise<Prospect[]> {
   const sb = serviceDb();
   if (sb) {
-    const { data } = await sb
+    const { data, error } = await sb
       .from("prospects")
       .select("*")
       .order("created_at", { ascending: false });
-    return (data as Prospect[]) ?? [];
+    if (!noteError(error)) return (data as Prospect[]) ?? [];
   }
-  return Array.from(memoryStore.values()).sort(
-    (a, b) => b.created_at.localeCompare(a.created_at),
-  );
+  return memoryList();
 }
 
 export async function getProspectById(id: string): Promise<Prospect | null> {
   const sb = serviceDb();
   if (sb) {
-    const { data } = await sb.from("prospects").select("*").eq("id", id).single();
-    return (data as Prospect) ?? null;
+    const { data, error } = await sb
+      .from("prospects")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (!noteError(error)) return (data as Prospect) ?? memoryStore.get(id) ?? null;
   }
   return memoryStore.get(id) ?? null;
 }
@@ -96,12 +152,12 @@ export async function getProspectBySlug(
 ): Promise<Prospect | null> {
   const sb = anonDb();
   if (sb) {
-    const { data } = await sb
+    const { data, error } = await sb
       .from("prospects")
       .select("*")
       .eq("slug", slug)
       .maybeSingle();
-    return (data as Prospect) ?? null;
+    if (!noteError(error) && data) return data as Prospect;
   }
   for (const p of memoryStore.values()) {
     if (p.slug === slug) return p;
@@ -115,11 +171,11 @@ export async function insertProspects(
   const rows = inputs.map(toMemoryRow);
   const sb = serviceDb();
   if (sb) {
-    const { data } = await sb
-      .from("prospects")
-      .insert(rows.map(({ ...r }) => ({ ...r })))
-      .select();
-    return (data as Prospect[]) ?? [];
+    // Let Postgres mint ids; keep our slug so pitch URLs are predictable.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const payload = rows.map(({ id: _id, ...r }) => r);
+    const { data, error } = await sb.from("prospects").insert(payload).select();
+    if (!noteError(error)) return (data as Prospect[]) ?? [];
   }
   return memoryUpsertRows(rows);
 }
@@ -131,14 +187,14 @@ export async function updateProspect(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { id: _id, created_at: _created_at, ...clean } = patch;
   const sb = serviceDb();
-  if (sb) {
-    const { data } = await sb
+  if (sb && !memoryStore.has(id)) {
+    const { data, error } = await sb
       .from("prospects")
       .update({ ...clean, updated_at: new Date().toISOString() })
       .eq("id", id)
       .select()
-      .single();
-    return (data as Prospect) ?? null;
+      .maybeSingle();
+    if (!noteError(error)) return (data as Prospect) ?? null;
   }
   const existing = memoryStore.get(id);
   if (!existing) return null;
@@ -162,9 +218,9 @@ export async function setProspectStatus(
 
 export async function deleteProspect(id: string): Promise<boolean> {
   const sb = serviceDb();
-  if (sb) {
+  if (sb && !memoryStore.has(id)) {
     const { error } = await sb.from("prospects").delete().eq("id", id);
-    return !error;
+    if (!noteError(error)) return true;
   }
   return memoryStore.delete(id);
 }

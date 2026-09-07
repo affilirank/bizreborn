@@ -20,6 +20,7 @@ import {
   Trash2,
   HandCoins,
   Send,
+  Film,
   Timer,
   History,
 } from "lucide-react";
@@ -136,6 +137,15 @@ export function AdminDashboard() {
       : [],
   );
   const [tab, setTab] = React.useState<"overview" | "offers" | "reports" | "blog">("overview");
+
+  // Deep link: /admin?tab=offers (used by "Draft proposal" on Lead Pitches).
+  React.useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t === "offers" || t === "reports" || t === "blog" || t === "overview") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTab(t);
+    }
+  }, []);
   const [selectedAudit, setSelectedAudit] =
     React.useState<AuditReport | null>(null);
   const [subs, setSubs] = React.useState<AdminSubscription[]>([]);
@@ -382,7 +392,7 @@ export function AdminDashboard() {
         </div>
 
         {/* Tabs */}
-        <div className="mb-8 flex gap-2">
+        <div className="mb-8 flex flex-wrap gap-2">
           <button
             onClick={() => setTab("overview")}
             className={cn(
@@ -427,6 +437,12 @@ export function AdminDashboard() {
           >
             <FileText className="h-4 w-4" /> Blog Builder
           </button>
+          <Link
+            href="/admin/prospects"
+            className="flex items-center gap-2 rounded-xl border border-glow-500/40 bg-glow-500/10 px-4 py-2 text-sm font-semibold text-glow-300 transition hover:border-glow-400/60 hover:text-white"
+          >
+            <Film className="h-4 w-4" /> Lead Pitches
+          </Link>
         </div>
 
         {tab === "blog" ? (

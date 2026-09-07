@@ -13,7 +13,7 @@ import { uploadFile } from "@/lib/storage";
 export async function generateVoiceover(
   script: string,
   businessName: string,
-): Promise<{ voiceover_url: string }> {
+): Promise<{ voiceover_url: string | null }> {
   const key = safeKey(businessName);
 
   const useReal =
@@ -27,13 +27,22 @@ export async function generateVoiceover(
       const stored = await uploadFile(`audio/${key}-voiceover.mp3`, mp3, "audio/mpeg");
       return { voiceover_url: stored.url };
     } catch (err) {
-      console.warn("[tts] edge-tts failed, using stub:", err);
+      console.warn("[tts] edge-tts failed, narration will use the browser voice:", err);
     }
   }
 
-  const stub = await silentMp3Stub();
-  const stored = await uploadFile(`audio/${key}-voiceover.mp3`, stub, "audio/mpeg");
-  return { voiceover_url: stored.url };
+  // No server TTS available (e.g. serverless). The pitch player narrates the
+  // script client-side with the Web Speech API, so we simply skip the file.
+  if (process.env.TTS_STUB_UPLOAD === "1") {
+    try {
+      const stub = await silentMp3Stub();
+      const stored = await uploadFile(`audio/${key}-voiceover.mp3`, stub, "audio/mpeg");
+      return { voiceover_url: stored.url };
+    } catch (err) {
+      console.warn("[tts] stub upload failed:", err);
+    }
+  }
+  return { voiceover_url: null };
 }
 
 async function edgeTtsAvailable(): Promise<boolean> {

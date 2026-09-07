@@ -6,6 +6,9 @@ import { Container } from "@/components/ui/section";
 import { Badge } from "@/components/ui/badge";
 import { Logo } from "@/components/ui/logo";
 import { completeOffer, getOfferByToken } from "@/lib/portal";
+import { getProspectBySlug } from "@/lib/prospects";
+import { LEADGEN } from "@/lib/config";
+import { PitchPlayer } from "@/components/pitch/pitch-player";
 import { OfferDecline } from "./offer-actions";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +45,11 @@ export default async function OfferPage({
 
   const paidOffer = offer.status === "paid";
   const declined = offer.status === "declined";
+
+  // Embedded pitch: a /pitch/[slug] link plays in-browser; an .mp4 plays natively.
+  const pitchSlug = offer.videoUrl?.match(/\/pitch\/([^/?#]+)/)?.[1];
+  const pitch = pitchSlug ? await getProspectBySlug(pitchSlug) : null;
+  const isMp4 = Boolean(offer.videoUrl && /\.(mp4|webm|mov)(\?|$)/i.test(offer.videoUrl));
 
   return (
     <div className="relative min-h-screen pb-24">
@@ -100,6 +108,49 @@ export default async function OfferPage({
           </div>
         )}
 
+        {/* Pitch video */}
+        {(pitch || isMp4) && (
+          <div className="mt-8 rounded-3xl border border-white/8 bg-ink-850/60 p-6 sm:p-8">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-display text-lg font-bold text-white">
+                Your 45-second growth audit
+              </h2>
+              {pitch?.audit_report && (
+                <Badge variant="brand">Brand grade {pitch.audit_report.grade}</Badge>
+              )}
+            </div>
+            <div className="mx-auto mt-5 max-w-xs">
+              {pitch ? (
+                <PitchPlayer p={pitch} contactEmail={LEADGEN.email} />
+              ) : (
+                <video
+                  src={offer.videoUrl ?? undefined}
+                  controls
+                  playsInline
+                  className="aspect-[9/16] w-full rounded-2xl border border-ink-800 bg-black object-contain"
+                />
+              )}
+            </div>
+            {pitch?.roi_projection && (
+              <p className="mt-4 text-center text-sm text-fog">
+                Projected with this plan:{" "}
+                <span className="font-semibold text-glow-400">
+                  +{pitch.roi_projection.leads_per_month} leads · $
+                  {pitch.roi_projection.projected_monthly.toLocaleString()}/mo
+                </span>
+                {pitchSlug && (
+                  <>
+                    {" · "}
+                    <Link href={`/pitch/${pitchSlug}`} className="text-brand-300 underline-offset-2 hover:underline">
+                      full audit
+                    </Link>
+                  </>
+                )}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Services */}
         <div className="mt-8 rounded-3xl border border-white/8 bg-ink-850/60 p-6 sm:p-8">
           <div className="flex items-center justify-between gap-3">
@@ -121,7 +172,7 @@ export default async function OfferPage({
           </ul>
 
           {offer.notes && (
-            <div className="mt-5 rounded-xl border border-brand-500/20 bg-brand-500/5 px-4 py-3 text-sm text-fog">
+            <div className="mt-5 whitespace-pre-line rounded-xl border border-brand-500/20 bg-brand-500/5 px-4 py-3 text-sm text-fog">
               {offer.notes}
             </div>
           )}

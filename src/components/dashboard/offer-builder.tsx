@@ -8,6 +8,7 @@ import {
   Copy,
   DollarSign,
   ExternalLink,
+  Film,
   Loader2,
   Mail,
   Plus,
@@ -24,6 +25,7 @@ import {
 } from "@/lib/data";
 import { ALL_SERVICES, PILLARS } from "@/data/services";
 import type { Offer } from "@/lib/types";
+import { PREFILL_KEY, type OfferPrefill } from "@/lib/offer-prefill";
 import { cn } from "@/lib/utils";
 
 const PILLAR_NAME: Record<string, string> = Object.fromEntries(
@@ -74,6 +76,9 @@ export function OfferBuilder() {
   const [selected, setSelected] = React.useState<number[]>([]);
   const [offerPrice, setOfferPrice] = React.useState("");
   const [notes, setNotes] = React.useState("");
+  const [videoUrl, setVideoUrl] = React.useState("");
+  const [prospectId, setProspectId] = React.useState<string | null>(null);
+  const [prefilled, setPrefilled] = React.useState(false);
   const [creating, setCreating] = React.useState(false);
   const [created, setCreated] = React.useState<Offer | null>(null);
   const [copiedToken, setCopiedToken] = React.useState<string | null>(null);
@@ -87,6 +92,25 @@ export function OfferBuilder() {
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
+
+    // "Draft proposal" on Lead Pitches drops a prefill here.
+    try {
+      const raw = sessionStorage.getItem(PREFILL_KEY);
+      if (raw) {
+        sessionStorage.removeItem(PREFILL_KEY);
+        const pre = JSON.parse(raw) as OfferPrefill;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setClientName(pre.clientName ?? "");
+        setClientEmail(pre.clientEmail ?? "");
+        setSelected((pre.services ?? []).filter((id) => ALL_SERVICES.some((s) => s.id === id)));
+        setNotes(pre.notes ?? "");
+        setVideoUrl(pre.videoUrl ?? "");
+        setProspectId(pre.prospectId ?? null);
+        setPrefilled(true);
+      }
+    } catch {
+      /* ignore malformed prefill */
+    }
   }, []);
 
   const toggle = (id: number) =>
@@ -110,6 +134,9 @@ export function OfferBuilder() {
     setSelected([]);
     setOfferPrice("");
     setNotes("");
+    setVideoUrl("");
+    setProspectId(null);
+    setPrefilled(false);
     setCreated(null);
   };
 
@@ -127,6 +154,8 @@ export function OfferBuilder() {
         services: selected,
         offerPrice: finalPrice,
         notes: notes.trim(),
+        videoUrl: videoUrl.trim() || null,
+        prospectId,
       });
       setCreated(offer);
       setOffers((prev) => [offer, ...prev]);
@@ -135,6 +164,9 @@ export function OfferBuilder() {
       setSelected([]);
       setOfferPrice("");
       setNotes("");
+      setVideoUrl("");
+      setProspectId(null);
+      setPrefilled(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create the offer.");
     } finally {
@@ -204,9 +236,9 @@ export function OfferBuilder() {
         <div className="rounded-2xl border border-white/8 bg-ink-850/50 p-5">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-display text-base font-bold text-white">Compose an offer</h3>
+              <h3 className="font-display text-base font-bold text-white">Compose a proposal</h3>
               <p className="text-xs text-fog">
-                Pick modules, set your price, and send a Stripe-powered proposal.
+                Pick modules, set your price &amp; discount, add comments — saved as a draft until you send it.
               </p>
             </div>
             {selected.length > 0 && (
@@ -218,6 +250,14 @@ export function OfferBuilder() {
               </button>
             )}
           </div>
+
+          {prefilled && (
+            <p className="mt-4 flex items-center gap-2 rounded-xl border border-glow-500/30 bg-glow-500/10 px-4 py-2.5 text-xs text-glow-300">
+              <Film className="h-3.5 w-3.5 shrink-0" />
+              Pre-filled from the lead audit — the recommended modules are selected and the pitch video is
+              attached. Adjust the price for a discount, add comments, then save the draft.
+            </p>
+          )}
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <input
@@ -305,16 +345,29 @@ export function OfferBuilder() {
             </label>
             <label className="block">
               <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-mute">
-                Personal note (optional)
+                Pitch video / audit link (optional)
               </span>
               <input
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder='e.g. "50% off to celebrate your new location"'
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                placeholder="https://www.bizreborn.com/pitch/… or an .mp4"
                 className="w-full rounded-xl border border-white/10 bg-ink-800 px-3 py-2.5 text-sm text-white placeholder:text-mute outline-none transition focus:border-brand-400/60"
               />
             </label>
           </div>
+
+          <label className="mt-3 block">
+            <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-mute">
+              Comments for the client (optional)
+            </span>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              placeholder='e.g. "50% off to celebrate your new location — this covers the three gaps we found in your audit."'
+              className="w-full resize-y rounded-xl border border-white/10 bg-ink-800 px-3 py-2.5 text-sm text-white placeholder:text-mute outline-none transition focus:border-brand-400/60"
+            />
+          </label>
 
           {error && (
             <p className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-xs text-rose-300">
@@ -333,7 +386,7 @@ export function OfferBuilder() {
               </>
             ) : (
               <>
-                <Plus className="h-4 w-4" /> Create offer &amp; generate Stripe link
+                <Plus className="h-4 w-4" /> Save proposal draft
               </>
             )}
           </button>
@@ -349,6 +402,11 @@ export function OfferBuilder() {
             <p className="mt-1 truncate font-display text-lg font-bold text-white">
               {clientName.trim() || "Your Client"}
             </p>
+            {videoUrl.trim() && (
+              <p className="mt-3 flex items-center gap-1.5 text-xs text-glow-300">
+                <Film className="h-3.5 w-3.5" /> Pitch video embedded at the top of the proposal
+              </p>
+            )}
             <div className="mt-4 space-y-2">
               {selected.length === 0 && (
                 <p className="text-xs text-mute">Pick modules to see your package.</p>
@@ -387,7 +445,7 @@ export function OfferBuilder() {
           {created && (
             <div className="mt-4 rounded-2xl border border-glow-500/30 bg-glow-500/10 p-4">
               <p className="flex items-center gap-2 text-sm font-semibold text-glow-400">
-                <CheckCircle2 className="h-4 w-4" /> Offer created
+                <CheckCircle2 className="h-4 w-4" /> Proposal draft saved
               </p>
               <div className="mt-3 flex flex-col gap-2">
                 <button

@@ -174,6 +174,8 @@ export interface Offer {
   status: "draft" | "sent" | "paid" | "declined";
   stripePaymentLink: string | null;
   notes: string;
+  /** Pitch video (mp4) or a /pitch/[slug] page URL embedded in the proposal. */
+  videoUrl: string | null;
   paidAt: string | null;
   createdAt: string;
 }

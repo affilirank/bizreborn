@@ -535,13 +535,17 @@ export async function listOffers(): Promise<Offer[]> {
   return (data ?? []).map(offerFromRow);
 }
 
-export async function createOffer(input: {
+export interface CreateOfferInput {
   clientName: string;
   clientEmail: string;
   services: number[];
   offerPrice: number;
   notes: string;
-}): Promise<Offer> {
+  videoUrl?: string | null;
+  prospectId?: string | null;
+}
+
+export async function createOffer(input: CreateOfferInput): Promise<Offer> {
   if (demoEnabled()) return demoSaveOffer(input);
 
   const res = await fetch("/api/offers", {
@@ -958,6 +962,7 @@ function offerFromRow(r: Record<string, unknown>): Offer {
     status: (r.status ?? "draft") as Offer["status"],
     stripePaymentLink: (r.stripe_payment_link as string | null) ?? null,
     notes: (r.notes as string | null) ?? "",
+    videoUrl: (r.video_url as string | null) ?? null,
     paidAt: (r.paid_at as string | null) ?? null,
     createdAt: String(r.created_at),
   };
@@ -1005,13 +1010,7 @@ function demoGetOffers(): Offer[] {
   return readDemoList<Offer>(OFFERS_KEY);
 }
 
-function demoSaveOffer(input: {
-  clientName: string;
-  clientEmail: string;
-  services: number[];
-  offerPrice: number;
-  notes: string;
-}): Offer {
+function demoSaveOffer(input: CreateOfferInput): Offer {
   const items = demoGetOffers();
   const listPrice = input.services.reduce(
     (s, id) => s + (SERVICE_MAP[id]?.oneTime ?? 0) + (SERVICE_MAP[id]?.monthly ?? 0),
@@ -1032,9 +1031,10 @@ function demoSaveOffer(input: {
       listPrice > input.offerPrice
         ? Math.round(((listPrice - input.offerPrice) / listPrice) * 100)
         : 0,
-    status: "sent",
+    status: "draft",
     stripePaymentLink: null,
     notes: input.notes,
+    videoUrl: input.videoUrl ?? null,
     paidAt: null,
     createdAt: new Date().toISOString(),
   };

@@ -101,6 +101,7 @@ function offerFromRow(r: Record<string, unknown>): Offer {
     status: (r.status ?? "draft") as Offer["status"],
     stripePaymentLink: (r.stripe_payment_link as string | null) ?? null,
     notes: (r.notes as string | null) ?? "",
+    videoUrl: (r.video_url as string | null) ?? null,
     paidAt: (r.paid_at as string | null) ?? null,
     createdAt: String(r.created_at),
   };
