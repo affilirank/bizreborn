@@ -31,6 +31,10 @@ const statusBadge: Record<string, { label: string; cls: string }> = {
   failed: { label: "Failed", cls: "text-rose-400 border-rose-500/20 bg-rose-500/5" },
 };
 
+function emailSubject(p: Prospect) {
+  return `Your Google Review Audit: ${p.business_name} \u00d7 Biz Reborn Marketing`;
+}
+
 export default function ProspectsAdmin() {
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [loading, setLoading] = useState(true);
@@ -205,21 +209,29 @@ export default function ProspectsAdmin() {
     if (navigator.clipboard) await navigator.clipboard.writeText(text);
   }
 
-  function emailTemplate(p: Prospect) {
-    const url = pitchUrl(p.slug);
+  function absPitch(p: Prospect) {
+    const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
+    return `${base}/pitch/${p.slug ?? ""}`;
+  }
+
+  function emailHtml(p: Prospect) {
+    const url = absPitch(p);
+    const r = p.google_rating ?? "—";
+    const thumb = p.thumbnail_url
+      ? `<img src="${p.thumbnail_url}" alt="${p.business_name} growth audit" width="480" style="max-width:100%;border-radius:14px;display:block;margin:0 auto 18px auto;" />`
+      : "";
     return [
-      `Hi ${p.business_name} —`,
-      "",
-      `I noticed your Google listing currently sits at ${p.google_rating ?? "—"} stars with ${fmtNumber(p.review_count)} reviews, but ${p.competitor_name ?? "your top competitor"} already has ${fmtNumber(p.competitor_reviews)} — and they're pulling the local calls that should be coming to you.`,
-      "",
-      `I built a quick growth audit (plus a 45-second video breaking it all down) for you:`,
-      url,
-      "",
-      `Want to grab 10 minutes this week to talk through a fix? Just reply or book here:`,
-      "bizrebornmarketing@gmail.com",
-      "",
-      "— Biz Reborn Marketing",
-    ].join("\n");
+      `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111;">`,
+      `<p style="font-size:16px;color:#1e2a3a;">You're one of <strong>${fmtNumber(p.competitor_reviews)}</strong>-review competitors away from losing the local pack.</p>`,
+      thumb,
+      `<p>Hi ${p.business_name} —</p>`,
+      `<p>Your Google listing currently sits at <strong>${r} stars</strong> with <strong>${fmtNumber(p.review_count)} reviews</strong>, while ${p.competitor_name ?? "your top competitor"} has <strong>${fmtNumber(p.competitor_reviews)}</strong> — and they're pulling the local calls that should be coming to you.</p>`,
+      `<p>I built a quick growth audit (plus a 45-second video breaking it all down):</p>`,
+      `<p style="text-align:center;margin:20px 0;"><a href="${url}" style="display:inline-block;background:#6366F1;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:bold;">Watch your audit →</a></p>`,
+      `<p>Want to grab 10 minutes this week to talk through a fix? Reply, or book here: <a href="mailto:bizrebornmarketing@gmail.com" style="color:#6366F1;">bizrebornmarketing@gmail.com</a></p>`,
+      `<p style="color:#64748b;font-size:13px;border-top:1px solid #e2e8f0;padding-top:14px;">— Biz Reborn Marketing · <a href="https://www.bizreborn.com" style="color:#6366F1;">www.bizreborn.com</a></p>`,
+      `</div>`,
+    ].join("");
   }
 
   return (
@@ -377,7 +389,7 @@ export default function ProspectsAdmin() {
                   onRetry={() => retry(p.id)}
                   onDelete={() => remove(p.id)}
                   onCopyPitch={() => copyText(pitchUrl(p.slug))}
-                  onCopyEmail={() => copyText(emailTemplate(p))}
+                  onCopyEmail={() => copyText(emailHtml(p))}
                 />
               ))}
             </div>
@@ -547,6 +559,24 @@ function PreviewModal({ p, onClose }: { p: Prospect; onClose: () => void }) {
             </button>
           </div>
         </div>
+
+        <a
+          href={`mailto:${p.email ?? ""}?subject=${encodeURIComponent(emailSubject(p))}&body=${encodeURIComponent(
+            [
+              `Hi ${p.business_name} —`,
+              "",
+              `I built a quick growth audit (plus a 45-second video) for you: ${url}`,
+              "Want a 10-minute call this week? Just reply — bizrebornmarketing@gmail.com",
+              "",
+              "— Biz Reborn Marketing",
+            ].join("\n"),
+          )}`}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-ink-700 bg-ink-800/80 px-3 py-2 text-xs font-medium text-ink-200 transition hover:text-white"
+        >
+          <Mail size={13} /> Open in email client
+        </a>
       </div>
     </div>
   );

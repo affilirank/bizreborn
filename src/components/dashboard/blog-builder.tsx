@@ -10,9 +10,18 @@ import {
   X,
   ExternalLink,
   FileText,
+  Sparkles,
+  Send,
+  Wand2,
+  Undo2,
+  Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { slugify } from "@/lib/utils";
+import type { BlogPatch } from "@/lib/blog-ai";
+
+type AiMsg = { role: "user" | "assistant"; text: string; mode?: "live" | "demo" };
 
 interface BlogPost {
   id: string;
@@ -125,24 +134,90 @@ export function BlogBuilder() {
   const [saving, setSaving] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
-
-  const load = React.useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/blog");
-      const data = (await res.json()) as { posts?: BlogPost[] };
-      setPosts(data.posts ?? []);
-    } catch {
-      setError("Could not load posts.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const [aiOpen, setAiOpen] = React.useState(false);
+  const [aiBusy, setAiBusy] = React.useState(false);
+  const [aiMsgs, setAiMsgs] = React.useState<AiMsg[]>([]);
+  const [aiPrompt, setAiPrompt] = React.useState("");
+  const [aiUndo, setAiUndo] = React.useState<EditorState | null>(null);
 
   React.useEffect(() => {
-    void load();
-  }, [load]);
+    let active = true;
+    fetch("/api/blog")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!active) return;
+        setPosts((data as { posts?: BlogPost[] }).posts ?? []);
+      })
+      .catch(() => {
+        if (active) setError("Could not load posts.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const applyAssistantPatch = (p: BlogPatch) => {
+    setForm((f) => {
+      const next = { ...f, ...p } as EditorState;
+      if (p.title && !p.slug && (!f.slug.trim() || f.slug === slugify(f.title))) {
+        next.slug = slugify(p.title);
+      }
+      if (p.title && !p.meta_title && f.meta_title === f.title) {
+        next.meta_title = p.title;
+      }
+      return next;
+    });
+  };
+
+  const ask = async (instruction: string) => {
+    const trimmed = instruction.trim();
+    if (!trimmed || aiBusy) return;
+    setAiBusy(true);
+    setAiMsgs((m) => [...m, { role: "user", text: trimmed }]);
+    try {
+      const res = await fetch("/api/ai/blog", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ current: form, instruction: trimmed }),
+      });
+      const data = (await res.json()) as { patch?: BlogPatch; reply?: string; mode?: "live" | "demo"; error?: string };
+      if (!res.ok || data.error) {
+        throw new Error(data.error || `Request failed (${res.status})`);
+      }
+      if (data.patch) {
+        setAiUndo(structuredClone(form));
+        applyAssistantPatch(data.patch);
+      }
+      setAiMsgs((m) => [...m, { role: "assistant", text: data.reply ?? "OK.", mode: data.mode ?? "demo" }]);
+    } catch {
+      setAiMsgs((m) => [
+        ...m,
+        { role: "assistant", text: "The assistant couldn't reach the server — try again in a second.", mode: "demo" },
+      ]);
+    } finally {
+      setAiBusy(false);
+      setAiPrompt("");
+    }
+  };
+
+  const undoAi = () => {
+    if (!aiUndo) return;
+    setForm(aiUndo);
+    setAiUndo(null);
+    setAiMsgs((m) => [...m, { role: "assistant", text: "Reverted the last AI edit.", mode: "demo" }]);
+  };
+
+  const AI_ACTIONS: string[] = [
+    "Draft the full post: title, meta, SEO keywords, intro, body sections, FAQ, and CTA.",
+    "Write a stronger, more persuasive intro.",
+    "Write a 3-question FAQ for this post.",
+    "Rewrite the CTA headline and body to drive bookings.",
+    "Expand the body sections with detail paragraphs and bullet points.",
+    "Rewrite the intro and meta description in a punchier local-SEO tone.",
+  ];
 
   const openCreate = () => {
     setEditing(null);
@@ -308,15 +383,30 @@ export function BlogBuilder() {
       {(creating || editing) && (
         <div className="rounded-2xl border border-white/8 bg-ink-850/60 p-5">
           <div className="mb-5 flex items-center justify-between">
-            <h5 className="font-display text-lg font-bold text-white">
-              {editing ? "Edit post" : "New post"}
-            </h5>
+            <div className="flex items-center gap-3">
+              <h5 className="font-display text-lg font-bold text-white">
+                {editing ? "Edit post" : "New post"}
+              </h5>
+              <button
+                onClick={() => setAiOpen((o) => !o)}
+                className={`ml-1 flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition ${
+                  aiOpen
+                    ? "border-brand-400/40 bg-brand-500/10 text-brand-300"
+                    : "border-white/10 text-fog hover:text-white"
+                }`}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {aiOpen ? "Hide AI" : "AI Assistant"}
+              </button>
+            </div>
             <button onClick={close} className="rounded-lg border border-white/10 p-2 text-fog hover:text-white">
               <X className="h-4 w-4" />
             </button>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="gap-5 lg:flex lg:items-start">
+            <div className="min-w-0 flex-1">
+              <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label className={labelCls}>Title *</label>
               <input
@@ -505,6 +595,95 @@ export function BlogBuilder() {
             >
               <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save post"}
             </button>
+          </div>
+          </div>
+
+          {aiOpen && (
+            <aside className="mt-6 w-full shrink-0 lg:mt-0 lg:w-80">
+              <div className="rounded-2xl border border-brand-400/20 bg-ink-900/60 lg:sticky lg:top-6">
+                <div className="flex items-center justify-between border-b border-white/8 px-4 py-3">
+                  <p className="flex items-center gap-1.5 text-sm font-bold text-white">
+                    <Wand2 className="h-4 w-4 text-brand-300" /> AI Assistant
+                  </p>
+                  <span className="rounded-full border border-white/10 bg-ink-950/60 px-2 py-0.5 text-[10px] font-medium text-fog">
+                    {aiMsgs.some((m) => m.mode === "live") ? "Gemini" : "Offline engine"}
+                  </span>
+                </div>
+
+                <div className="p-3">
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-fog">Quick actions</p>
+                  <div className="grid gap-1.5">
+                    {AI_ACTIONS.map((a) => (
+                      <button
+                        key={a}
+                        onClick={() => void ask(a)}
+                        disabled={aiBusy}
+                        className="rounded-lg border border-white/8 bg-ink-950/40 px-2.5 py-1.5 text-left text-[11px] text-mist transition hover:border-brand-400/30 hover:text-white disabled:opacity-50"
+                      >
+                        {a.split(":")[0]}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 flex gap-1.5 rounded-xl border border-white/10 bg-ink-950/60 p-1.5">
+                    <input
+                      value={aiPrompt}
+                      onChange={(e) => setAiPrompt(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") void ask(aiPrompt);
+                      }}
+                      placeholder="e.g. Rewrite the intro for a dentist…"
+                      className="w-full bg-transparent px-2 py-1.5 text-xs text-white outline-none placeholder:text-mute"
+                    />
+                    <button
+                      onClick={() => void ask(aiPrompt)}
+                      disabled={aiBusy || !aiPrompt.trim()}
+                      className="flex shrink-0 items-center gap-1 rounded-lg bg-brand-500 px-2.5 py-1.5 text-xs font-semibold text-ink-950 transition hover:bg-brand-400 disabled:opacity-50"
+                    >
+                      {aiBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                      Ask
+                    </button>
+                  </div>
+
+                  {aiUndo && (
+                    <button
+                      onClick={undoAi}
+                      className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-rose-500/25 px-2 py-1.5 text-[11px] font-semibold text-rose-300 transition hover:bg-rose-500/10"
+                    >
+                      <Undo2 className="h-3.5 w-3.5" /> Undo last AI edit
+                    </button>
+                  )}
+
+                  <div className="mt-4 max-h-60 space-y-2 overflow-y-auto pr-1">
+                    {aiMsgs.length === 0 && (
+                      <p className="text-[11px] leading-relaxed text-mute">
+                        I can draft the whole post, punch up the intro, write an FAQ, or fix the CTA — right into
+                        your fields. Pick a quick action or type a request.
+                      </p>
+                    )}
+                    {aiMsgs.map((m, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          "rounded-xl px-2.5 py-2 text-[11px] leading-relaxed",
+                          m.role === "user"
+                            ? "ml-6 bg-ink-950/60 text-mist"
+                            : "mr-6 bg-brand-500/10 text-ink-200",
+                        )}
+                      >
+                        {m.role === "assistant" && (
+                          <span className="mb-0.5 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-brand-300">
+                            <Sparkles className="h-3 w-3" /> {m.mode === "live" ? "Gemini" : "Offline"}
+                          </span>
+                        )}
+                        <span className="whitespace-pre-wrap">{m.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </aside>
+          )}
           </div>
         </div>
       )}
