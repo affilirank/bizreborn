@@ -128,3 +128,35 @@ export interface Asset {
   type: string | null;
   created_at: string;
 }
+
+export type ProspectStatus =
+  | "pending"
+  | "scraping"
+  | "rendering"
+  | "ready"
+  | "failed";
+
+export interface Prospect {
+  id: string;
+  business_name: string;
+  city: string | null;
+  website: string | null;
+  email: string | null;
+  phone: string | null;
+  google_rating: number | null;
+  review_count: number | null;
+  unanswered_reviews: number | null;
+  competitor_name: string | null;
+  competitor_reviews: number | null;
+  audit_screenshot_url: string | null;
+  website_preview_url: string | null;
+  voiceover_url: string | null;
+  video_url: string | null;
+  thumbnail_url: string | null;
+  pitch_script: string | null;
+  slug: string | null;
+  status: ProspectStatus | null;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+}

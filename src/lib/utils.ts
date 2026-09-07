@@ -32,6 +32,23 @@ export function slugify(s: string) {
     .replace(/(^-|-$)/g, "");
 }
 
+export function fmtNumber(n: number | null | undefined) {
+  if (n == null) return "—";
+  const x = Math.round(n);
+  if (x >= 1000) {
+    return new Intl.NumberFormat("en-US", {
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }).format(x);
+  }
+  return new Intl.NumberFormat("en-US").format(x);
+}
+
+/** Public URL for a prospect's generated pitch page. */
+export function pitchUrl(slug: string | null) {
+  return `/pitch/${slug ?? ""}`;
+}
+
 export function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
 }

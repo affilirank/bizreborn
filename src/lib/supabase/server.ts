@@ -35,18 +35,40 @@ export const createSessionClient = createClient;
 
 /** True when the request is signed in with an admin profile. */
 export async function isAdminRequest(): Promise<boolean> {
+  const admin = await getAdminServiceClient();
+  return Boolean(admin);
+}
+
+/**
+ * Service-role Supabase client gated behind an authenticated admin session.
+ * Returns null when the caller is not an admin or storage is unconfigured.
+ * Bypasses RLS — only use in server routes after this gate.
+ */
+export async function getAdminServiceClient() {
   const supabase = await createClient();
-  if (!supabase) return false;
+  if (!supabase) return null;
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return false;
+  if (!user) return null;
   const admin = createServiceClient();
-  if (!admin) return false;
+  if (!admin) return null;
   const { data } = await admin
     .from("profiles")
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  return data?.role === "admin";
+  return data?.role === "admin" ? admin : null;
+}
+
+/**
+ * Admin-only access, or fully open in demo mode (no Supabase configured).
+ * Mirrors the behavior of src/proxy.ts, which lets everything through when the
+ * app runs without Supabase keys.
+ */
+export async function isAdminOrDemo(): Promise<boolean> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) return true;
+  return isAdminRequest();
 }
