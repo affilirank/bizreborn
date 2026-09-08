@@ -20,6 +20,9 @@ export interface AuditInput {
 const SEVERITY = ["Critical", "High", "Moderate"] as const;
 
 export function runAudit(input: AuditInput): AuditReport {
+  // If OpenAI key is present on server, we can enrich or use deterministic seeded baseline.
+  // Note: For instant client-side audits (/audit page), deterministic seeded calculation
+  // is instant. For server-side pipeline audits, scraper & brand-audit inject real metrics.
   const rand = seededRandom(
     `${input.url}|${input.businessName}|${input.gbp ?? ""}|${input.instagram ?? ""}|${input.facebook ?? ""}|${input.tiktok ?? ""}`,
   );
