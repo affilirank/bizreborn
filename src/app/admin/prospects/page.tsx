@@ -26,6 +26,9 @@ import {
   Pencil,
   Database,
   TrendingUp,
+  Phone,
+  PhoneCall,
+  Volume2,
 } from "lucide-react";
 import type { Prospect } from "@/lib/supabase-types";
 import type { ProspectStoreStatus } from "@/lib/prospects";
@@ -162,6 +165,7 @@ export default function ProspectsAdmin() {
   const [dragging, setDragging] = useState(false);
   const [preview, setPreview] = useState<Prospect | null>(null);
   const [editing, setEditing] = useState<Prospect | null>(null);
+  const [voiceCallProspect, setVoiceCallProspect] = useState<Prospect | null>(null);
   const [newsletter, setNewsletter] = useState<{ p: Prospect; sequence: any } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showSocials, setShowSocials] = useState(false);
@@ -612,6 +616,7 @@ export default function ProspectsAdmin() {
                   onDraftProposal={() => draftProposal(p)}
                   onSendEmail={() => void sendEmail(p.id)}
                   onNewsletter={() => void loadNewsletter(p)}
+                  onVoiceCall={() => setVoiceCallProspect(p)}
                 />
               ))}
             </div>
@@ -660,6 +665,14 @@ export default function ProspectsAdmin() {
           onEdit={() => { setEditing(preview); setPreview(null); }}
           onSendEmail={() => void sendEmail(preview.id)}
           onNewsletter={() => void loadNewsletter(preview)}
+          onVoiceCall={() => { setVoiceCallProspect(preview); setPreview(null); }}
+        />
+      )}
+
+      {voiceCallProspect && (
+        <VoiceCallModal
+          p={voiceCallProspect}
+          onClose={() => setVoiceCallProspect(null)}
         />
       )}
 
@@ -720,6 +733,7 @@ function ProspectRow({
   onEdit,
   onSendEmail,
   onNewsletter,
+  onVoiceCall,
 }: {
   p: Prospect;
   checked: boolean;
@@ -733,6 +747,7 @@ function ProspectRow({
   onEdit: () => void;
   onSendEmail: () => void;
   onNewsletter: () => void;
+  onVoiceCall: () => void;
 }) {
   const badge = statusBadge[p.status || "pending"] || statusBadge.pending;
   const Icon =
@@ -816,6 +831,9 @@ function ProspectRow({
                 <button onClick={onNewsletter} className="inline-flex items-center gap-1 rounded-full border border-purple-500/30 bg-purple-500/10 px-2.5 py-0.5 text-[10px] font-medium text-purple-300 hover:bg-purple-500/20">
                   <Sparkles size={10} /> AI Newsletter
                 </button>
+                <button onClick={onVoiceCall} className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-medium text-emerald-300 hover:bg-emerald-500/20">
+                  <Phone size={10} /> AI Call Business
+                </button>
                 <a
                   href={`https://wa.me/?text=${encodeURIComponent(`Hi ${p.business_name}, we put together a 45-second video audit for your brand: ${absPitch(p)}`)}`}
                   target="_blank"
@@ -872,6 +890,7 @@ function PreviewModal({
   onEdit,
   onSendEmail,
   onNewsletter,
+  onVoiceCall,
 }: {
   p: Prospect;
   onClose: () => void;
@@ -880,6 +899,7 @@ function PreviewModal({
   onCopyEmail: () => void;
   onSendEmail: () => void;
   onNewsletter: () => void;
+  onVoiceCall: () => void;
 }) {
   const url = absPitch(p);
   const roi = p.roi_projection;
@@ -968,6 +988,12 @@ function PreviewModal({
               className="flex items-center justify-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-xs font-semibold text-purple-300 transition hover:bg-purple-500/20"
             >
               <Sparkles size={13} /> AI Newsletter Drip
+            </button>
+            <button
+              onClick={onVoiceCall}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/20"
+            >
+              <Phone size={13} /> AI Call Business Now
             </button>
             <a
               href={`https://wa.me/?text=${encodeURIComponent(`Hi ${p.business_name}, we put together a 45-second video audit for your brand: ${absPitch(p)}`)}` }
@@ -1456,6 +1482,170 @@ function NewsletterModal({
             Close
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function VoiceCallModal({
+  p,
+  onClose,
+}: {
+  p: Prospect;
+  onClose: () => void;
+}) {
+  const [phone, setPhone] = useState(p.phone || "");
+  const [status, setStatus] = useState<"idle" | "dialing" | "connected" | "ended">("idle");
+  const [logs, setLogs] = useState<Array<{ sender: "ai" | "user" | "system"; text: string; time: string }>>([]);
+  const [seconds, setSeconds] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (status === "connected") {
+      timer = setInterval(() => setSeconds((s) => s + 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [status]);
+
+  const startCall = async () => {
+    if (!phone.trim()) {
+      setToast("Please enter a valid phone number.");
+      return;
+    }
+    setLoading(true);
+    setStatus("dialing");
+    setLogs([
+      { sender: "system", text: `Initiating outbound voice call to ${phone} for ${p.business_name}...`, time: new Date().toLocaleTimeString() },
+      { sender: "system", text: "Note: A2P 10DLC registration is NOT required for voice calls (strictly for SMS).", time: new Date().toLocaleTimeString() },
+    ]);
+
+    try {
+      const res = await fetch("/api/prospects/call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prospectId: p.id, phone }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setStatus("connected");
+        setLogs((prev) => [
+          ...prev,
+          { sender: "system", text: json.simulated ? "Simulated live call connected (add Twilio keys for carrier delivery)." : "Live call connected successfully via Twilio!", time: new Date().toLocaleTimeString() },
+          { sender: "ai", text: `[Alex - gpt-4.1-mini + ElevenLabs 7o2jINz1addxWQ92Mv17]: Hi ${p.business_name}, this is Alex from Biz Reborn. We ran a brand audit on your Google listing (${p.google_rating ?? "4.5"} stars, ${p.review_count ?? 50} reviews). Do you have 45 seconds to discuss your review growth?`, time: new Date().toLocaleTimeString() }
+        ]);
+      } else {
+        setStatus("ended");
+        setToast(json.error || "Call failed");
+      }
+    } catch {
+      setStatus("ended");
+      setToast("Call connection failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const endCall = () => {
+    setStatus("ended");
+    setLogs((prev) => [...prev, { sender: "system", text: `Call ended. Duration: ${Math.floor(seconds / 60)}m ${seconds % 60}s`, time: new Date().toLocaleTimeString() }]);
+  };
+
+  const formatTime = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s < 10 ? "0" : ""}${s}`;
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-2xl border border-ink-800 bg-ink-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-ink-800 pb-4">
+          <div className="flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500/10 text-brand-400">
+              <PhoneCall size={20} />
+            </div>
+            <div>
+              <h3 className="font-sora text-base font-bold text-white">AI Voice Calling Panel</h3>
+              <p className="text-xs text-ink-400">{p.business_name}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-ink-400 hover:text-white">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-4">
+          <div>
+            <label className="text-[11px] font-medium text-ink-400">Prospect Phone Number</label>
+            <div className="mt-1 flex gap-2">
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+1 (555) 000-0000"
+                disabled={status !== "idle"}
+                className="flex-1 rounded-lg border border-ink-800 bg-ink-950 px-3 py-2 text-sm text-white focus:border-brand-500 focus:outline-none disabled:opacity-50"
+              />
+              {status === "idle" && (
+                <button
+                  onClick={() => void startCall()}
+                  disabled={loading || !phone.trim()}
+                  className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50 shadow-lg shadow-emerald-600/20"
+                >
+                  {loading ? <Loader2 size={14} className="animate-spin" /> : <Phone size={14} />}
+                  Call Business Now
+                </button>
+              )}
+              {status === "connected" && (
+                <button
+                  onClick={endCall}
+                  className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-rose-500 shadow-lg shadow-rose-600/20"
+                >
+                  End Call ({formatTime(seconds)})
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-ink-800 bg-ink-950 p-4">
+            <div className="flex items-center justify-between text-xs text-ink-400 border-b border-ink-800/60 pb-2">
+              <span className="flex items-center gap-1.5 font-medium text-white">
+                <Volume2 size={14} className="text-brand-400" /> Voice Agent (ElevenLabs + GPT-4.1-mini)
+              </span>
+              <span>Voice ID: <code>7o2jINz1addxWQ92Mv17</code></span>
+            </div>
+
+            <div className="mt-3 h-52 overflow-auto space-y-2 pr-1 font-mono text-[11px]">
+              {logs.length === 0 ? (
+                <p className="text-ink-600 text-center py-12">Click "Call Business Now" to initiate live AI voice call agent session.</p>
+              ) : (
+                logs.map((l, i) => (
+                  <div key={i} className={`p-2 rounded-lg ${l.sender === "ai" ? "bg-brand-500/10 text-brand-200 border border-brand-500/20" : l.sender === "user" ? "bg-glow-500/10 text-glow-200 border border-glow-500/20" : "bg-ink-900 text-ink-400"}`}>
+                    <div className="flex justify-between text-[9px] opacity-70 mb-0.5">
+                      <span className="uppercase font-bold">{l.sender}</span>
+                      <span>{l.time}</span>
+                    </div>
+                    <p className="whitespace-pre-wrap">{l.text}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-brand-500/20 bg-brand-500/5 p-3 text-xs text-brand-300">
+            <p className="font-semibold">💡 A2P 10DLC Registration Note:</p>
+            <p className="mt-0.5 text-brand-200/80">
+              A2P 10DLC registration is NOT required for voice calls! A2P 10DLC is strictly for US SMS/MMS messaging. For outbound voice calls, you just need a Twilio phone number and a TwiML Voice webhook URL (/api/voice/twiml).
+            </p>
+          </div>
+        </div>
+
+        {toast && (
+          <div className="mt-3 rounded-lg bg-rose-500/10 border border-rose-500/30 p-2 text-center text-xs text-rose-300">
+            {toast}
+          </div>
+        )}
       </div>
     </div>
   );
