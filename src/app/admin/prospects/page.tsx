@@ -37,13 +37,20 @@ import { PitchPlayer } from "@/components/pitch/pitch-player";
 import { PREFILL_KEY, type OfferPrefill } from "@/lib/offer-prefill";
 import { LEADGEN } from "@/lib/config";
 
-type Tab = "all" | "pending" | "scraping" | "rendering" | "ready" | "failed";
+type Tab = "all" | "saved" | "queued" | "audited" | "pitched" | "replied" | "booked" | "closed" | "failed";
 
 const statusBadge: Record<string, { label: string; cls: string }> = {
-  pending: { label: "Queued", cls: "text-blue-400 border-blue-500/20 bg-blue-500/5" },
-  scraping: { label: "Auditing", cls: "text-amber-400 border-amber-500/20 bg-amber-500/5" },
-  rendering: { label: "Rendering", cls: "text-purple-400 border-purple-500/20 bg-purple-500/5" },
+  saved: { label: "Saved", cls: "text-blue-400 border-blue-500/20 bg-blue-500/5" },
+  queued: { label: "Queued", cls: "text-indigo-400 border-indigo-500/20 bg-indigo-500/5" },
+  pending: { label: "Queued", cls: "text-indigo-400 border-indigo-500/20 bg-indigo-500/5" },
+  scraping: { label: "Audited", cls: "text-amber-400 border-amber-500/20 bg-amber-500/5" },
+  audited: { label: "Audited", cls: "text-amber-400 border-amber-500/20 bg-amber-500/5" },
+  rendering: { label: "Audited", cls: "text-amber-400 border-amber-500/20 bg-amber-500/5" },
   ready: { label: "Ready", cls: "text-brand-400 border-brand-500/20 bg-brand-500/5" },
+  pitched: { label: "Pitched", cls: "text-purple-400 border-purple-500/20 bg-purple-500/5" },
+  replied: { label: "Replied", cls: "text-cyan-400 border-cyan-500/20 bg-cyan-500/5" },
+  booked: { label: "Booked", cls: "text-emerald-400 border-emerald-500/20 bg-emerald-500/5" },
+  closed: { label: "Closed", cls: "text-green-400 border-green-500/20 bg-green-500/5" },
   failed: { label: "Failed", cls: "text-rose-400 border-rose-500/20 bg-rose-500/5" },
 };
 
@@ -172,6 +179,50 @@ export default function ProspectsAdmin() {
   const [showDiscovery, setShowDiscovery] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [manual, setManual] = useState(EMPTY_MANUAL);
+  const [logModalProspect, setLogModalProspect] = useState<Prospect | null>(null);
+
+  async function updateStatus(id: string, status: string) {
+    try {
+      const res = await fetch(`/api/prospects/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, last_contacted_at: new Date().toISOString() }),
+      });
+      const json = await res.json();
+      if (res.ok && json.prospect) {
+        setProspects((prev) => prev.map((x) => (x.id === id ? json.prospect : x)));
+        setToast(`Pipeline stage updated to ${status}`);
+      }
+    } catch {
+      setToast("Failed to update status");
+    }
+  }
+
+  async function logCommunication(id: string, type: string, notes: string) {
+    try {
+      const targetP = prospects.find((x) => x.id === id);
+      if (!targetP) return;
+      const logs = targetP.communication_logs || [];
+      const newLogs = [{ date: new Date().toISOString(), type, notes, admin: "Admin" }, ...logs];
+      const res = await fetch(`/api/prospects/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          communication_logs: newLogs,
+          last_contacted_at: new Date().toISOString(),
+          status: targetP.status === "ready" || targetP.status === "audited" ? "pitched" : targetP.status,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.prospect) {
+        setProspects((prev) => prev.map((x) => (x.id === id ? json.prospect : x)));
+        setToast("Communication logged successfully!");
+        setLogModalProspect(null);
+      }
+    } catch {
+      setToast("Failed to log communication");
+    }
+  }
 
   
   const sendEmail = async (id: string) => {
@@ -268,14 +319,24 @@ export default function ProspectsAdmin() {
     return () => clearTimeout(id);
   }, [toast]);
 
-  const filtered = tab === "all" ? prospects : prospects.filter((p) => p.status === tab);
+  const filtered = tab === "all"
+    ? prospects
+    : tab === "queued"
+      ? prospects.filter((p) => p.status === "queued" || p.status === "pending")
+      : tab === "audited"
+        ? prospects.filter((p) => p.status === "audited" || p.status === "ready" || p.status === "scraping" || p.status === "rendering")
+        : prospects.filter((p) => p.status === tab);
 
   const counts = {
     all: prospects.length,
-    pending: prospects.filter((p) => p.status === "pending").length,
-    scraping: prospects.filter((p) => p.status === "scraping").length,
-    rendering: prospects.filter((p) => p.status === "rendering").length,
+    saved: prospects.filter((p) => p.status === "saved").length,
+    queued: prospects.filter((p) => p.status === "queued" || p.status === "pending").length,
+    audited: prospects.filter((p) => p.status === "audited" || p.status === "scraping" || p.status === "rendering").length,
     ready: prospects.filter((p) => p.status === "ready").length,
+    pitched: prospects.filter((p) => p.status === "pitched").length,
+    replied: prospects.filter((p) => p.status === "replied").length,
+    booked: prospects.filter((p) => p.status === "booked").length,
+    closed: prospects.filter((p) => p.status === "closed").length,
     failed: prospects.filter((p) => p.status === "failed").length,
   };
 
@@ -474,7 +535,7 @@ export default function ProspectsAdmin() {
     <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Total Uploaded" value={counts.all} icon={<Users size={16} />} color="text-brand-400" />
         <Stat label="Ready Pitches" value={counts.ready} icon={<Film size={16} />} color="text-glow-400" />
-        <Stat label="In Progress" value={counts.pending + counts.scraping + counts.rendering} icon={<Loader2 size={16} />} color="text-amber-400" />
+        <Stat label="In Progress" value={counts.queued + counts.audited} icon={<Loader2 size={16} />} color="text-amber-400" />
         <Stat
           label="Projected pipeline / mo"
           value={prospects.reduce((s, p) => s + (p.roi_projection?.projected_monthly ?? 0), 0)}
@@ -634,6 +695,8 @@ export default function ProspectsAdmin() {
                   onSendEmail={() => void sendEmail(p.id)}
                   onNewsletter={() => void loadNewsletter(p)}
                   onVoiceCall={() => setVoiceCallProspect(p)}
+                  onStatusChange={(status) => void updateStatus(p.id, status)}
+                  onOpenLog={() => setLogModalProspect(p)}
                 />
               ))}
             </div>
@@ -683,6 +746,8 @@ export default function ProspectsAdmin() {
           onSendEmail={() => void sendEmail(preview.id)}
           onNewsletter={() => void loadNewsletter(preview)}
           onVoiceCall={() => { setVoiceCallProspect(preview); setPreview(null); }}
+          onStatusChange={(status) => void updateStatus(preview.id, status)}
+          onOpenLog={() => setLogModalProspect(preview)}
         />
       )}
 
@@ -751,6 +816,8 @@ function ProspectRow({
   onSendEmail,
   onNewsletter,
   onVoiceCall,
+  onStatusChange,
+  onOpenLog,
 }: {
   p: Prospect;
   checked: boolean;
@@ -765,10 +832,12 @@ function ProspectRow({
   onSendEmail: () => void;
   onNewsletter: () => void;
   onVoiceCall: () => void;
+  onStatusChange: (status: string) => void;
+  onOpenLog: () => void;
 }) {
   const badge = statusBadge[p.status || "pending"] || statusBadge.pending;
   const Icon =
-    { saved: Clock, pending: Clock, scraping: Loader2, rendering: Film, ready: CheckCircle, failed: AlertTriangle }[p.status || "pending"] || Clock;
+    { saved: Clock, queued: Clock, audited: Loader2, pitched: Send, replied: Mail, booked: CheckCircle, closed: CheckCircle, pending: Clock, scraping: Loader2, rendering: Film, ready: CheckCircle, failed: AlertTriangle }[p.status || "pending"] || Clock;
   const spinning = p.status === "scraping" || p.status === "rendering" || p.status === "pending";
   const roi = p.roi_projection;
   const grade = p.audit_report?.grade;
@@ -781,6 +850,16 @@ function ProspectRow({
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-semibold text-white">{p.business_name}</p>
             {p.city && <p className="text-xs text-ink-500">{p.city}</p>}
+            {p.qualifying_score != null && (
+              <span className="rounded-full border border-brand-500/30 bg-brand-500/10 px-2 py-0.5 text-[10px] font-bold text-brand-300">
+                Opportunity Score: {p.qualifying_score}/100
+              </span>
+            )}
+            {p.missing_gbp_apple && (
+              <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-0.5 text-[10px] font-bold text-rose-300">
+                Missing GBP / Apple Maps
+              </span>
+            )}
             {grade && (
               <span
                 className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
@@ -903,11 +982,13 @@ function PreviewModal({
   p,
   onClose,
   onDraftProposal,
-  onCopyEmail,
   onEdit,
+  onCopyEmail,
   onSendEmail,
   onNewsletter,
   onVoiceCall,
+  onStatusChange,
+  onOpenLog,
 }: {
   p: Prospect;
   onClose: () => void;
@@ -917,6 +998,8 @@ function PreviewModal({
   onSendEmail: () => void;
   onNewsletter: () => void;
   onVoiceCall: () => void;
+  onStatusChange: (status: string) => void;
+  onOpenLog: () => void;
 }) {
   const url = absPitch(p);
   const roi = p.roi_projection;
@@ -937,6 +1020,31 @@ function PreviewModal({
             <button onClick={onClose} className="text-ink-400 hover:text-white">
               <X size={18} />
             </button>
+          </div>
+
+          <div className="mt-4 rounded-xl border border-ink-800 bg-ink-950 p-3">
+            <div className="flex items-center justify-between text-xs mb-2">
+              <span className="font-semibold text-white">Pipeline CRM Stage:</span>
+              <select
+                value={p.status || "saved"}
+                onChange={(e) => onStatusChange(e.target.value)}
+                className="rounded-lg border border-ink-800 bg-ink-900 px-2.5 py-1 text-xs font-bold text-white focus:outline-none"
+              >
+                <option value="saved">Saved</option>
+                <option value="queued">Queued</option>
+                <option value="audited">Audited</option>
+                <option value="pitched">Pitched</option>
+                <option value="replied">Replied</option>
+                <option value="booked">Booked</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-ink-400">
+              <span>{p.last_contacted_at ? `Last contacted: ${new Date(p.last_contacted_at).toLocaleString()}` : "Never contacted"}</span>
+              <button onClick={onOpenLog} className="font-semibold text-brand-400 hover:underline">
+                📝 Log Communication ({p.communication_logs?.length || 0})
+              </button>
+            </div>
           </div>
 
           <div className="mt-4 grid grid-cols-3 gap-2 text-center">
@@ -1117,11 +1225,7 @@ function EditModal({
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
             <label className="text-[11px] text-ink-400">Business Name</label>
-            <Input value={form.business_name} onChange={(v) => setForm({ ...form, business_name: v })} placeholder="Business Name" />
-          </div>
-          <div>
-            <label className="text-[11px] text-ink-400">City</label>
-            <Input value={form.city} onChange={(v) => setForm({ ...form, city: v })} placeholder="City" />
+            <Input value={form.business_name} onChange={(v) => setForm({ ...form, business_name: v })}placeholder="City" />
           </div>
           <div>
             <label className="text-[11px] text-ink-400">Google Rating (e.g. 5.0)</label>
@@ -1663,6 +1767,89 @@ function VoiceCallModal({
             {toast}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function LogModal({
+  p,
+  onClose,
+  onSave,
+}: {
+  p: Prospect;
+  onClose: () => void;
+  onSave: (type: string, notes: string) => void;
+}) {
+  const [type, setType] = useState("Email");
+  const [notes, setNotes] = useState("");
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl border border-ink-800 bg-ink-900 p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-ink-800 pb-3">
+          <h3 className="font-sora text-base font-bold text-white">Log Communication · {p.business_name}</h3>
+          <button onClick={onClose} className="text-ink-400 hover:text-white"><X size={18} /></button>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          <div>
+            <label className="text-[11px] text-ink-400">Communication Type</label>
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-ink-800 bg-ink-950 px-3 py-2 text-xs text-white"
+            >
+              <option value="Email">Email Sent / Replied</option>
+              <option value="Phone">Phone Call</option>
+              <option value="WhatsApp">WhatsApp Message</option>
+              <option value="Instagram DM">Instagram DM</option>
+              <option value="Facebook DM">Facebook DM</option>
+              <option value="Meeting">Strategy Meeting</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[11px] text-ink-400">Notes / Details</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g. Sent 60-second video audit. Owner replied interested in Missed-Call Text-Back (#41)."
+              className="mt-1 h-28 w-full rounded-lg border border-ink-800 bg-ink-950 p-3 text-xs text-white placeholder:text-ink-600 focus:outline-none"
+            />
+          </div>
+
+          {p.communication_logs && p.communication_logs.length > 0 && (
+            <div>
+              <p className="text-[11px] font-semibold text-brand-400 mb-1">Previous Communication Logs</p>
+              <div className="max-h-32 overflow-auto space-y-1.5 rounded-lg bg-ink-950 p-2 text-[11px]">
+                {p.communication_logs.map((log, i) => (
+                  <div key={i} className="border-b border-ink-800/60 pb-1">
+                    <div className="flex justify-between text-ink-400">
+                      <span className="font-semibold text-white">[{log.type}]</span>
+                      <span>{new Date(log.date).toLocaleString()}</span>
+                    </div>
+                    <p className="text-ink-300 mt-0.5">{log.notes}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2 border-t border-ink-800 pt-3">
+          <button onClick={onClose} className="rounded-lg border border-ink-800 px-4 py-2 text-xs text-ink-300 hover:text-white">Cancel</button>
+          <button
+            onClick={() => {
+              if (!notes.trim()) return;
+              onSave(type, notes.trim());
+            }}
+            disabled={!notes.trim()}
+            className="rounded-lg bg-brand-600 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-500 disabled:opacity-50"
+          >
+            Save Log &amp; Update
+          </button>
+        </div>
       </div>
     </div>
   );

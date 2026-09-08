@@ -10,23 +10,80 @@ import { clamp } from "@/lib/utils";
 /**
  * Brand audit + ROI projection for a prospect.
  *
- * Reuses the site's audit engine (website, Google Business Profile, socials,
- * reputation) so the pitch talks about the same flaws the public /audit tool
- * would surface, then projects the return of the services those flaws call
- * for — using the same model as the service builder (leads × avg customer
- * value × 35% close rate).
+ * Reuses the site's audit engine (website, Google Business Profile, Apple Maps, socials,
+ * reputation) and calculates an Opportunity Qualifying Score (0-100) and Missing GBP/Apple detection.
  */
 
 export interface BrandAuditResult {
   audit_report: ProspectAudit;
   roi_projection: RoiProjection;
   recommended_services: number[];
+  qualifying_score: number;
+  missing_gbp_apple: boolean;
 }
 
 const DEFAULT_ACV = 500;
 const LEAD_INCREASE_PCT = 50;
 const CLOSE_RATE = 0.35;
-const FALLBACK_SERVICES = [1, 31, 35];
+const FALLBACK_SERVICES = [41, 42, 31, 35, 1];
+
+export function detectMissingGbpApple(p: {
+  google_rating?: number | null;
+  review_count?: number | null;
+  google_maps_link?: string | null;
+  missing_gbp_apple?: boolean | null;
+}): boolean {
+  if (p.missing_gbp_apple === true) return true;
+  if (!p.google_maps_link || p.google_rating == null || p.review_count == null || p.review_count === 0) {
+    return true;
+  }
+  return false;
+}
+
+export function calculateQualifyingScore(p: {
+  google_rating?: number | null;
+  review_count?: number | null;
+  unanswered_reviews?: number | null;
+  google_maps_link?: string | null;
+  website?: string | null;
+  missing_gbp_apple?: boolean | null;
+}): { score: number; missingGbpApple: boolean } {
+  const missingGbpApple = detectMissingGbpApple(p);
+  let score = 0;
+
+  // 1. Missing Google Business Profile or Apple Maps presence (fatal flaw / highest agency opportunity)
+  if (missingGbpApple) {
+    score += 45;
+  }
+
+  // 2. Rating factor (lower rating = easier reputation win)
+  const rating = p.google_rating ?? 4.0;
+  if (rating < 3.5) {
+    score += 25;
+  } else if (rating < 4.2) {
+    score += 15;
+  } else if (rating < 4.7) {
+    score += 8;
+  }
+
+  // 3. Unanswered reviews
+  const unanswered = p.unanswered_reviews ?? 0;
+  if (unanswered > 10) {
+    score += 20;
+  } else if (unanswered > 0) {
+    score += 10;
+  }
+
+  // 4. Missing website
+  if (!p.website || !p.website.trim()) {
+    score += 10;
+  }
+
+  return {
+    score: Math.min(100, Math.max(0, score)),
+    missingGbpApple,
+  };
+}
 
 function reviewBucket(count: number | null | undefined) {
   if (count == null) return undefined;
@@ -49,9 +106,12 @@ export function buildBrandAudit(
     | "unanswered_reviews"
     | "competitor_name"
     | "competitor_reviews"
+    | "google_maps_link"
+    | "missing_gbp_apple"
   >,
 ): BrandAuditResult {
-  const hasVerifiedStats = p.google_rating != null && p.review_count != null;
+  const { score: qualifying_score, missingGbpApple: missing_gbp_apple } = calculateQualifyingScore(p);
+  const hasVerifiedStats = p.google_rating != null && p.review_count != null && !missing_gbp_apple;
   const rating = p.google_rating ?? 4.0;
   const reviews = p.review_count ?? 0;
   const isDominating = hasVerifiedStats && ((rating >= 4.9 && reviews >= 100) || (rating === 5.0 && reviews >= 40));
@@ -81,7 +141,10 @@ export function buildBrandAudit(
   const painPoints = [...report.painPoints];
   const fixes = [...report.fixes];
 
-  if (!hasVerifiedStats) {
+  if (missing_gbp_apple) {
+    painPoints.unshift("Fatal Flaw: No verified Google Business Profile (GBP) or Apple Maps presence found — your business is completely invisible on local map packs and mobile voice searches.");
+    fixes.unshift("Google Business Profile & Apple Maps Setup, Verification & Local Optimization (service #1).");
+  } else if (!hasVerifiedStats) {
     painPoints.unshift("Google Business Profile rating and review count unverified / not provided — claim and optimize your GBP listing to display real public metrics.");
     fixes.unshift("Google Business Profile Setup & Verification (service #1).");
   } else if (isDominating) {
@@ -104,6 +167,17 @@ export function buildBrandAudit(
     fixes.push("Conversion-focused landing site with tap-to-call (service #23).");
   }
 
+  // Forcefully inject high-ticket revenue-leak and AI automation services in every audit
+  if (!fixes.some(f => f.includes("#41"))) {
+    fixes.push("Instant Missed-Call Text-Back Automation (service #41) to stop after-hours lead leaks.");
+  }
+  if (!fixes.some(f => f.includes("#42"))) {
+    fixes.push("24/7 AI Voice Booking Agent & Conversational Webchat (service #42) to answer every call instantly.");
+  }
+  if (!fixes.some(f => f.includes("#31") || f.includes("#35"))) {
+    fixes.push("Automated Post-Service SMS Review Campaigns & Auto Reputation Management (service #31 / #35).");
+  }
+
   const recommended_services = uniqueServiceIds(fixes);
 
   const audit_report: ProspectAudit = {
@@ -123,6 +197,8 @@ export function buildBrandAudit(
     audit_report,
     roi_projection: projectRoi(recommended_services, reviews, competitorReviews, DEFAULT_ACV, isDominating),
     recommended_services,
+    qualifying_score,
+    missing_gbp_apple,
   };
 }
 
@@ -149,17 +225,14 @@ export function projectRoi(
   const investment_one_time = items.reduce((s, x) => s + x.oneTime, 0);
   const investment_monthly = items.reduce((s, x) => s + x.monthly, 0);
 
-  // Same model as the service builder / orders.
   const leads_per_month = Math.round(
     (10 + investment_monthly / 25) * (1 + LEAD_INCREASE_PCT / 100),
   );
   const projected_monthly = Math.round(leads_per_month * acv * CLOSE_RATE);
 
-  // Revenue currently leaking or expansion upside:
   const deficit = isDominating ? 0 : clamp((competitorReviews ?? 0) - (reviewCount ?? 0), 10, 350);
   const lost_monthly = isDominating ? Math.round(leads_per_month * acv * 0.2) : Math.round(deficit * 0.08 * acv);
 
-  // Return per dollar of monthly-equivalent spend (one-time fees amortized over a year).
   const monthlyEquivalent = investment_monthly + investment_one_time / 12;
   const roas = Math.round(projected_monthly / Math.max(monthlyEquivalent, 1));
   const payback_months =

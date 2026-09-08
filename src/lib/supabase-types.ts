@@ -131,6 +131,12 @@ export interface Asset {
 
 export type ProspectStatus =
   | "saved"
+  | "queued"
+  | "audited"
+  | "pitched"
+  | "replied"
+  | "booked"
+  | "closed"
   | "pending"
   | "scraping"
   | "rendering"
@@ -158,7 +164,16 @@ export interface RoiProjection {
   payback_months: number;
 }
 
+export interface CommunicationLog {
+  date: string;
+  type: string;
+  notes: string;
+  admin?: string;
+}
+
 export interface Prospect {
+  qualifying_score?: number | null;
+  missing_gbp_apple?: boolean | null;
   id: string;
   business_name: string;
   city: string | null;
@@ -185,6 +200,8 @@ export interface Prospect {
   pitch_script: string | null;
   slug: string | null;
   status: ProspectStatus | null;
+  last_contacted_at?: string | null;
+  communication_logs?: CommunicationLog[] | null;
   error: string | null;
   created_at: string;
   updated_at: string;

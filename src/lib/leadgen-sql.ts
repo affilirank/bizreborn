@@ -7,6 +7,8 @@ export const LEADGEN_SQL = `-- Biz Reborn · lead-generation module (prospects +
 -- Idempotent: safe to run more than once in the Supabase SQL editor.
 
 create table if not exists public.prospects (
+  qualifying_score integer,
+  missing_gbp_apple boolean,
   id uuid primary key default gen_random_uuid(),
   business_name text not null,
   city text,
@@ -45,6 +47,8 @@ alter table public.prospects add column if not exists audit_report jsonb;
 alter table public.prospects add column if not exists roi_projection jsonb;
 alter table public.prospects add column if not exists recommended_services integer[];
 alter table public.prospects add column if not exists google_maps_link text;
+alter table public.prospects add column if not exists qualifying_score integer;
+alter table public.prospects add column if not exists missing_gbp_apple boolean;
 
 create index if not exists prospects_status_idx on public.prospects (status);
 create index if not exists prospects_slug_idx on public.prospects (slug);

@@ -1,3 +1,4 @@
+import { calculateQualifyingScore } from "@/lib/services/brand-audit";
 import { NextResponse } from "next/server";
 import { insertProspects } from "@/lib/prospects";
 import { isAdminOrDemo } from "@/lib/supabase/server";
@@ -57,7 +58,18 @@ export async function POST(req: Request) {
     const competitor_name = str(row.competitor_name) || null;
     const competitor_reviews = row.competitor_reviews !== undefined && row.competitor_reviews !== "" && !isNaN(Number(row.competitor_reviews)) ? Number(row.competitor_reviews) : (review_count != null ? Math.max(review_count + 50, Math.round(review_count * 1.4)) : null);
 
+    const initialScoreData = calculateQualifyingScore({
+      google_rating,
+      review_count,
+      unanswered_reviews,
+      google_maps_link,
+      website,
+      missing_gbp_apple: row.missing_gbp_apple === true,
+    });
+
     const baseProspect: Partial<Prospect> & { business_name: string } = {
+      qualifying_score: initialScoreData.score,
+      missing_gbp_apple: initialScoreData.missingGbpApple,
       business_name: name,
       city,
       website: website || null,

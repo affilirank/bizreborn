@@ -29,6 +29,8 @@ export type PitchData = Pick<
   | "voiceover_url"
   | "video_url"
   | "thumbnail_url"
+  | "qualifying_score"
+  | "missing_gbp_apple"
 >;
 
 const BASE_SCENES = [8, 11, 9, 10, 7]; // seconds — 45s total
@@ -223,6 +225,11 @@ function ScenePlayer({
                 <p className="text-[3.6cqw] text-ink-300">{reviews} reviews</p>
               </div>
             </div>
+            {p.missing_gbp_apple && (
+              <div className="animate-pp-pop mt-4 inline-flex items-center gap-2 rounded-full border border-rose-500/50 bg-rose-500/20 px-4 py-1.5 [animation-delay:1200ms]">
+                <span className="text-[3.2cqw] font-bold text-rose-300">⚠ Missing Verified GBP &amp; Apple Maps</span>
+              </div>
+            )}
             {p.audit_report && (
               <div className="animate-pp-pop mt-8 inline-flex items-center gap-3 rounded-full border border-rose-400/40 bg-rose-500/10 px-5 py-2 [animation-delay:1600ms]">
                 <span className="text-[6cqw] font-black text-rose-300">{p.audit_report.grade}</span>

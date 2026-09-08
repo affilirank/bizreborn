@@ -92,6 +92,8 @@ function toMemoryRow(input: Partial<Prospect> & { business_name: string }): Pros
     audit_report: input.audit_report ?? null,
     roi_projection: input.roi_projection ?? null,
     recommended_services: input.recommended_services ?? null,
+    qualifying_score: input.qualifying_score ?? null,
+    missing_gbp_apple: input.missing_gbp_apple ?? null,
     google_rating: input.google_rating ?? null,
     review_count: input.review_count ?? null,
     unanswered_reviews: input.unanswered_reviews ?? null,
@@ -108,7 +110,9 @@ function toMemoryRow(input: Partial<Prospect> & { business_name: string }): Pros
       `${slugify(`${input.business_name}${input.city ? `-${input.city}` : ""}`)}-${Math.random()
         .toString(36)
         .slice(2, 6)}`,
-    status: input.status ?? "pending",
+    status: input.status ?? "saved",
+    last_contacted_at: input.last_contacted_at ?? null,
+    communication_logs: input.communication_logs ?? null,
     error: input.error ?? null,
     created_at: input.created_at ?? now,
     updated_at: input.updated_at ?? now,
@@ -133,9 +137,12 @@ export async function listProspects(): Promise<Prospect[]> {
   for (const r of memoryStore.values()) merged.set(r.id, r);
   for (const r of dbRows) merged.set(r.id, r);
 
-  return Array.from(merged.values()).sort(
-    (a, b) => b.created_at.localeCompare(a.created_at),
-  );
+  return Array.from(merged.values()).sort((a, b) => {
+    const scoreA = a.qualifying_score ?? 0;
+    const scoreB = b.qualifying_score ?? 0;
+    if (scoreA !== scoreB) return scoreB - scoreA;
+    return b.created_at.localeCompare(a.created_at);
+  });
 }
 
 export async function getProspectById(id: string): Promise<Prospect | null> {
@@ -185,7 +192,7 @@ export async function insertProspects(
   const sb = await serviceDb();
   if (sb && !tableMissing) {
     const payload = rows.map(({ id: _id, ...r }) => r);
-    const { data, error } = await sb.from("prospects").insert(payload).select();
+    const { data, error } = await sb.from("prospects").upsert(rows, { onConflict: "id" }).select();
     if (!noteError(error) && Array.isArray(data)) {
       const inserted = data as Prospect[];
       memoryUpsertRows(inserted);
