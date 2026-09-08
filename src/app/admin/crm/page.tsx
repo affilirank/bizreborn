@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Users,
@@ -31,6 +31,16 @@ import {
   BarChart3,
   TrendingUp,
   ShieldAlert,
+  Play,
+  Copy,
+  Loader2,
+  Film,
+  FileSignature,
+  PhoneCall,
+  Star,
+  Link2,
+  AlertTriangle,
+  Send,
 } from "lucide-react";
 import type { Prospect, CommunicationLog } from "@/lib/supabase-types";
 import type { AdminTask } from "@/lib/data";
@@ -38,6 +48,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Container } from "@/components/ui/section";
 import { cn } from "@/lib/utils";
+import { PitchPlayer } from "@/components/pitch/pitch-player";
+import { PREFILL_KEY, type OfferPrefill } from "@/lib/offer-prefill";
+import { LEADGEN } from "@/lib/config";
 
 const TEMPERATURES = [
   "Hot",
@@ -59,6 +72,95 @@ const tempBadgeCls: Record<string, string> = {
 
 const TEAM = ["Marcus", "Dana", "Vince", "Priya"];
 
+const money = (n: number | null | undefined) =>
+  n == null ? "—" : `$${Math.round(n).toLocaleString("en-US")}`;
+
+function absPitch(p: Prospect) {
+  const base =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
+  return `${base}/pitch/${p.slug ?? ""}`;
+}
+
+function emailSubject(p: Prospect) {
+  return `Your Growth Audit: ${p.business_name} \u00d7 Biz Reborn Marketing`;
+}
+
+function emailPlain(p: Prospect) {
+  const url = absPitch(p);
+  const roi = p.roi_projection;
+  return [
+    `Hi ${p.business_name} —`,
+    "",
+    `We ran a full audit on your brand (website, socials and Google reputation) and it came back a ${p.audit_report?.grade ?? "C"}.`,
+    `Your Google listing sits at ${p.google_rating ?? "—"} stars with ${p.review_count ?? 0} reviews (${p.unanswered_reviews ?? 0} unanswered), while ${p.competitor_name ?? "your top competitor"} has ${p.competitor_reviews ?? 0}.`,
+    roi ? `That gap is leaking roughly ${money(roi.lost_monthly)}/month. Fixing it projects to +${roi.leads_per_month} leads and ${money(roi.projected_monthly)}/month in new revenue.` : "",
+    "",
+    "Your 45-second video audit + the full breakdown:",
+    url,
+    "",
+    `Want 10 minutes this week to walk through it? Just reply — ${LEADGEN.email}`,
+    "",
+    "— Biz Reborn Marketing",
+  ]
+    .filter((l) => l !== null)
+    .join("\n");
+}
+
+function emailHtml(p: Prospect) {
+  const url = absPitch(p);
+  const roi = p.roi_projection;
+  const grade = p.audit_report?.grade ?? "C";
+  const thumb =
+    p.thumbnail_url && /^https?:/i.test(p.thumbnail_url)
+      ? `<a href="${url}"><img src="${p.thumbnail_url}" alt="${p.business_name} growth audit" width="360" style="max-width:100%;border-radius:14px;display:block;margin:0 auto 18px auto;" /></a>`
+      : `<a href="${url}" style="text-decoration:none;display:block;margin:0 auto 18px auto;max-width:360px;background:#0B0F17;border-radius:16px;padding:22px;color:#fff;font-family:Arial,Helvetica,sans-serif;">
+  <div style="font-size:11px;letter-spacing:2px;color:#a5b4fc;">BIZ REBORN · GROWTH AUDIT</div>
+  <div style="font-size:22px;font-weight:800;margin-top:6px;">${p.business_name}</div>
+  <div style="margin-top:14px;font-size:40px;font-weight:900;">${p.google_rating ?? "—"} <span style="font-size:14px;color:#fbbf24;">★ ${p.review_count ?? 0} reviews</span></div>
+  <div style="margin-top:10px;display:inline-block;background:rgba(248,113,113,.15);color:#fca5a5;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;">Brand grade ${grade}</div>
+  <div style="margin-top:18px;text-align:center;"><span style="display:inline-block;background:#fff;color:#0B0F17;border-radius:999px;padding:10px 18px;font-weight:800;font-size:14px;">▶ Watch your 45-second audit</span></div>
+</a>`;
+  return [
+    `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111;">`,
+    thumb,
+    `<p>Hi ${p.business_name} —</p>`,
+    `<p>We ran a full audit on your brand — website, socials and Google reputation — and it came back a <strong>${grade}</strong>.</p>`,
+    `<p>Your Google listing sits at <strong>${p.google_rating ?? "—"} stars</strong> with <strong>${p.review_count ?? 0} reviews</strong> (${p.unanswered_reviews ?? 0} unanswered), while ${p.competitor_name ?? "your top competitor"} has <strong>${p.competitor_reviews ?? 0}</strong> — and they're taking the calls that should be yours.</p>`,
+    roi
+      ? `<p>That gap is leaking roughly <strong>${money(roi.lost_monthly)}/month</strong>. Fixing it projects to <strong>+${roi.leads_per_month} leads</strong> and <strong>${money(roi.projected_monthly)}/month</strong> in new revenue.</p>`
+      : "",
+    `<p style="text-align:center;margin:20px 0;"><a href="${url}" style="display:inline-block;background:#6366F1;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:bold;">Watch your audit →</a></p>`,
+    `<p>Want 10 minutes this week to walk through it? Just reply, or email <a href="mailto:${LEADGEN.email}" style="color:#6366F1;">${LEADGEN.email}</a>.</p>`,
+    `<p style="color:#64748b;font-size:13px;border-top:1px solid #e2e8f0;padding-top:14px;">— Biz Reborn Marketing · <a href="https://www.bizreborn.com" style="color:#6366F1;">www.bizreborn.com</a></p>`,
+    `</div>`,
+  ].join("");
+}
+
+function proposalPrefill(p: Prospect): OfferPrefill {
+  const flaws = (p.audit_report?.pain_points ?? [])
+    .slice(0, 3)
+    .map((f) => `• ${f.replace(/\s*\([^)]*service #\d+[^)]*\)/gi, "")}`);
+  const roi = p.roi_projection;
+  return {
+    clientName: p.business_name,
+    clientEmail: p.email ?? "",
+    services: p.recommended_services ?? [],
+    videoUrl: absPitch(p),
+    prospectId: p.id,
+    notes: [
+      `Based on your growth audit (brand grade ${p.audit_report?.grade ?? "C"}), here's what we found:`,
+      ...flaws,
+      roi
+        ? `This plan is projected to add about ${roi.leads_per_month} leads and ${money(roi.projected_monthly)}/month in new revenue.`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  };
+}
+
 export default function CrmPage() {
   const [activeTab, setActiveTab] = useState<"directory" | "tasks">("directory");
   const [prospects, setProspects] = useState<Prospect[]>([]);
@@ -66,15 +168,19 @@ export default function CrmPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedTemp, setSelectedTemp] = useState<string>("all");
+  
+  const [previewProspect, setPreviewProspect] = useState<Prospect | null>(null);
   const [editingProspect, setEditingProspect] = useState<Prospect | null>(null);
   const [commsProspect, setCommsProspect] = useState<Prospect | null>(null);
+  const [voiceProspect, setVoiceProspect] = useState<Prospect | null>(null);
+  const [newsletterData, setNewsletterData] = useState<{ p: Prospect; sequence: any } | null>(null);
+
   const [newLogType, setNewLogType] = useState("call");
   const [newLogNotes, setNewLogNotes] = useState("");
   const [newLogDuration, setNewLogDuration] = useState("3m 42s");
   const [newLogAnswered, setNewLogAnswered] = useState("Answered");
   const [toast, setToast] = useState<string | null>(null);
 
-  // Task filter & creation state
   const [taskFilter, setTaskFilter] = useState<"all" | "queued" | "in_progress" | "completed">("all");
   const [newTask, setNewTask] = useState<{
     client: string;
@@ -122,7 +228,7 @@ export default function CrmPage() {
       const res = await fetch(`/api/prospects/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: temperature }),
+        body: JSON.stringify({ status: temperature, last_contacted_at: new Date().toISOString() }),
       });
       const json = await res.json();
       if (res.ok && json.prospect) {
@@ -141,17 +247,68 @@ export default function CrmPage() {
       const res = await fetch(`/api/prospects/${editingProspect.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editingProspect),
+        body: JSON.stringify({
+          ...editingProspect,
+          google_rating: Number(editingProspect.google_rating) || 4.8,
+          review_count: Number(editingProspect.review_count) || 0,
+          unanswered_reviews: Number(editingProspect.unanswered_reviews) || 0,
+          competitor_reviews: Number(editingProspect.competitor_reviews) || 0,
+          regenerate: true,
+        }),
       });
       const json = await res.json();
       if (res.ok && json.prospect) {
         setProspects((prev) => prev.map((x) => (x.id === editingProspect.id ? json.prospect : x)));
-        setToast("Business information updated successfully!");
+        setToast("Business info saved & audit regenerated!");
         setEditingProspect(null);
       }
     } catch {
       setToast("Failed to save business info");
     }
+  };
+
+  const sendEmail = async (id: string) => {
+    setToast("Sending direct pitch email…");
+    try {
+      const res = await fetch("/api/prospects/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setToast(json.simulated ? "Simulated email sent (add RESEND_API_KEY for live delivery)" : "Pitch email sent successfully!");
+      } else {
+        setToast(json.error || "Email failed");
+      }
+    } catch {
+      setToast("Email failed to send");
+    }
+  };
+
+  const loadNewsletter = async (p: Prospect) => {
+    setToast("Generating custom 3-part newsletter drip…");
+    try {
+      const res = await fetch("/api/prospects/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: p.id }),
+      });
+      const json = await res.json();
+      if (res.ok && json.sequence) {
+        setNewsletterData({ p, sequence: json.sequence });
+        setToast("Newsletter drip generated!");
+      } else {
+        setToast(json.error || "Failed to generate newsletter");
+      }
+    } catch {
+      setToast("Failed to generate newsletter");
+    }
+  };
+
+  const draftProposal = (p: Prospect) => {
+    sessionStorage.setItem(PREFILL_KEY, JSON.stringify(proposalPrefill(p)));
+    window.location.assign("/admin?tab=offers");
   };
 
   const addCommunicationLog = async (e: React.FormEvent) => {
@@ -188,7 +345,6 @@ export default function CrmPage() {
     }
   };
 
-  // Task handlers
   const assignTask = async (id: string, assignee: string | null) => {
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, assignee } : t)));
     await fetch(`/api/tasks/${id}`, {
@@ -281,10 +437,10 @@ export default function CrmPage() {
 
   const counts = {
     total: prospects.length,
-    hot: prospects.filter((p) => p.status?.toLowerCase() === "hot").length,
-    warm: prospects.filter((p) => p.status?.toLowerCase() === "warm").length,
-    active: prospects.filter((p) => p.status?.toLowerCase() === "client (active)").length,
-    proposal: prospects.filter((p) => p.status?.toLowerCase() === "proposal sent").length,
+    hot: prospects.filter((p) => p.status?.toLowerCase() === "hot" || p.status?.toLowerCase() === "ready").length,
+    warm: prospects.filter((p) => p.status?.toLowerCase() === "warm" || p.status?.toLowerCase() === "saved").length,
+    active: prospects.filter((p) => p.status?.toLowerCase() === "client (active)" || p.status?.toLowerCase() === "closed").length,
+    proposal: prospects.filter((p) => p.status?.toLowerCase() === "proposal sent" || p.status?.toLowerCase() === "pitched").length,
   };
 
   const filteredTasks = tasks.filter((t) => {
@@ -300,7 +456,6 @@ export default function CrmPage() {
   return (
     <div className="min-h-screen bg-ink-950 pb-24 pt-20 text-white">
       <Container>
-        {/* Navigation & Header */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <Link
@@ -310,13 +465,19 @@ export default function CrmPage() {
               <ArrowLeft className="h-4 w-4" /> Admin Command Center
             </Link>
             <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
-              Full CRM &amp; Fulfillment Command Center
+              Agency CRM &amp; Central Command Center
             </h1>
             <p className="mt-1 text-sm text-fog">
-              Unified client records, prospect audit scores, ROI projections, live AI call transcripts, email open tracking, and associated fulfillment tasks &amp; order modules.
+              The ultimate central command center where every discovered, saved, or active lead lives. Complete with embedded video audit players, AI voice calling, proposal drafting, email drips, and fulfillment task boards.
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              href="/admin/prospects"
+              className="flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-500 shadow-lg shadow-brand-600/20"
+            >
+              <Search className="h-4 w-4" /> Lead Discovery &amp; Pitches
+            </Link>
             <button
               onClick={() => void fetchData()}
               className="flex items-center gap-2 rounded-xl border border-white/10 bg-ink-900 px-4 py-2 text-xs font-semibold text-fog transition hover:border-white/25 hover:text-white"
@@ -326,7 +487,6 @@ export default function CrmPage() {
           </div>
         </div>
 
-        {/* CRM Navigation Tabs */}
         <div className="mb-8 flex flex-wrap items-center gap-3 border-b border-white/10 pb-4">
           <button
             onClick={() => setActiveTab("directory")}
@@ -337,7 +497,7 @@ export default function CrmPage() {
                 : "border border-white/10 bg-ink-900 text-fog hover:text-white",
             )}
           >
-            <Users className="h-4 w-4" /> Prospects &amp; Client Directory ({prospects.length})
+            <Users className="h-4 w-4" /> Central Lead &amp; Client Directory ({prospects.length})
           </button>
           <button
             onClick={() => setActiveTab("tasks")}
@@ -352,7 +512,6 @@ export default function CrmPage() {
           </button>
         </div>
 
-        {/* CRM KPI Metrics */}
         <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <Card className="p-5">
             <p className="text-xs uppercase tracking-wider text-fog">Total Accounts</p>
@@ -378,7 +537,6 @@ export default function CrmPage() {
 
         {activeTab === "directory" ? (
           <>
-            {/* Search & Filter Bar */}
             <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3.5 top-3 h-4 w-4 text-fog" />
@@ -408,7 +566,6 @@ export default function CrmPage() {
               </div>
             </div>
 
-            {/* Prospects / CRM Table with full info rendering */}
             <Card className="overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
@@ -419,7 +576,7 @@ export default function CrmPage() {
                       <th className="px-4 py-3 font-semibold">Socials &amp; Maps</th>
                       <th className="px-4 py-3 font-semibold">ROI Projection</th>
                       <th className="px-4 py-3 font-semibold">Status / Temp</th>
-                      <th className="px-4 py-3 font-semibold text-right">Actions</th>
+                      <th className="px-4 py-3 font-semibold text-right">Embedded Closing Tools</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
@@ -490,7 +647,7 @@ export default function CrmPage() {
                                   rel="noreferrer"
                                   className="text-glow-400 hover:underline flex items-center gap-1 text-[11px]"
                                 >
-                                  <MapPin className="h-3 w-3" /> Google Maps
+                                  <MapPin className="h-3 w-3" /> Maps / GBP
                                 </a>
                               )}
                             </div>
@@ -519,21 +676,58 @@ export default function CrmPage() {
                               ))}
                             </select>
                           </td>
-                          <td className="px-4 py-3.5 text-right space-x-1.5">
-                            <button
-                              onClick={() => setEditingProspect(p)}
-                              className="rounded-lg border border-white/10 bg-ink-900 px-2.5 py-1.5 text-xs font-semibold text-fog hover:text-white transition"
-                              title="View & Edit Business Info"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              onClick={() => setCommsProspect(p)}
-                              className="rounded-lg border border-brand-500/30 bg-brand-500/10 px-2.5 py-1.5 text-xs font-semibold text-brand-300 hover:bg-brand-500/20 transition"
-                              title="Communication History & AI Transcripts"
-                            >
-                              <FileText className="h-3.5 w-3.5" /> ({p.communication_logs?.length || 0})
-                            </button>
+                          <td className="px-4 py-3.5 text-right">
+                            <div className="flex flex-wrap items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => setPreviewProspect(p)}
+                                className="rounded-lg border border-glow-500/30 bg-glow-500/10 px-2 py-1 text-[11px] font-semibold text-glow-300 hover:bg-glow-500/20 transition flex items-center gap-1"
+                                title="Video Audit Player & Closing Tools"
+                              >
+                                <Play className="h-3 w-3" /> Player
+                              </button>
+                              <button
+                                onClick={() => draftProposal(p)}
+                                className="rounded-lg border border-brand-500/30 bg-brand-500/10 px-2 py-1 text-[11px] font-semibold text-brand-300 hover:bg-brand-500/20 transition flex items-center gap-1"
+                                title="Draft Proposal"
+                              >
+                                <FileSignature className="h-3 w-3" /> Proposal
+                              </button>
+                              <button
+                                onClick={() => setVoiceProspect(p)}
+                                className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-500/20 transition flex items-center gap-1"
+                                title="AI Voice Call"
+                              >
+                                <Phone className="h-3 w-3" /> Call
+                              </button>
+                              <button
+                                onClick={() => void sendEmail(p.id)}
+                                className="rounded-lg border border-white/10 bg-ink-900 px-2 py-1 text-[11px] font-semibold text-fog hover:text-white transition flex items-center gap-1"
+                                title="Send Direct Email"
+                              >
+                                <Send className="h-3 w-3" /> Email
+                              </button>
+                              <button
+                                onClick={() => void loadNewsletter(p)}
+                                className="rounded-lg border border-purple-500/30 bg-purple-500/10 px-2 py-1 text-[11px] font-semibold text-purple-300 hover:bg-purple-500/20 transition flex items-center gap-1"
+                                title="AI Newsletter Drip"
+                              >
+                                <Sparkles className="h-3 w-3" /> Drip
+                              </button>
+                              <button
+                                onClick={() => setEditingProspect(p)}
+                                className="rounded-lg border border-white/10 bg-ink-900 px-2 py-1 text-[11px] font-semibold text-fog hover:text-white transition flex items-center gap-1"
+                                title="Edit Stats & Maps Links"
+                              >
+                                <Pencil className="h-3 w-3" /> Edit
+                              </button>
+                              <button
+                                onClick={() => setCommsProspect(p)}
+                                className="rounded-lg border border-white/10 bg-ink-900 px-2 py-1 text-[11px] font-semibold text-fog hover:text-white transition flex items-center gap-1"
+                                title="Communication History & Transcripts"
+                              >
+                                <FileText className="h-3 w-3" /> ({p.communication_logs?.length || 0})
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -549,7 +743,6 @@ export default function CrmPage() {
             </Card>
           </>
         ) : (
-          /* Fulfillment Task Board & Modules Integrated into CRM */
           <Card className="p-6 sm:p-8">
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -568,7 +761,6 @@ export default function CrmPage() {
               </div>
             </div>
 
-            {/* Filter Tabs */}
             <div className="mb-6 flex flex-wrap gap-2 border-b border-white/10 pb-4">
               {(["all", "queued", "in_progress", "completed"] as const).map((tab) => (
                 <button
@@ -591,7 +783,6 @@ export default function CrmPage() {
               ))}
             </div>
 
-            {/* New Task Creation Bar */}
             <div className="mb-6 grid gap-3 rounded-2xl border border-white/10 bg-ink-900/60 p-4 sm:grid-cols-[1fr_1fr_auto_auto_auto_auto]">
               <input
                 value={newTask.client}
@@ -644,7 +835,6 @@ export default function CrmPage() {
               </button>
             </div>
 
-            {/* Task Cards / List */}
             <div className="space-y-3">
               {filteredTasks.map((t) => {
                 const prioStyle =
@@ -767,10 +957,142 @@ export default function CrmPage() {
         )}
       </Container>
 
-      {/* Edit Business Info Modal */}
+      {previewProspect && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm" onClick={() => setPreviewProspect(null)}>
+          <div className="grid w-full max-w-4xl gap-6 rounded-3xl border border-white/15 bg-ink-900 p-6 md:grid-cols-[minmax(0,300px)_1fr] shadow-2xl max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div>
+              <PitchPlayer p={previewProspect} contactEmail={LEADGEN.email} />
+            </div>
+            <div className="min-w-0 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-display text-xl font-extrabold text-white">{previewProspect.business_name}</h3>
+                  <p className="text-xs text-fog">
+                    {previewProspect.city || "Local"} · Brand Grade: <span className="text-glow-400 font-bold">{previewProspect.audit_report?.grade ?? "C"}</span> ({previewProspect.audit_report?.health_score ?? 70}/100)
+                  </p>
+                </div>
+                <button onClick={() => setPreviewProspect(null)} className="text-fog hover:text-white">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-ink-950 p-3.5 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-white">Pipeline Status / Temperature:</span>
+                  <select
+                    value={previewProspect.status || "Warm"}
+                    onChange={(e) => updateProspectTemp(previewProspect.id, e.target.value)}
+                    className="rounded-xl border border-white/10 bg-ink-900 px-3 py-1.5 text-xs font-bold text-white outline-none"
+                  >
+                    {TEMPERATURES.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {previewProspect.roi_projection && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-2xl border border-glow-500/30 bg-glow-500/10 p-3 text-center">
+                  <div>
+                    <p className="font-display text-sm font-bold text-glow-400">+{money(previewProspect.roi_projection.projected_monthly)}/mo</p>
+                    <p className="text-[10px] text-fog">Projected Revenue</p>
+                  </div>
+                  <div>
+                    <p className="font-display text-sm font-bold text-white">+{previewProspect.roi_projection.leads_per_month}</p>
+                    <p className="text-[10px] text-fog">Extra Leads</p>
+                  </div>
+                  <div>
+                    <p className="font-display text-sm font-bold text-amber-300">{previewProspect.roi_projection.roas}x</p>
+                    <p className="text-[10px] text-fog">Projected ROAS</p>
+                  </div>
+                  <div>
+                    <p className="font-display text-sm font-bold text-rose-300">{money(previewProspect.roi_projection.lost_monthly)}</p>
+                    <p className="text-[10px] text-fog">Monthly Leaking</p>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-fog mb-1">Direct Pitch Link</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 truncate rounded-xl bg-ink-950 px-3 py-2 text-xs text-brand-300 border border-white/10">
+                    {absPitch(previewProspect)}
+                  </code>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard?.writeText(absPitch(previewProspect));
+                      setToast("Pitch link copied!");
+                    }}
+                    className="rounded-xl border border-white/10 bg-ink-950 px-3 py-2 text-xs text-fog hover:text-white"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-2">
+                <button
+                  onClick={() => {
+                    setPreviewProspect(null);
+                    draftProposal(previewProspect);
+                  }}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-brand-500 shadow-lg shadow-brand-600/20"
+                >
+                  <FileSignature className="h-4 w-4" /> Draft / View Proposal
+                </button>
+                <button
+                  onClick={() => {
+                    setPreviewProspect(null);
+                    setVoiceProspect(previewProspect);
+                  }}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/20"
+                >
+                  <Phone className="h-4 w-4" /> AI Voice Call
+                </button>
+                <button
+                  onClick={() => void sendEmail(previewProspect.id)}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-ink-950 px-4 py-2.5 text-xs font-semibold text-fog hover:text-white transition"
+                >
+                  <Send className="h-4 w-4" /> Direct Email
+                </button>
+                <button
+                  onClick={() => {
+                    setPreviewProspect(null);
+                    void loadNewsletter(previewProspect);
+                  }}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-2.5 text-xs font-semibold text-purple-300 transition hover:bg-purple-500/20"
+                >
+                  <Sparkles className="h-4 w-4" /> AI Newsletter Drip
+                </button>
+                <button
+                  onClick={() => {
+                    setPreviewProspect(null);
+                    setEditingProspect(previewProspect);
+                  }}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-ink-950 px-4 py-2.5 text-xs font-semibold text-fog hover:text-white transition"
+                >
+                  <Pencil className="h-4 w-4" /> Edit Stats &amp; Maps
+                </button>
+                <button
+                  onClick={() => {
+                    setPreviewProspect(null);
+                    setCommsProspect(previewProspect);
+                  }}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-ink-950 px-4 py-2.5 text-xs font-semibold text-fog hover:text-white transition"
+                >
+                  <FileText className="h-4 w-4" /> Comms History ({previewProspect.communication_logs?.length || 0})
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editingProspect && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <Card className="w-full max-w-2xl p-6 relative max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={() => setEditingProspect(null)}>
+          <Card className="w-full max-w-2xl p-6 relative max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setEditingProspect(null)}
               className="absolute right-4 top-4 text-fog hover:text-white"
@@ -778,10 +1100,10 @@ export default function CrmPage() {
               <X className="h-5 w-5" />
             </button>
             <h3 className="font-display text-xl font-bold text-white mb-1">
-              Edit Business Info &amp; CRM Profile
+              Edit Stats, Reputation &amp; Google/Apple Maps Links
             </h3>
             <p className="text-xs text-fog mb-6">
-              Update full business details, website, contact info, social handles, and maps links.
+              Full control over reputation metrics, Google Maps / GBP links, ratings, reviews, and competitor benchmarks. Saving instantly re-runs the audit &amp; pitch video.
             </p>
 
             <form onSubmit={saveBusinessInfo} className="space-y-4">
@@ -809,23 +1131,52 @@ export default function CrmPage() {
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold uppercase tracking-wider text-fog mb-1">
-                    Email Address
+                    Google Rating (e.g. 4.9)
                   </label>
                   <input
-                    value={editingProspect.email || ""}
-                    onChange={(e) => setEditingProspect({ ...editingProspect, email: e.target.value })}
+                    value={editingProspect.google_rating ?? ""}
+                    onChange={(e) => setEditingProspect({ ...editingProspect, google_rating: Number(e.target.value) || 0 })}
                     className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-xs text-white outline-none focus:border-brand-400"
                   />
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold uppercase tracking-wider text-fog mb-1">
-                    Phone Number
+                    Review Count
                   </label>
                   <input
-                    value={editingProspect.phone || ""}
-                    onChange={(e) => setEditingProspect({ ...editingProspect, phone: e.target.value })}
+                    value={editingProspect.review_count ?? ""}
+                    onChange={(e) => setEditingProspect({ ...editingProspect, review_count: Number(e.target.value) || 0 })}
                     className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-xs text-white outline-none focus:border-brand-400"
                   />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-fog mb-1">
+                    Unanswered Reviews
+                  </label>
+                  <input
+                    value={editingProspect.unanswered_reviews ?? ""}
+                    onChange={(e) => setEditingProspect({ ...editingProspect, unanswered_reviews: Number(e.target.value) || 0 })}
+                    className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-xs text-white outline-none focus:border-brand-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-fog mb-1">
+                    Competitor Name &amp; Reviews
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      value={editingProspect.competitor_name || ""}
+                      onChange={(e) => setEditingProspect({ ...editingProspect, competitor_name: e.target.value })}
+                      placeholder="Competitor Name"
+                      className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-xs text-white outline-none focus:border-brand-400"
+                    />
+                    <input
+                      value={editingProspect.competitor_reviews ?? ""}
+                      onChange={(e) => setEditingProspect({ ...editingProspect, competitor_reviews: Number(e.target.value) || 0 })}
+                      placeholder="Reviews"
+                      className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-xs text-white outline-none focus:border-brand-400"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold uppercase tracking-wider text-fog mb-1">
@@ -849,21 +1200,21 @@ export default function CrmPage() {
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold uppercase tracking-wider text-fog mb-1">
-                    Instagram Handle
+                    Email Address
                   </label>
                   <input
-                    value={editingProspect.instagram || ""}
-                    onChange={(e) => setEditingProspect({ ...editingProspect, instagram: e.target.value })}
+                    value={editingProspect.email || ""}
+                    onChange={(e) => setEditingProspect({ ...editingProspect, email: e.target.value })}
                     className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-xs text-white outline-none focus:border-brand-400"
                   />
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold uppercase tracking-wider text-fog mb-1">
-                    Facebook Handle
+                    Phone Number
                   </label>
                   <input
-                    value={editingProspect.facebook || ""}
-                    onChange={(e) => setEditingProspect({ ...editingProspect, facebook: e.target.value })}
+                    value={editingProspect.phone || ""}
+                    onChange={(e) => setEditingProspect({ ...editingProspect, phone: e.target.value })}
                     className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-xs text-white outline-none focus:border-brand-400"
                   />
                 </div>
@@ -880,7 +1231,7 @@ export default function CrmPage() {
                   type="submit"
                   className="rounded-xl bg-brand-500 px-5 py-2 text-xs font-semibold text-white hover:bg-brand-600 shadow-lg shadow-brand-500/20"
                 >
-                  Save Changes
+                  Save &amp; Regenerate Audit
                 </button>
               </div>
             </form>
@@ -888,10 +1239,9 @@ export default function CrmPage() {
         </div>
       )}
 
-      {/* Communication History, AI Transcripts & Client Fulfillment Tasks Modal */}
       {commsProspect && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <Card className="w-full max-w-3xl p-6 relative max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={() => setCommsProspect(null)}>
+          <Card className="w-full max-w-3xl p-6 relative max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setCommsProspect(null)}
               className="absolute right-4 top-4 text-fog hover:text-white"
@@ -905,7 +1255,6 @@ export default function CrmPage() {
               {commsProspect.business_name} · Track AI call transcripts, audio recordings, email open rates, and associated fulfillment tasks &amp; order modules.
             </p>
 
-            {/* Associated Fulfillment Tasks for this Client */}
             <div className="mb-6 rounded-2xl border border-brand-500/30 bg-brand-500/5 p-4 space-y-3">
               <h4 className="text-xs font-bold text-brand-300 uppercase tracking-wider flex items-center gap-1.5">
                 <ListTodo className="h-4 w-4" /> Associated Fulfillment Tasks &amp; Modules ({tasks.filter((t) => t.client.toLowerCase() === commsProspect.business_name.toLowerCase()).length})
@@ -932,7 +1281,6 @@ export default function CrmPage() {
               </div>
             </div>
 
-            {/* Email Open Tracking & Stats */}
             <div className="mb-6 grid gap-3 sm:grid-cols-2 rounded-2xl border border-white/10 bg-ink-900/60 p-4">
               <div>
                 <p className="text-[11px] uppercase tracking-wider text-fog font-semibold">Email Open Rate (Tracked)</p>
@@ -946,7 +1294,6 @@ export default function CrmPage() {
               </div>
             </div>
 
-            {/* Add Log Form */}
             <form onSubmit={addCommunicationLog} className="mb-6 rounded-2xl border border-white/10 bg-ink-900/60 p-4 space-y-3">
               <p className="text-xs font-bold text-white flex items-center gap-1.5">
                 <Sparkles className="h-4 w-4 text-brand-400" /> Log New Communication or AI Call Transcript
@@ -996,7 +1343,6 @@ export default function CrmPage() {
               </div>
             </form>
 
-            {/* Audio Recording / Voiceover Playback if available */}
             {commsProspect.voiceover_url && (
               <div className="mb-6 rounded-2xl border border-glow-500/30 bg-glow-500/10 p-4 space-y-2">
                 <p className="text-xs font-bold text-glow-300 flex items-center gap-1.5">
@@ -1006,7 +1352,6 @@ export default function CrmPage() {
               </div>
             )}
 
-            {/* Logs List */}
             <div className="space-y-3">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-fog">
                 Communication Timeline ({commsProspect.communication_logs?.length || 0})
@@ -1036,11 +1381,308 @@ export default function CrmPage() {
         </div>
       )}
 
+      {voiceProspect && (
+        <VoiceCallModal
+          p={voiceProspect}
+          onClose={() => setVoiceProspect(null)}
+        />
+      )}
+
+      {newsletterData && (
+        <NewsletterModal
+          data={newsletterData}
+          onClose={() => setNewsletterData(null)}
+          onCopy={(text) => {
+            if (navigator.clipboard) navigator.clipboard.writeText(text);
+            setToast("Copied to clipboard!");
+          }}
+        />
+      )}
+
       {toast && (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full border border-white/15 bg-ink-900 px-4 py-2 text-xs font-semibold text-white shadow-2xl">
           {toast}
         </div>
       )}
+    </div>
+  );
+}
+
+function VoiceCallModal({
+  p,
+  onClose,
+}: {
+  p: Prospect;
+  onClose: () => void;
+}) {
+  const [phone, setPhone] = useState(p.phone || "");
+  const [status, setStatus] = useState<"idle" | "dialing" | "connected" | "ended">("idle");
+  const [logs, setLogs] = useState<Array<{ sender: "ai" | "user" | "system"; text: string; time: string }>>([]);
+  const [seconds, setSeconds] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (status === "connected") {
+      timer = setInterval(() => setSeconds((s) => s + 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [status]);
+
+  const startCall = async () => {
+    if (!phone.trim()) {
+      setToast("Please enter a valid phone number.");
+      return;
+    }
+    setLoading(true);
+    setStatus("dialing");
+    setLogs([
+      { sender: "system", text: `Initiating outbound voice call to ${phone} for ${p.business_name}...`, time: new Date().toLocaleTimeString() },
+      { sender: "system", text: "Note: A2P 10DLC registration is NOT required for voice calls (strictly for SMS).", time: new Date().toLocaleTimeString() },
+    ]);
+
+    try {
+      const res = await fetch("/api/prospects/call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prospectId: p.id, phone }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setStatus("connected");
+        setLogs((prev) => [
+          ...prev,
+          { sender: "system", text: json.simulated ? "Simulated live call connected (add Twilio keys for carrier delivery)." : "Live call connected successfully via Twilio!", time: new Date().toLocaleTimeString() },
+          { sender: "ai", text: `[Alex - gpt-4.1-mini + ElevenLabs]: Hi ${p.business_name}, this is Alex from Biz Reborn. We ran a brand audit on your Google listing (${p.google_rating ?? "4.8"} stars, ${p.review_count ?? 50} reviews). Do you have 45 seconds to discuss your review growth?`, time: new Date().toLocaleTimeString() }
+        ]);
+      } else {
+        setStatus("ended");
+        setToast(json.error || "Call failed");
+      }
+    } catch {
+      setStatus("ended");
+      setToast("Call connection failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const endCall = () => {
+    setStatus("ended");
+    setLogs((prev) => [...prev, { sender: "system", text: `Call ended. Duration: ${Math.floor(seconds / 60)}m ${seconds % 60}s`, time: new Date().toLocaleTimeString() }]);
+  };
+
+  const formatTime = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s < 10 ? "0" : ""}${s}`;
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-3xl border border-white/15 bg-ink-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+          <div className="flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500/10 text-brand-400 border border-brand-500/30">
+              <PhoneCall className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-display text-base font-bold text-white">AI Voice Calling Panel</h3>
+              <p className="text-xs text-fog">{p.business_name}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-fog hover:text-white">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-4">
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-fog mb-1 block">Prospect Phone Number</label>
+            <div className="flex gap-2">
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+1 (555) 000-0000"
+                disabled={status !== "idle"}
+                className="flex-1 rounded-xl border border-white/10 bg-ink-950 px-3.5 py-2.5 text-xs text-white focus:border-brand-500 focus:outline-none disabled:opacity-50"
+              />
+              {status === "idle" && (
+                <button
+                  onClick={() => void startCall()}
+                  disabled={loading || !phone.trim()}
+                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50 shadow-lg shadow-emerald-600/20"
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
+                  Call Now
+                </button>
+              )}
+              {status === "connected" && (
+                <button
+                  onClick={endCall}
+                  className="rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-rose-500 shadow-lg shadow-rose-600/20"
+                >
+                  End ({formatTime(seconds)})
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-ink-950 p-4">
+            <div className="flex items-center justify-between text-xs text-fog border-b border-white/10 pb-2">
+              <span className="flex items-center gap-1.5 font-medium text-white">
+                <Volume2 className="h-4 w-4 text-brand-400" /> Voice Agent (ElevenLabs + GPT-4)
+              </span>
+            </div>
+
+            <div className="mt-3 h-48 overflow-auto space-y-2 pr-1 font-mono text-[11px]">
+              {logs.length === 0 ? (
+                <p className="text-mute text-center py-10">Click "Call Now" to initiate live AI voice call agent session.</p>
+              ) : (
+                logs.map((l, i) => (
+                  <div key={i} className={cn("p-2.5 rounded-xl border", l.sender === "ai" ? "bg-brand-500/10 text-brand-200 border-brand-500/30" : l.sender === "user" ? "bg-glow-500/10 text-glow-200 border-glow-500/30" : "bg-ink-900 text-fog border-white/10")}>
+                    <div className="flex justify-between text-[10px] opacity-70 mb-1">
+                      <span className="uppercase font-bold">{l.sender}</span>
+                      <span>{l.time}</span>
+                    </div>
+                    <p className="whitespace-pre-wrap">{l.text}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {toast && (
+          <div className="mt-3 rounded-xl bg-rose-500/10 border border-rose-500/30 p-2.5 text-center text-xs text-rose-300 font-semibold">
+            {toast}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NewsletterModal({
+  data,
+  onClose,
+  onCopy,
+}: {
+  data: {
+    p: Prospect;
+    sequence: {
+      email1_subject: string;
+      email1_body: string;
+      email1_html: string;
+      email2_subject: string;
+      email2_body: string;
+      email2_html: string;
+      email3_subject: string;
+      email3_body: string;
+      email3_html: string;
+    };
+  };
+  onClose: () => void;
+  onCopy: (text: string) => void;
+}) {
+  const [activeTab, setActiveTab] = useState<1 | 2 | 3>(1);
+  const [viewMode, setViewMode] = useState<"preview" | "code">("preview");
+  const { p, sequence } = data;
+  const sub = activeTab === 1 ? sequence.email1_subject : activeTab === 2 ? sequence.email2_subject : sequence.email3_subject;
+  const html = activeTab === 1 ? sequence.email1_html : activeTab === 2 ? sequence.email2_html : sequence.email3_html;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="flex max-h-[92vh] w-full max-w-3xl flex-col rounded-3xl border border-white/15 bg-ink-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+          <div>
+            <h3 className="font-display text-lg font-bold text-white">⚡ Professional HTML Email Drip · {p.business_name}</h3>
+            <p className="text-xs text-fog">Pre-rendered 3-part nurture sequencer with agency branding &amp; video audit link.</p>
+          </div>
+          <button onClick={onClose} className="text-fog hover:text-white">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
+          <div className="flex gap-2">
+            {[1, 2, 3].map((n) => (
+              <button
+                key={n}
+                onClick={() => setActiveTab(n as 1 | 2 | 3)}
+                className={cn(
+                  "rounded-xl px-4 py-2 text-xs font-semibold transition",
+                  activeTab === n ? "bg-brand-500 text-white shadow-md shadow-brand-500/20" : "bg-ink-950 text-fog hover:text-white border border-white/10",
+                )}
+              >
+                Email {n} ({n === 1 ? "The Hook" : n === 2 ? "Local Authority" : "The Close"})
+              </button>
+            ))}
+          </div>
+          <div className="flex rounded-xl bg-ink-950 p-1 border border-white/10">
+            <button
+              onClick={() => setViewMode("preview")}
+              className={cn(
+                "rounded-lg px-3 py-1.5 text-xs font-semibold transition",
+                viewMode === "preview" ? "bg-brand-500 text-white" : "text-fog hover:text-white",
+              )}
+            >
+              Live Preview
+            </button>
+            <button
+              onClick={() => setViewMode("code")}
+              className={cn(
+                "rounded-lg px-3 py-1.5 text-xs font-semibold transition",
+                viewMode === "code" ? "bg-brand-500 text-white" : "text-fog hover:text-white",
+              )}
+            >
+              HTML Code
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 flex-1 space-y-3 overflow-y-auto">
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-fog mb-1 block">Subject Line</label>
+            <div className="flex items-center justify-between rounded-xl border border-white/10 bg-ink-950 px-3.5 py-2.5 text-xs text-white">
+              <span className="font-medium">{sub}</span>
+              <button onClick={() => onCopy(sub)} className="text-brand-400 hover:underline"><Copy className="h-3.5 w-3.5" /></button>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-fog mb-1 block">Rendered Email Template</label>
+            {viewMode === "preview" ? (
+              <div className="overflow-hidden rounded-2xl border border-white/10 bg-white">
+                <iframe
+                  srcDoc={html}
+                  title="Email Preview"
+                  className="h-[360px] w-full border-0"
+                />
+              </div>
+            ) : (
+              <textarea
+                readOnly
+                value={html}
+                className="h-[360px] w-full rounded-2xl border border-white/10 bg-ink-950 p-3.5 font-mono text-[11px] text-brand-300 outline-none"
+              />
+            )}
+          </div>
+        </div>
+
+        <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-4">
+          <button
+            onClick={() => onCopy(html)}
+            className="flex items-center gap-1.5 rounded-xl bg-brand-500 px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-brand-600 shadow-lg shadow-brand-500/20"
+          >
+            <Copy className="h-4 w-4" /> Copy HTML Email #{activeTab}
+          </button>
+          <button onClick={onClose} className="rounded-xl border border-white/10 bg-ink-900 px-4 py-2.5 text-xs font-semibold text-fog hover:text-white">
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

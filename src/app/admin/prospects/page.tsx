@@ -474,10 +474,12 @@ export default function ProspectsAdmin() {
       </Link>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-sora text-2xl font-bold text-white sm:text-3xl">Lead Audits &amp; Video Pitches</h1>
+          <Link href="/admin/crm" className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-400 hover:text-brand-300">
+            <Users size={14} /> Go to Agency CRM Central Command Center (All Closing Tools) →
+          </Link>
+          <h1 className="font-sora text-2xl font-bold text-white sm:text-3xl">Lead Discovery &amp; Pitches</h1>
           <p className="mt-1 text-sm text-ink-400">
-            Upload up to 50 businesses a day. We audit their website, socials and Google reputation, build a
-            45-second video pitch with projected ROI, and hand you a proposal draft.
+            Optimized strictly for finding leads (Keyword Lead Discovery search, CSV upload, manual add) and saving/generating video audits. All closing tools, CRM tracking, and fulfillment live in <Link href="/admin/crm" className="text-brand-400 underline font-semibold">/admin/crm</Link>.
           </p>
         </div>
         <div className="flex items-center gap-2">
