@@ -47,31 +47,54 @@ export function buildBrandAudit(
     | "google_rating"
     | "review_count"
     | "unanswered_reviews"
+    | "competitor_name"
     | "competitor_reviews"
   >,
 ): BrandAuditResult {
+  const rating = p.google_rating ?? 4.0;
+  const reviews = p.review_count ?? 0;
+  const isDominating = (rating >= 4.9 && reviews >= 100) || (rating === 5.0 && reviews >= 40);
+
+  let competitorReviews = p.competitor_reviews;
+  if (!isDominating) {
+    if (competitorReviews == null || competitorReviews <= reviews) {
+      competitorReviews = Math.max(reviews + 50, Math.round(reviews * 1.35));
+    }
+  } else {
+    competitorReviews = Math.max(competitorReviews ?? 0, reviews + 25);
+  }
+
   const hasSocial = Boolean(p.instagram || p.facebook || p.tiktok);
   const report = runAudit({
     url: p.website?.trim() || `${p.business_name.toLowerCase().replace(/\s+/g, "")}.com`,
     businessName: p.business_name,
-    gbp: p.google_rating != null ? "google-business-profile" : undefined,
+    gbp: rating != null ? "google-business-profile" : undefined,
     instagram: p.instagram ?? undefined,
     facebook: p.facebook ?? undefined,
     tiktok: p.tiktok ?? undefined,
-    reviews: reviewBucket(p.review_count),
+    reviews: reviewBucket(reviews),
     postingFreq: hasSocial ? "monthly" : "never",
     leadSource: "google",
   });
 
   const painPoints = [...report.painPoints];
   const fixes = [...report.fixes];
-  const unanswered = p.unanswered_reviews ?? 0;
-  if (unanswered > 0) {
+
+  if (isDominating) {
     painPoints.unshift(
-      `${unanswered} Google review${unanswered === 1 ? "" : "s"} left unanswered — Google reads silence as neglect and ranks you lower for it.`,
+      `Local market monopoly achieved (${rating.toFixed(1)} stars, ${reviews} reviews) — primary growth bottleneck is no longer beating local competitors, but multi-location expansion and automated 24/7 AI lead capture.`,
     );
-    fixes.unshift("Review Response Automation (service #35) answers every review within hours.");
+    fixes.unshift("24/7 AI Conversational Webchat Widget & AI Voice Booking Agent (service #42) + Multi-Location Franchise SEO Architecture (service #10).");
+  } else {
+    const unanswered = p.unanswered_reviews ?? 0;
+    if (unanswered > 0) {
+      painPoints.unshift(
+        `${unanswered} Google review${unanswered === 1 ? "" : "s"} left unanswered — Google reads silence as neglect and ranks you lower for it.`,
+      );
+      fixes.unshift("Review Response Automation (service #35) answers every review within hours.");
+    }
   }
+
   if (!p.website?.trim()) {
     painPoints.push("No website on record — every search that can't find a site becomes a competitor's call.");
     fixes.push("Conversion-focused landing site with tap-to-call (service #23).");
@@ -94,7 +117,7 @@ export function buildBrandAudit(
 
   return {
     audit_report,
-    roi_projection: projectRoi(recommended_services, p.review_count, p.competitor_reviews),
+    roi_projection: projectRoi(recommended_services, reviews, competitorReviews, DEFAULT_ACV, isDominating),
     recommended_services,
   };
 }
@@ -116,6 +139,7 @@ export function projectRoi(
   reviewCount: number | null | undefined,
   competitorReviews: number | null | undefined,
   acv = DEFAULT_ACV,
+  isDominating = false,
 ): RoiProjection {
   const items = serviceIds.map((id) => SERVICE_MAP[id]).filter(Boolean);
   const investment_one_time = items.reduce((s, x) => s + x.oneTime, 0);
@@ -127,10 +151,9 @@ export function projectRoi(
   );
   const projected_monthly = Math.round(leads_per_month * acv * CLOSE_RATE);
 
-  // Revenue currently leaking to the market leader: each missing review is a
-  // proxy for lost local-pack clicks; scaled conservatively.
-  const deficit = clamp((competitorReviews ?? 0) - (reviewCount ?? 0), 5, 300);
-  const lost_monthly = Math.round(deficit * 0.08 * acv);
+  // Revenue currently leaking or expansion upside:
+  const deficit = isDominating ? 0 : clamp((competitorReviews ?? 0) - (reviewCount ?? 0), 10, 350);
+  const lost_monthly = isDominating ? Math.round(leads_per_month * acv * 0.2) : Math.round(deficit * 0.08 * acv);
 
   // Return per dollar of monthly-equivalent spend (one-time fees amortized over a year).
   const monthlyEquivalent = investment_monthly + investment_one_time / 12;

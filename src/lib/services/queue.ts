@@ -94,15 +94,28 @@ class BatchQueue {
     if (!prospect) return;
 
     try {
-      // 1. Scrape reputation
+      // 1. Scrape reputation (or use admin manual stats override if provided)
       await setProspectStatus(id, "scraping");
       this.emit({ id, status: "scraping" });
-      const scraped = await scrapeReputation({
-        business_name: prospect.business_name,
-        city: prospect.city ?? "",
-        website: prospect.website,
-      });
-      await updateProspect(id, { ...scraped });
+      let scraped;
+      if (prospect.google_rating != null && prospect.review_count != null) {
+        scraped = {
+          google_rating: Number(prospect.google_rating),
+          review_count: Number(prospect.review_count),
+          unanswered_reviews: Number(prospect.unanswered_reviews ?? 0),
+          competitor_name: prospect.competitor_name || `${prospect.business_name} Competitor`,
+          competitor_reviews: Number(prospect.competitor_reviews ?? Math.round(Number(prospect.review_count) * 1.4)),
+          audit_screenshot_url: prospect.audit_screenshot_url ?? "",
+          website_preview_url: prospect.website_preview_url ?? "",
+        };
+      } else {
+        scraped = await scrapeReputation({
+          business_name: prospect.business_name,
+          city: prospect.city ?? "",
+          website: prospect.website,
+        });
+        await updateProspect(id, { ...scraped });
+      }
 
       // 2. Brand audit (website + socials + reputation) and ROI projection
       const audit = buildBrandAudit({ ...prospect, ...scraped });

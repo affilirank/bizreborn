@@ -78,6 +78,12 @@ function shorten(s: string, max = 110): string {
 export function fallbackScript(input: ScriptInput): string {
   const rating = input.google_rating ?? 4.0;
   const reviews = input.review_count ?? 0;
+  const isDominating = (rating >= 4.9 && reviews >= 100) || (rating === 5.0 && reviews >= 40);
+
+  if (isDominating) {
+    return `Hi ${input.business_name}, this is Biz Reborn Marketing. You have achieved a rare local market monopoly with ${rating} stars and ${reviews} reviews. Your challenge is no longer beating local competitors, but multi-location expansion, 24/7 AI voice receptionists, and automated lead capture. Email ${LEADGEN.email} today to claim your scaling growth playbook.`;
+  }
+
   const unanswered = input.unanswered_reviews ?? Math.max(1, Math.round(reviews * 0.7));
   const competitor = input.competitor_name ?? "your top local competitor";
   const compReviews = input.competitor_reviews ?? 0;

@@ -31,8 +31,8 @@ export type PitchData = Pick<
   | "thumbnail_url"
 >;
 
-const SCENES = [8, 11, 9, 10, 7]; // seconds — 45s total
-const TOTAL = SCENES.reduce((a, b) => a + b, 0);
+const BASE_SCENES = [8, 11, 9, 10, 7]; // seconds — 45s total
+const BASE_TOTAL = BASE_SCENES.reduce((a, b) => a + b, 0);
 const money = (n: number | null | undefined) =>
   n == null ? "—" : `$${Math.round(n).toLocaleString("en-US")}`;
 
@@ -79,10 +79,18 @@ function ScenePlayer({
   const [playing, setPlaying] = useState(autoPlay);
   const [started, setStarted] = useState(autoPlay);
   const [muted, setMuted] = useState(autoPlay);
+  const [audioDuration, setAudioDuration] = useState<number>(45);
   const raf = useRef<number | null>(null);
   const startedAt = useRef<number>(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const speechOk = typeof window !== "undefined" && "speechSynthesis" in window;
+
+  const { scenes: SCENES, total: TOTAL } = useMemo(() => {
+    if (audioDuration <= BASE_TOTAL) return { scenes: BASE_SCENES, total: BASE_TOTAL };
+    const factor = audioDuration / BASE_TOTAL;
+    const scaled = BASE_SCENES.map((d) => d * factor);
+    return { scenes: scaled, total: audioDuration };
+  }, [audioDuration]);
 
   const scene = useMemo(() => {
     let acc = 0;
@@ -91,7 +99,7 @@ function ScenePlayer({
       if (t < acc) return i;
     }
     return SCENES.length - 1;
-  }, [t]);
+  }, [t, SCENES]);
 
   // Timer loop
   useEffect(() => {
@@ -180,7 +188,19 @@ function ScenePlayer({
     <div
       className={`@container relative aspect-[9/16] w-full select-none overflow-hidden rounded-2xl border border-ink-800 bg-[#0B0F17] font-sora text-white ${className}`}
     >
-      {p.voiceover_url && <audio ref={audioRef} src={p.voiceover_url} preload="auto" />}
+      {p.voiceover_url && (
+        <audio
+          ref={audioRef}
+          src={p.voiceover_url}
+          preload="auto"
+          onLoadedMetadata={(e) => {
+            const dur = e.currentTarget.duration;
+            if (dur && !isNaN(dur) && dur > 45) {
+              setAudioDuration(dur);
+            }
+          }}
+        />
+      )}
 
       {/* Backdrop */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.35),transparent_60%),radial-gradient(ellipse_at_bottom,rgba(16,185,129,0.2),transparent_60%)]" />

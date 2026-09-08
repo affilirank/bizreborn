@@ -20,6 +20,7 @@ import {
   X,
   ArrowLeft,
   FileSignature,
+  Compass,
   Pencil,
   Database,
   TrendingUp,
@@ -139,6 +140,11 @@ const EMPTY_MANUAL = {
   instagram: "",
   facebook: "",
   tiktok: "",
+  google_rating: "",
+  review_count: "",
+  unanswered_reviews: "",
+  competitor_name: "",
+  competitor_reviews: "",
 };
 
 export default function ProspectsAdmin() {
@@ -155,6 +161,7 @@ export default function ProspectsAdmin() {
   const [editing, setEditing] = useState<Prospect | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showSocials, setShowSocials] = useState(false);
+  const [showDiscovery, setShowDiscovery] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [manual, setManual] = useState(EMPTY_MANUAL);
 
@@ -448,9 +455,25 @@ export default function ProspectsAdmin() {
               <Input value={manual.business_name} onChange={(v) => setManual({ ...manual, business_name: v })} placeholder="Business name *" />
               <Input value={manual.city} onChange={(v) => setManual({ ...manual, city: v })} placeholder="City" />
               <Input value={manual.website} onChange={(v) => setManual({ ...manual, website: v })} placeholder="Website" />
-              <Input value={manual.email} onChange={(v) => setManual({ ...manual, email: v })} placeholder="Email (for the proposal)" />
+              <Input value={manual.email} onChange={(v) => setManual({ ...manual, email: v })} placeholder="Email (for proposal)" />
               <Input value={manual.phone} onChange={(v) => setManual({ ...manual, phone: v })} placeholder="Phone" />
-              <button onClick={() => setShowSocials((s) => !s)} className="text-[11px] font-semibold text-brand-400 hover:underline">
+              
+              <div className="pt-2 border-t border-ink-800/60">
+                <p className="text-xs font-semibold text-brand-400 mb-2">Exact Reputation Stats (Optional — bypasses AI)</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input value={manual.google_rating} onChange={(v) => setManual({ ...manual, google_rating: v })} placeholder="Rating (e.g. 4.9)" />
+                  <Input value={manual.review_count} onChange={(v) => setManual({ ...manual, review_count: v })} placeholder="Reviews (e.g. 142)" />
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <Input value={manual.unanswered_reviews} onChange={(v) => setManual({ ...manual, unanswered_reviews: v })} placeholder="Unanswered (e.g. 2)" />
+                  <Input value={manual.competitor_reviews} onChange={(v) => setManual({ ...manual, competitor_reviews: v })} placeholder="Comp. Reviews" />
+                </div>
+                <div className="mt-2">
+                  <Input value={manual.competitor_name} onChange={(v) => setManual({ ...manual, competitor_name: v })} placeholder="Competitor Name (e.g. Apex LLC)" />
+                </div>
+              </div>
+
+              <button onClick={() => setShowSocials((s) => !s)} className="text-[11px] font-semibold text-brand-400 hover:underline pt-1">
                 {showSocials ? "Hide" : "Add"} social handles (Instagram / Facebook / TikTok)
               </button>
               {showSocials && (
@@ -548,6 +571,17 @@ export default function ProspectsAdmin() {
           onSaved={(updated) => {
             setProspects((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
             setEditing(null);
+          }}
+        />
+      )}
+
+      
+      {showDiscovery && (
+        <DiscoveryModal
+          onClose={() => setShowDiscovery(false)}
+          onImported={() => {
+            setShowDiscovery(false);
+            void refresh();
           }}
         />
       )}
@@ -941,6 +975,206 @@ function EditModal({
             {saving ? <Loader2 size={14} className="animate-spin" /> : null}
             Save &amp; Regenerate Audit &amp; Video
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface DiscoveredLead {
+  business_name: string;
+  city: string;
+  website: string;
+  email: string;
+  phone: string;
+  google_rating: number;
+  review_count: number;
+  competitor_name: string;
+  competitor_reviews: number;
+}
+
+function DiscoveryModal({
+  onClose,
+  onImported,
+}: {
+  onClose: () => void;
+  onImported: () => void;
+}) {
+  const [keyword, setKeyword] = useState("Roofing Contractor");
+  const [city, setCity] = useState("Port St. Lucie, FL");
+  const [count, setCount] = useState("30");
+  const [searching, setSearching] = useState(false);
+  const [results, setResults] = useState<DiscoveredLead[]>([]);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [importing, setImporting] = useState(false);
+
+  const search = async () => {
+    if (!keyword.trim() || !city.trim()) return;
+    setSearching(true);
+    try {
+      const res = await fetch("/api/prospects/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keyword: keyword.trim(), city: city.trim(), count: Number(count) || 30 }),
+      });
+      const json = await res.json();
+      if (res.ok && Array.isArray(json.businesses)) {
+        setResults(json.businesses);
+        setSelected(new Set(json.businesses.map((_: DiscoveredLead, i: number) => i)));
+      } else {
+        alert(json.error || "Search failed");
+      }
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const toggleAll = () => {
+    if (selected.size === results.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(results.map((_, i) => i)));
+    }
+  };
+
+  const toggleOne = (idx: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
+  const importSelected = async () => {
+    if (selected.size === 0) return;
+    setImporting(true);
+    try {
+      const rows = Array.from(selected).map((i) => results[i]).filter(Boolean);
+      const res = await fetch("/api/prospects/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prospects: rows }),
+      });
+      const json = await res.json();
+      if (res.ok && Array.isArray(json.prospects)) {
+        const ids = (json.prospects as Prospect[]).map((p) => p.id);
+        // Kick off audit & video generation for all imported leads
+        await fetch("/api/prospects", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "generate", ids }),
+        });
+        onImported();
+      } else {
+        alert(json.error || "Import failed");
+      }
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
+      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl border border-ink-800 bg-ink-900 p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-ink-800 pb-4">
+          <div>
+            <h3 className="font-sora text-lg font-bold text-white">🔍 Keyword Lead Discovery</h3>
+            <p className="text-xs text-ink-400">Search for local businesses by keyword and city, pick up to 50, and start audits &amp; pitches instantly.</p>
+          </div>
+          <button onClick={onClose} className="text-ink-400 hover:text-white">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-[1.5fr_1.5fr_120px_auto]">
+          <div>
+            <label className="text-[11px] text-ink-400">Keyword / Industry</label>
+            <Input value={keyword} onChange={setKeyword} placeholder="e.g. Plumber, Roofing, Dentist" />
+          </div>
+          <div>
+            <label className="text-[11px] text-ink-400">City / Location</label>
+            <Input value={city} onChange={setCity} placeholder="e.g. Miami, FL" />
+          </div>
+          <div>
+            <label className="text-[11px] text-ink-400">Max Count</label>
+            <Input value={count} onChange={setCount} placeholder="30" />
+          </div>
+          <div className="flex items-end">
+            <button
+              onClick={() => void search()}
+              disabled={searching || !keyword.trim() || !city.trim()}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-brand-500 disabled:opacity-50 sm:w-auto"
+            >
+              {searching ? <Loader2 size={14} className="animate-spin" /> : <Compass size={14} />}
+              Search Businesses
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 min-h-[260px] flex-1 overflow-y-auto rounded-xl border border-ink-800/60 bg-ink-950/40 p-3">
+          {searching ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <Loader2 size={28} className="animate-spin text-brand-400" />
+              <p className="mt-3 text-xs text-ink-400">Discovering real local businesses for {keyword} in {city}…</p>
+            </div>
+          ) : results.length === 0 ? (
+            <div className="py-20 text-center text-xs text-ink-500">
+              Enter a keyword and city above and click &ldquo;Search Businesses&rdquo; to discover leads.
+            </div>
+          ) : (
+            <div>
+              <div className="mb-2 flex items-center justify-between border-b border-ink-800 pb-2 text-xs text-ink-400">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={selected.size === results.length} onChange={toggleAll} className="accent-brand-600" />
+                  <span>Select All ({selected.size} of {results.length} selected)</span>
+                </label>
+                <span>Ready to import</span>
+              </div>
+              <div className="space-y-2">
+                {results.map((b, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => toggleOne(idx)}
+                    className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg border p-3 transition ${
+                      selected.has(idx) ? "border-brand-500/40 bg-brand-500/10" : "border-ink-800/60 bg-ink-900/40 hover:border-ink-700"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <input type="checkbox" checked={selected.has(idx)} onChange={() => toggleOne(idx)} className="accent-brand-600" />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-white">{b.business_name}</p>
+                        <p className="truncate text-xs text-ink-400">{b.city} · {b.website || "No website"} · {b.phone || "No phone"}</p>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right text-xs">
+                      <span className="font-bold text-amber-400">★ {b.google_rating}</span>
+                      <span className="text-ink-400"> ({b.review_count} rev)</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 flex items-center justify-between border-t border-ink-800 pt-4">
+          <p className="text-xs text-ink-400">
+            {selected.size} businesses selected (up to 50 at a time).
+          </p>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="rounded-lg border border-ink-800 px-4 py-2 text-xs font-medium text-ink-300 hover:text-white">
+              Cancel
+            </button>
+            <button
+              onClick={() => void importSelected()}
+              disabled={importing || selected.size === 0}
+              className="flex items-center gap-2 rounded-lg bg-glow-600 px-5 py-2 text-xs font-semibold text-white transition hover:bg-glow-500 disabled:opacity-50"
+            >
+              {importing ? <Loader2 size={14} className="animate-spin" /> : <Film size={14} />}
+              Import &amp; Start Audits &amp; Pitches ({selected.size})
+            </button>
+          </div>
         </div>
       </div>
     </div>

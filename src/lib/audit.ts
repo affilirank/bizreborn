@@ -130,9 +130,36 @@ export function runAudit(input: AuditInput): AuditReport {
   if (!hasHttps || isSubpage) {
     painPoints.push("No SSL / shallow crawl structure — Google can't index your pages with full trust.");
     fixes.push("Migrate to HTTPS and flatten your site architecture with hyper-local schema.");
-  } else if (localSeo < 45) {
-    painPoints.push("Missing LocalBusiness schema markup — search engines don't know your service radius.");
-    fixes.push("Hyper-local SEO On-Page Schema Injection (service #4).");
+  }
+
+  if (localSeo < 65) {
+    painPoints.push("Missing or incomplete LocalBusiness schema markup — search engines cannot parse your exact service radius and offerings.");
+    fixes.push("Hyper-Local SEO On-Page Schema Injection (service #4) to dominate rich snippets.");
+  }
+
+  if (localSeo < 70) {
+    painPoints.push("Blind spots in neighborhood map rankings — you rank in your immediate block but vanish two miles away.");
+    fixes.push("Geo-Grid Local Map Pack Tracking & Optimization (service #3) to systematically capture surrounding zip codes.");
+  }
+
+  if (reputation < 70) {
+    painPoints.push("Limited local authority backlinks and community PR — leaving top map-pack positioning vulnerable to rivals.");
+    fixes.push("Local Backlink Acquisition & Community PR (service #7) to build unbreakable domain authority.");
+  }
+
+  if (conversion < 60) {
+    painPoints.push(`Sub-optimal mobile load speed and performance (estimated ${(3 + rand() * 4).toFixed(1)}s) — bleeding mobile searchers before your page even paints.`);
+    fixes.push("Mobile-First Speed & Performance Optimization (service #22) for instant sub-2s loads.");
+  }
+
+  if (conversion < 65) {
+    painPoints.push("No missed-call text-back infrastructure — potential clients who call and get voicemail bounce to your competitors instantly.");
+    fixes.push("Instant 'Missed-Call Text-Back' Automation Setup (service #41) to convert missed calls into booked texts.");
+  }
+
+  if (conversion < 70) {
+    painPoints.push("Lack of 24/7 AI booking agent / webchat concierge — inquiries arriving after hours or during peak calls are lost until morning.");
+    fixes.push("24/7 AI Conversational Webchat Widget & AI Voice Booking Agent (service #42).");
   }
 
   if (!input.gbp) {
