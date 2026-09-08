@@ -27,7 +27,6 @@ import {
 import { BlogBuilder } from "@/components/dashboard/blog-builder";
 import { OfferBuilder } from "@/components/dashboard/offer-builder";
 import { ReportBuilder } from "@/components/dashboard/report-builder";
-import { TasksTab } from "@/components/dashboard/tasks-tab";
 import { AuditReportView } from "@/components/audit/audit-widget";
 import { Container } from "@/components/ui/section";
 import { KpiCard } from "@/components/dashboard/kpi-card";
@@ -127,16 +126,7 @@ export function AdminDashboard() {
   const [leads, setLeads] = React.useState<Lead[]>(() =>
     demoEnabled() ? getLeads() : [],
   );
-  const [tasks, setTasks] = React.useState<AdminTask[]>(() =>
-    demoEnabled()
-      ? [
-          { id: "T-104", service: "GBP Optimization & Audit", client: "Ace Plumbing", assignee: null, due: "Aug 6", priority: "high", status: "queued", estimatedHours: 6, completedAt: null },
-          { id: "T-105", service: "Short-Form Video Batch (15)", client: "Twin Peaks Barbershop", assignee: null, due: "Aug 7", priority: "high", status: "queued", estimatedHours: 10, completedAt: null },
-          { id: "T-106", service: "Missed-Call Text-Back Setup", client: "Rapid Air HVAC", assignee: null, due: "Aug 8", priority: "medium", status: "queued", estimatedHours: 4, completedAt: null },
-          { id: "T-107", service: "Review Request Campaigns", client: "Harbor Realty", assignee: null, due: "Aug 10", priority: "low", status: "queued", estimatedHours: 3, completedAt: null },
-        ]
-      : [],
-  );
+
   const [tab, setTab] = React.useState<"overview" | "offers" | "reports" | "blog">("overview");
 
   // Deep link: /admin?tab=offers (used by "Draft proposal" on Lead Pitches).
@@ -216,7 +206,6 @@ export function AdminDashboard() {
     void listAudits().then(setAudits).catch(() => {});
     void listOrders().then(setOrders).catch(() => {});
     void listLeads().then(setLeads).catch(() => {});
-    void listTasks().then(setTasks).catch(() => {});
     void listSubscriptions().then(setSubs).catch(() => {});
     void listWorkLogs().then(setWorkLogs).catch(() => {});
   }, []);
@@ -252,109 +241,6 @@ export function AdminDashboard() {
   }
 
   const mrr = orders.reduce((s, o) => s + (o.counts?.monthly ?? 0), 0);
-
-  const assign = (id: string, assignee: string | null) => {
-    setTasks((prev) => prev.map((x) => (x.id === id ? { ...x, assignee } : x)));
-    void updateTask(id, { assignee }).catch(() => {});
-  };
-
-  const complete = async (id: string) => {
-    const task = tasks.find((x) => x.id === id);
-    const hours = task?.estimatedHours ?? 0;
-    setTasks((prev) =>
-      prev.map((x) =>
-        x.id === id
-          ? {
-              ...x,
-              status: "completed",
-              completedAt: new Date().toISOString(),
-            }
-          : x,
-      ),
-    );
-    if (demoEnabled()) {
-      const log = await addWorkLog({
-        taskId: id,
-        clientName: task?.client ?? "",
-        service: task?.service ?? "",
-        workDate: new Date().toISOString().slice(0, 10),
-        hours,
-      });
-      if (log) setWorkLogs((prev) => [log, ...prev]);
-      return;
-    }
-    void markTaskDone(id, hours).then(() => {
-      void listWorkLogs().then(setWorkLogs).catch(() => {});
-    }).catch(() => {});
-  };
-
-  const removeTask = (id: string) => {
-    setTasks((prev) => prev.filter((x) => x.id !== id));
-    if (!demoEnabled()) void deleteTask(id).catch(() => {});
-  };
-
-  const setHours = (id: string, hours: number) => {
-    setTasks((prev) =>
-      prev.map((x) => (x.id === id ? { ...x, estimatedHours: hours } : x)),
-    );
-    if (!demoEnabled()) void updateTask(id, { estimatedHours: hours }).catch(() => {});
-  };
-
-  const reopenTask = (id: string) => {
-    setTasks((prev) =>
-      prev.map((x) =>
-        x.id === id
-          ? { ...x, status: "in_progress", completedAt: null }
-          : x,
-      ),
-    );
-    void updateTask(id, { status: "in_progress", completedAt: null }).catch(
-      () => {},
-    );
-  };
-
-  const handleAddTask = async (t: {
-    client: string;
-    service: string;
-    due: string;
-    priority: AdminTask["priority"];
-    hours: string;
-  }) => {
-    if (!t.service.trim()) return;
-    const created = await createTask({
-      client: t.client.trim(),
-      service: t.service.trim(),
-      due: t.due || undefined,
-      priority: t.priority,
-      estimatedHours: Number(t.hours) || 0,
-    }).catch(() => null);
-    if (created) {
-      setTasks((prev) => [created, ...prev]);
-    } else if (demoEnabled()) {
-      setTasks((prev) => [
-        {
-          id: `T-${Date.now()}`,
-          service: t.service.trim(),
-          client: t.client.trim() || "Unassigned client",
-          assignee: null,
-          due: t.due
-            ? new Date(t.due).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-              })
-            : "No due date",
-          priority: t.priority,
-          status: "queued",
-          estimatedHours: Number(t.hours) || 0,
-          completedAt: null,
-        },
-        ...prev,
-      ]);
-    }
-  };
-
-  const taskInputCls =
-    "rounded-xl border border-white/10 bg-ink-800 px-3 py-2 text-xs font-medium text-white outline-none transition focus:border-brand-400/60";
 
   const DEMO_SUBS = [
     { name: "Twin Peaks Barbershop", plan: "Growth Engine", amount: "$2,497", renews: "Aug 14", status: "active" },
@@ -476,7 +362,7 @@ export function AdminDashboard() {
           <KpiCard label="Audit requests" value={String(audits.length)} delta="awaiting review" icon={Radar} accent="brand" />
           <KpiCard label="Active clients" value={String(orders.length)} delta="service menus" icon={Users} accent="emerald" />
           <KpiCard label="Monthly recurring" value={`$${mrr.toLocaleString()}`} delta="client retainers" icon={CreditCard} accent="amber" />
-          <KpiCard label="Open tasks" value={String(tasks.filter((t) => t.status !== "completed").length)} delta={`${tasks.filter((t) => !t.assignee).length} unassigned`} icon={ListTodo} accent="rose" />
+          <KpiCard label="Captured leads" value={String(leads.length)} delta="CRM pipeline" icon={Users} accent="rose" />
         </div>
 
         {/* Audit requests + client orders */}
@@ -606,17 +492,7 @@ export function AdminDashboard() {
           </ul>
         </Card>
 
-                <div className="mt-6">
-          <TasksTab
-            tasks={tasks}
-            onAssign={assign}
-            onComplete={complete}
-            onReopen={reopenTask}
-            onRemove={removeTask}
-            onSetHours={setHours}
-            onAddTask={handleAddTask}
-          />
-        </div>
+        
 
         {/* Work log */}
         <Card className="mt-6 p-6">
