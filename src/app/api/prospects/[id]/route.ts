@@ -49,11 +49,12 @@ export async function PUT(
   if (body.tiktok !== undefined) patch.tiktok = String(body.tiktok).trim() || null;
   if (body.google_maps_link !== undefined) patch.google_maps_link = String(body.google_maps_link).trim() || null;
 
-  if (body.google_rating !== undefined) patch.google_rating = Number(body.google_rating) || null;
-  if (body.review_count !== undefined) patch.review_count = Number(body.review_count) || null;
-  if (body.unanswered_reviews !== undefined) patch.unanswered_reviews = Number(body.unanswered_reviews) || null;
+  // Honor exact entered stats (or null if blank), preventing silent fake metrics.
+  if (body.google_rating !== undefined) patch.google_rating = body.google_rating !== "" && body.google_rating !== null && !isNaN(Number(body.google_rating)) ? Number(body.google_rating) : null;
+  if (body.review_count !== undefined) patch.review_count = body.review_count !== "" && body.review_count !== null && !isNaN(Number(body.review_count)) ? Number(body.review_count) : null;
+  if (body.unanswered_reviews !== undefined) patch.unanswered_reviews = body.unanswered_reviews !== "" && body.unanswered_reviews !== null && !isNaN(Number(body.unanswered_reviews)) ? Number(body.unanswered_reviews) : null;
   if (body.competitor_name !== undefined) patch.competitor_name = String(body.competitor_name).trim() || null;
-  if (body.competitor_reviews !== undefined) patch.competitor_reviews = Number(body.competitor_reviews) || null;
+  if (body.competitor_reviews !== undefined) patch.competitor_reviews = body.competitor_reviews !== "" && body.competitor_reviews !== null && !isNaN(Number(body.competitor_reviews)) ? Number(body.competitor_reviews) : null;
 
   // Update base fields first
   let updated = await updateProspect(id, patch);

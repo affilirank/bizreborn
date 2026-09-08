@@ -39,10 +39,14 @@ export async function POST(req: Request) {
       prompt,
       systemPrompt: "You are an expert B2B agency copywriter specializing in high-converting local marketing email drips.",
       jsonMode: true,
+      maxTokens: 1500,
     });
 
     if (text) {
-      parsed = JSON.parse(text.replace(/```json/gi, "").replace(/```/g, "").trim());
+      const cleaned = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      const jsonString = jsonMatch ? jsonMatch[0] : cleaned;
+      parsed = JSON.parse(jsonString);
     }
   } catch (err) {
     console.error("[newsletter] generation failed:", err);

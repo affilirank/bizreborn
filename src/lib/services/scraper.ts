@@ -1,11 +1,11 @@
-import { callAi } from "@/lib/ai-router";
+import { callAi, parseAiJson } from "@/lib/ai-router";
 
 export interface ScrapeResult {
-  google_rating: number;
-  review_count: number;
-  unanswered_reviews: number;
-  competitor_name: string;
-  competitor_reviews: number;
+  google_rating: number | null;
+  review_count: number | null;
+  unanswered_reviews: number | null;
+  competitor_name: string | null;
+  competitor_reviews: number | null;
   instagram?: string | null;
   facebook?: string | null;
   audit_screenshot_url: string;
@@ -21,6 +21,7 @@ export interface ScrapeInput {
 
 /**
  * Reputation & social handle scraper using the smart AI router.
+ * If no explicit public rating/reviews are found, returns null without synthesizing arbitrary fake numbers.
  */
 export async function scrapeReputation(input: ScrapeInput): Promise<ScrapeResult> {
   const queryText = input.google_maps_link ? `${input.business_name} ${input.city} [Maps Link: ${input.google_maps_link}]` : `${input.business_name} ${input.city}`;
@@ -29,19 +30,28 @@ export async function scrapeReputation(input: ScrapeInput): Promise<ScrapeResult
     const text = await callAi({
       prompt: `Target: ${queryText}`,
       systemPrompt:
-        "You are a precise business data extraction agent. Given a business name and city, return ONLY a JSON object with: google_rating (number), review_count (number), unanswered_reviews (number), competitor_name (string), competitor_reviews (number), instagram (string handle or empty), facebook (string name/url or empty). No markdown, raw JSON only.",
+        "You are a precise business data extraction agent. Given a business name and city, return ONLY a valid JSON object with keys: google_rating (number or null), review_count (number or null), unanswered_reviews (number or null), competitor_name (string or null), competitor_reviews (number or null), instagram (string handle or empty), facebook (string name/url or empty). If exact public metrics are unknown or unverified, return null for numbers. Example format: {\"google_rating\": null, \"review_count\": null, ...}. Raw JSON object only, no markdown code fences, no conversational filler.",
       jsonMode: true,
     });
 
     if (text) {
-      const parsed = JSON.parse(text.replace(/```json/gi, "").replace(/```/g, "").trim());
-      if (parsed && typeof parsed.google_rating === "number") {
+      const parsed = parseAiJson<{
+        google_rating?: number | null;
+        review_count?: number | null;
+        unanswered_reviews?: number | null;
+        competitor_name?: string | null;
+        competitor_reviews?: number | null;
+        instagram?: string | null;
+        facebook?: string | null;
+      }>(text);
+
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
         return {
-          google_rating: Number(parsed.google_rating) || 5.0,
-          review_count: Number(parsed.review_count) || 130,
-          unanswered_reviews: Number(parsed.unanswered_reviews) || 0,
-          competitor_name: String(parsed.competitor_name || "Top Local Competitor"),
-          competitor_reviews: Number(parsed.competitor_reviews || 180),
+          google_rating: parsed.google_rating != null && !isNaN(Number(parsed.google_rating)) ? Number(parsed.google_rating) : null,
+          review_count: parsed.review_count != null && !isNaN(Number(parsed.review_count)) ? Number(parsed.review_count) : null,
+          unanswered_reviews: parsed.unanswered_reviews != null && !isNaN(Number(parsed.unanswered_reviews)) ? Number(parsed.unanswered_reviews) : null,
+          competitor_name: parsed.competitor_name ? String(parsed.competitor_name).trim() : null,
+          competitor_reviews: parsed.competitor_reviews != null && !isNaN(Number(parsed.competitor_reviews)) ? Number(parsed.competitor_reviews) : null,
           instagram: String(parsed.instagram || "").trim() || null,
           facebook: String(parsed.facebook || "").trim() || null,
           audit_screenshot_url: "",
@@ -66,20 +76,16 @@ function hashString(s: string): number {
 }
 
 function mockScrape(input: ScrapeInput): ScrapeResult {
-  const seed = hashString(`${input.business_name}|${input.city}`) % 100;
-  const rating = 5.0;
-  const reviewCount = 130;
-  const unanswered = 0;
-  const competitorReviews = 180;
-  const competitorName = "Market Leader Realty";
   const cleanName = input.business_name.toLowerCase().replace(/[^a-z0-9]/g, "");
 
+  // Do NOT synthesize arbitrary fake ratings or review counts silently without indication.
+  // Return null when unverified so metrics are never falsely presented.
   return {
-    google_rating: rating,
-    review_count: reviewCount,
-    unanswered_reviews: unanswered,
-    competitor_name: competitorName,
-    competitor_reviews: competitorReviews,
+    google_rating: null,
+    review_count: null,
+    unanswered_reviews: null,
+    competitor_name: null,
+    competitor_reviews: null,
     instagram: `@${cleanName}`,
     facebook: `${cleanName}official`,
     audit_screenshot_url: "",

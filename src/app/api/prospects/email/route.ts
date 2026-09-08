@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { isAdminOrDemo } from "@/lib/supabase/server";
 import { getProspectById } from "@/lib/prospects";
-import { LEADGEN } from "@/lib/config";
+import { callAi } from "@/lib/ai-router";
 import { renderProfessionalEmailHtml } from "@/lib/email-template";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Direct Email Sender API using Resend with professional HTML templates.
+ * Direct Email Sender API using Resend with professional HTML templates and AI-powered custom copy.
  */
 export async function POST(req: Request) {
   if (!(await isAdminOrDemo())) {
@@ -35,14 +35,40 @@ export async function POST(req: Request) {
   const subject =
     customSubject || `Your Custom Brand Growth Audit: ${p.business_name} × Biz Reborn`;
   
-  const html =
-    customHtml ||
-    renderProfessionalEmailHtml({
-      prospect: p,
-      subject,
-      body: `We ran a deep multi-point brand audit on ${p.business_name} across Google Maps, website speed, and local social velocity.\n\nYour current Google listing sits at ${p.google_rating ?? "—"} stars with ${p.review_count ?? 0} reviews. Meanwhile, your top local competitor is pulling significantly more search traffic and calls.\n\nWe mapped out the exact fixes needed to lock in your Top 3 spot in the local map pack. Want to grab 10 minutes this week to walk through it?`,
-      stepNumber: 1,
-    });
+  let emailBody = customHtml;
+  if (!emailBody) {
+    const flaws = p.audit_report?.pain_points?.join("; ") || "Review velocity and local SEO gaps";
+    const prompt = [
+      `Business: ${p.business_name}, City: ${p.city || "Local"}, Rating: ${p.google_rating != null ? `${p.google_rating} stars (${p.review_count ?? 0} reviews)` : "Unverified"}`,
+      `Top Flaws: ${flaws}`,
+      `Write a high-converting, personalized B2B outreach email pitching our local marketing agency services (Biz Reborn).`,
+      `Return ONLY the email body text (no subject line, no markdown fences, plain text with line breaks). Keep it punchy, professional, and under 150 words.`,
+    ].join("\n");
+
+    try {
+      const text = await callAi({
+        prompt,
+        systemPrompt: "You are an expert B2B copywriter specializing in high-converting local marketing outreach.",
+        maxTokens: 500,
+      });
+      if (text) {
+        emailBody = text.replace(/```/g, "").trim();
+      }
+    } catch (err) {
+      console.error("[email] AI generation failed, using fallback:", err);
+    }
+
+    if (!emailBody) {
+      emailBody = `We ran a deep multi-point brand audit on ${p.business_name} across Google Maps, website speed, and local social velocity.\n\nYour current Google listing sits at ${p.google_rating != null ? `${p.google_rating} stars with ${p.review_count ?? 0} reviews` : "an unverified profile"}.\n\nWe mapped out the exact fixes needed to lock in your Top 3 spot in the local map pack. Want to grab 10 minutes this week to walk through it?`;
+    }
+  }
+
+  const html = renderProfessionalEmailHtml({
+    prospect: p,
+    subject,
+    body: emailBody,
+    stepNumber: 1,
+  });
 
   const resendKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.EMAIL_FROM || `Biz Reborn Marketing <hello@bizreborn.com>`;

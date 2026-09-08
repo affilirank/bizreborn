@@ -51,9 +51,10 @@ export function buildBrandAudit(
     | "competitor_reviews"
   >,
 ): BrandAuditResult {
+  const hasVerifiedStats = p.google_rating != null && p.review_count != null;
   const rating = p.google_rating ?? 4.0;
   const reviews = p.review_count ?? 0;
-  const isDominating = (rating >= 4.9 && reviews >= 100) || (rating === 5.0 && reviews >= 40);
+  const isDominating = hasVerifiedStats && ((rating >= 4.9 && reviews >= 100) || (rating === 5.0 && reviews >= 40));
 
   let competitorReviews = p.competitor_reviews;
   if (!isDominating) {
@@ -68,7 +69,7 @@ export function buildBrandAudit(
   const report = runAudit({
     url: p.website?.trim() || `${p.business_name.toLowerCase().replace(/\s+/g, "")}.com`,
     businessName: p.business_name,
-    gbp: rating != null ? "google-business-profile" : undefined,
+    gbp: p.google_rating != null ? "google-business-profile" : undefined,
     instagram: p.instagram ?? undefined,
     facebook: p.facebook ?? undefined,
     tiktok: p.tiktok ?? undefined,
@@ -80,7 +81,10 @@ export function buildBrandAudit(
   const painPoints = [...report.painPoints];
   const fixes = [...report.fixes];
 
-  if (isDominating) {
+  if (!hasVerifiedStats) {
+    painPoints.unshift("Google Business Profile rating and review count unverified / not provided — claim and optimize your GBP listing to display real public metrics.");
+    fixes.unshift("Google Business Profile Setup & Verification (service #1).");
+  } else if (isDominating) {
     painPoints.unshift(
       `Local market monopoly achieved (${rating.toFixed(1)} stars, ${reviews} reviews) — primary growth bottleneck is no longer beating local competitors, but multi-location expansion and automated 24/7 AI lead capture.`,
     );
@@ -96,7 +100,7 @@ export function buildBrandAudit(
   }
 
   if (!p.website?.trim()) {
-    painPoints.push("No website on record — every search that can't find a site becomes a competitor's call.");
+    painPoints.push("No website on record — every search that cannot find a site becomes a competitor's call.");
     fixes.push("Conversion-focused landing site with tap-to-call (service #23).");
   }
 

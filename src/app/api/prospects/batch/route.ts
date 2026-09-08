@@ -13,6 +13,7 @@ export const maxDuration = 60;
 /**
  * Batch create prospects. Instantly computes audit, ROI, script, and poster
  * so leads are 100% READY immediately for the pitch generator.
+ * Honors exact user/admin entered stats (e.g. Daniel Brown, LPT Realty) or sets unverified stats to null.
  */
 export async function POST(req: Request) {
   if (!(await isAdminOrDemo())) {
@@ -49,12 +50,12 @@ export async function POST(req: Request) {
     const phone = str(row.phone);
     const google_maps_link = str(row.google_maps_link || row.google_maps_url || row.maps_link);
 
-    // Reputation stats (either user-provided or defaults)
-    const google_rating = row.google_rating !== undefined && row.google_rating !== "" ? Number(row.google_rating) : 5.0;
-    const review_count = row.review_count !== undefined && row.review_count !== "" ? Number(row.review_count) : 130;
-    const unanswered_reviews = row.unanswered_reviews !== undefined && row.unanswered_reviews !== "" ? Number(row.unanswered_reviews) : 0;
-    const competitor_name = str(row.competitor_name) || "Market Leader";
-    const competitor_reviews = row.competitor_reviews !== undefined && row.competitor_reviews !== "" ? Number(row.competitor_reviews) : Math.max(review_count + 50, review_count * 1.4);
+    // Honor exact user-provided stats (e.g. Daniel Brown, LPT Realty), or null if not provided (no fake silent estimates).
+    const google_rating = row.google_rating !== undefined && row.google_rating !== "" && !isNaN(Number(row.google_rating)) ? Number(row.google_rating) : null;
+    const review_count = row.review_count !== undefined && row.review_count !== "" && !isNaN(Number(row.review_count)) ? Number(row.review_count) : null;
+    const unanswered_reviews = row.unanswered_reviews !== undefined && row.unanswered_reviews !== "" && !isNaN(Number(row.unanswered_reviews)) ? Number(row.unanswered_reviews) : null;
+    const competitor_name = str(row.competitor_name) || null;
+    const competitor_reviews = row.competitor_reviews !== undefined && row.competitor_reviews !== "" && !isNaN(Number(row.competitor_reviews)) ? Number(row.competitor_reviews) : (review_count != null ? Math.max(review_count + 50, Math.round(review_count * 1.4)) : null);
 
     const baseProspect: Partial<Prospect> & { business_name: string } = {
       business_name: name,
