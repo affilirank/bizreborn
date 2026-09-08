@@ -17,6 +17,8 @@ import {
   Clock,
   Film,
   Mail,
+  Send,
+  Sparkles,
   X,
   ArrowLeft,
   FileSignature,
@@ -160,11 +162,52 @@ export default function ProspectsAdmin() {
   const [dragging, setDragging] = useState(false);
   const [preview, setPreview] = useState<Prospect | null>(null);
   const [editing, setEditing] = useState<Prospect | null>(null);
+  const [newsletter, setNewsletter] = useState<{ p: Prospect; sequence: any } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showSocials, setShowSocials] = useState(false);
   const [showDiscovery, setShowDiscovery] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [manual, setManual] = useState(EMPTY_MANUAL);
+
+  
+  const sendEmail = async (id: string) => {
+    setToast("Sending pitch email…");
+    try {
+      const res = await fetch("/api/prospects/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setToast(json.simulated ? "Simulated email sent (add RESEND_API_KEY for live delivery)" : "Pitch email sent successfully!");
+      } else {
+        setToast(json.error || "Email failed");
+      }
+    } catch {
+      setToast("Email failed to send");
+    }
+  };
+
+  const loadNewsletter = async (p: Prospect) => {
+    setToast("Generating custom 3-part newsletter drip…");
+    try {
+      const res = await fetch("/api/prospects/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: p.id }),
+      });
+      const json = await res.json();
+      if (res.ok && json.sequence) {
+        setNewsletter({ p, sequence: json.sequence });
+        setToast("Newsletter drip generated!");
+      } else {
+        setToast(json.error || "Failed to generate newsletter");
+      }
+    } catch {
+      setToast("Failed to generate newsletter");
+    }
+  };
 
   const refresh = useCallback(async () => {
     try {
@@ -567,6 +610,8 @@ export default function ProspectsAdmin() {
                   onCopyPitch={() => void copyText(absPitch(p), "Pitch link copied")}
                   onCopyEmail={() => void copyText(emailHtml(p), "Email (HTML) copied")}
                   onDraftProposal={() => draftProposal(p)}
+                  onSendEmail={() => void sendEmail(p.id)}
+                  onNewsletter={() => void loadNewsletter(p)}
                 />
               ))}
             </div>
@@ -597,6 +642,15 @@ export default function ProspectsAdmin() {
         />
       )}
 
+      
+      {newsletter && (
+        <NewsletterModal
+          data={newsletter}
+          onClose={() => setNewsletter(null)}
+          onCopy={(text) => void copyText(text, "Email copied")}
+        />
+      )}
+
       {preview && (
         <PreviewModal
           p={preview}
@@ -604,6 +658,8 @@ export default function ProspectsAdmin() {
           onDraftProposal={() => draftProposal(preview)}
           onCopyEmail={() => void copyText(emailHtml(preview), "Email (HTML) copied")}
           onEdit={() => { setEditing(preview); setPreview(null); }}
+          onSendEmail={() => void sendEmail(preview.id)}
+          onNewsletter={() => void loadNewsletter(preview)}
         />
       )}
 
@@ -662,6 +718,8 @@ function ProspectRow({
   onCopyEmail,
   onDraftProposal,
   onEdit,
+  onSendEmail,
+  onNewsletter,
 }: {
   p: Prospect;
   checked: boolean;
@@ -673,6 +731,8 @@ function ProspectRow({
   onCopyEmail: () => void;
   onDraftProposal: () => void;
   onEdit: () => void;
+  onSendEmail: () => void;
+  onNewsletter: () => void;
 }) {
   const badge = statusBadge[p.status || "pending"] || statusBadge.pending;
   const Icon =
@@ -748,8 +808,22 @@ function ProspectRow({
                   <Copy size={10} /> Pitch link
                 </button>
                 <button onClick={onCopyEmail} className="inline-flex items-center gap-1 rounded-full border border-ink-700 bg-ink-800/60 px-2.5 py-0.5 text-[10px] font-medium text-ink-300 hover:text-white">
-                  <Mail size={10} /> Email
+                  <Mail size={10} /> Copy HTML
                 </button>
+                <button onClick={onSendEmail} className="inline-flex items-center gap-1 rounded-full border border-brand-500/30 bg-brand-500/10 px-2.5 py-0.5 text-[10px] font-medium text-brand-300 hover:bg-brand-500/20">
+                  <Send size={10} /> Send Direct Email
+                </button>
+                <button onClick={onNewsletter} className="inline-flex items-center gap-1 rounded-full border border-purple-500/30 bg-purple-500/10 px-2.5 py-0.5 text-[10px] font-medium text-purple-300 hover:bg-purple-500/20">
+                  <Sparkles size={10} /> AI Newsletter
+                </button>
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(`Hi ${p.business_name}, we put together a 45-second video audit for your brand: ${absPitch(p)}`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-medium text-emerald-300 hover:bg-emerald-500/20"
+                >
+                  WhatsApp
+                </a>
               </>
             )}
 
@@ -779,12 +853,17 @@ function PreviewModal({
   onClose,
   onDraftProposal,
   onCopyEmail,
+  onEdit,
+  onSendEmail,
+  onNewsletter,
 }: {
   p: Prospect;
   onClose: () => void;
   onDraftProposal: () => void;
   onEdit: () => void;
   onCopyEmail: () => void;
+  onSendEmail: () => void;
+  onNewsletter: () => void;
 }) {
   const url = absPitch(p);
   const roi = p.roi_projection;
@@ -858,10 +937,30 @@ function PreviewModal({
             </a>
             <button
               onClick={onCopyEmail}
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-ink-700 bg-ink-800/80 px-3 py-2 text-xs font-medium text-ink-200 transition hover:text-white sm:col-span-2"
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-ink-700 bg-ink-800/80 px-3 py-2 text-xs font-medium text-ink-200 transition hover:text-white"
             >
-              <Copy size={13} /> Copy HTML email (with video card)
+              <Copy size={13} /> Copy HTML
             </button>
+            <button
+              onClick={onSendEmail}
+              className="flex items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-brand-500"
+            >
+              <Send size={13} /> Send Direct Email
+            </button>
+            <button
+              onClick={onNewsletter}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-xs font-semibold text-purple-300 transition hover:bg-purple-500/20"
+            >
+              <Sparkles size={13} /> AI Newsletter Drip
+            </button>
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(`Hi ${p.business_name}, we put together a 45-second video audit for your brand: ${absPitch(p)}`)}` }
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/20"
+            >
+              💬 WhatsApp
+            </a>
           </div>
         </div>
       </div>
@@ -1204,6 +1303,79 @@ function DiscoveryModal({
               Import &amp; Generate ({selected.size})
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NewsletterModal({
+  data,
+  onClose,
+  onCopy,
+}: {
+  data: { p: Prospect; sequence: { email1_subject: string; email1_body: string; email2_subject: string; email2_body: string; email3_subject: string; email3_body: string } };
+  onClose: () => void;
+  onCopy: (text: string) => void;
+}) {
+  const [activeTab, setActiveTab] = useState<1 | 2 | 3>(1);
+  const { p, sequence } = data;
+  const sub = activeTab === 1 ? sequence.email1_subject : activeTab === 2 ? sequence.email2_subject : sequence.email3_subject;
+  const body = activeTab === 1 ? sequence.email1_body : activeTab === 2 ? sequence.email2_body : sequence.email3_body;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-ink-800 bg-ink-900 p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-ink-800 pb-4">
+          <div>
+            <h3 className="font-sora text-lg font-bold text-white">AI Newsletter Drip for {p.business_name}</h3>
+            <p className="text-xs text-ink-400">Tailored 3-part nurture sequence focusing on {p.city || "local"} market authority.</p>
+          </div>
+          <button onClick={onClose} className="text-ink-400 hover:text-white">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="mt-4 flex gap-2 border-b border-ink-800 pb-3">
+          {[1, 2, 3].map((n) => (
+            <button
+              key={n}
+              onClick={() => setActiveTab(n as 1 | 2 | 3)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                activeTab === n ? "bg-brand-600 text-white" : "bg-ink-950 text-ink-400 hover:text-white"
+              }`}
+            >
+              Email {n} ({n === 1 ? "The Hook" : n === 2 ? "Local Authority" : "The Close"})
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 flex-1 space-y-3 overflow-y-auto">
+          <div>
+            <label className="text-[11px] text-ink-400">Subject Line</label>
+            <div className="mt-1 flex items-center justify-between rounded-lg border border-ink-800 bg-ink-950 px-3 py-2 text-xs text-white">
+              <span>{sub}</span>
+              <button onClick={() => onCopy(sub)} className="text-brand-400 hover:underline"><Copy size={12} /></button>
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] text-ink-400">Email Body</label>
+            <div className="mt-1 rounded-lg border border-ink-800 bg-ink-950 p-3 text-xs whitespace-pre-line text-ink-200">
+              {body}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex items-center justify-between border-t border-ink-800 pt-4">
+          <button
+            onClick={() => onCopy(`Subject: ${sub}\n\n${body}`)}
+            className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-500"
+          >
+            <Copy size={13} /> Copy Email #{activeTab}
+          </button>
+          <button onClick={onClose} className="rounded-lg border border-ink-800 px-4 py-2 text-xs font-medium text-ink-300 hover:text-white">
+            Close
+          </button>
         </div>
       </div>
     </div>
