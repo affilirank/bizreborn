@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   const text = url.searchParams.get("text") || "Hello from Biz Reborn Marketing.";
 
   const apiKey = process.env.ELEVENLABS_API_KEY;
-  const voiceId = process.env.ELEVENLABS_VOICE_ID || "7o2jINz1addxWQ92Mv17"; // Your cloned voice
+  const voiceId = process.env.ELEVENLABS_VOICE_ID || "EXAVITQu4vr4xnSDxMaL"; // Sarah (energetic & straightforward)
 
   if (!apiKey) {
     return new NextResponse("ElevenLabs API Key missing", { status: 500 });
