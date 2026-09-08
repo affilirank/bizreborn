@@ -86,7 +86,7 @@ export function AuditWidget() {
     setLeadCaptured(true);
   };
 
-  const run = (e?: React.FormEvent) => {
+  const run = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.url.trim()) {
       setError("Enter your website URL to start the scan.");
@@ -95,30 +95,55 @@ export function AuditWidget() {
     setError("");
     setPhase("scanning");
     setStep(0);
-    AUDIT_STEPS.forEach((_, i) => {
-      window.setTimeout(() => setStep(i), i * 560);
+    const normalizedUrl = input.url.includes("://") ? input.url : `https://${input.url}`;
+
+    const animationPromise = new Promise<void>((resolve) => {
+      AUDIT_STEPS.forEach((_, i) => {
+        window.setTimeout(() => setStep(i), i * 560);
+      });
+      window.setTimeout(() => {
+        resolve();
+      }, AUDIT_STEPS.length * 560 + 400);
     });
-    window.setTimeout(() => {
-      const result = runAudit({
+
+    const apiPromise = fetch("/api/audit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         ...input,
-        url: input.url.includes("://") ? input.url : `https://${input.url}`,
+        url: normalizedUrl,
+      }),
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error("API audit failed");
+        const data = await res.json();
+        return data.report as AuditReport;
+      })
+      .catch(() => {
+        return runAudit({
+          ...input,
+          url: normalizedUrl,
+        });
       });
-      void createAudit(result, {
-        contact: {
-          name: lead.name,
-          phone: lead.phone,
-          email: lead.email,
-        },
-        form: input,
-      }).catch(() => {});
-      setReport(result);
-      setPhase("report");
-      requestAnimationFrame(() => {
-        document
-          .getElementById("audit-widget")
-          ?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    }, AUDIT_STEPS.length * 560 + 400);
+
+    const [result] = await Promise.all([apiPromise, animationPromise]);
+
+    void createAudit(result, {
+      contact: {
+        name: lead.name,
+        phone: lead.phone,
+        email: lead.email,
+      },
+      form: input,
+    }).catch(() => {});
+
+    setReport(result);
+    setPhase("report");
+    requestAnimationFrame(() => {
+      document
+        .getElementById("audit-widget")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   };
 
   const inputCls =
