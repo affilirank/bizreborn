@@ -4,17 +4,6 @@ import { callAi } from "@/lib/ai-router";
 
 export const dynamic = "force-dynamic";
 
-/**
- * A2P 10DLC REGISTRATION QUESTION & ANSWER:
- * Q: Is A2P 10DLC registration required for Twilio outbound calling?
- * A: For voice calls, A2P 10DLC registration is NOT required! A2P 10DLC is strictly for SMS/MMS messaging in the US.
- * For outbound voice calls, you just need a Twilio phone number and a TwiML Voice webhook URL — no brand vetting or carrier fees required.
- *
- * VOICE AGENT CONFIGURATION:
- * - OpenAI Model: gpt-4.1-mini (via callAi)
- * - ElevenLabs Voice ID: 7o2jINz1addxWQ92Mv17
- * - ElevenLabs Model: eleven_flash_v2_5
- */
 export async function POST(req: Request) {
   return handleVoiceWebhook(req);
 }
@@ -57,7 +46,7 @@ async function handleVoiceWebhook(req: Request) {
 
   let aiResponseText = "";
 
-  const systemPrompt = `You are Alex, an expert AI sales voice agent for Biz Reborn Marketing (using gpt-4.1-mini and cloned voice 7o2jINz1addxWQ92Mv17 via eleven_flash_v2_5). You are on an outbound voice call with ${businessName}. Your tone is warm, highly professional, conversational, confident, and polite. Keep responses short (1-2 sentences maximum) so it sounds natural on a phone call.`;
+  const systemPrompt = `You are Alex, an expert AI sales voice agent for Biz Reborn Marketing (using ElevenLabs cloned voice ID 7o2jINz1addxWQ92Mv17). You are on an outbound phone call with ${businessName}. Your tone is warm, highly professional, conversational, confident, and polite. Keep responses short (1-2 sentences maximum) so it sounds natural on a phone call.`;
 
   const prompt = speechResult
     ? `The business owner said: "${speechResult}". Respond naturally as AI sales agent Alex, answering their question or addressing their concern about their brand audit (Grade ${grade}, ${rating} stars, ${review_count} reviews) and offering 10 minutes to walk through their growth plan.`
@@ -76,12 +65,15 @@ async function handleVoiceWebhook(req: Request) {
       : `Hi ${businessName}, this is Alex from Biz Reborn. We ran a quick brand audit on your Google listing and noticed some opportunities to pull ahead of ${competitorName}. Do you have 45 seconds to chat about your review growth?`;
   }
 
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
+  const audioUrl = `${base}/api/voice/audio?text=${encodeURIComponent(aiResponseText)}`;
+
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Gather input="speech dtmf" action="/api/voice/twiml${prospectId ? `?prospectId=${prospectId}` : ""}" method="POST" speechTimeout="auto" numDigits="1">
-    <Say voice="alice">${escapeXml(aiResponseText)}</Say>
+    <Play>${audioUrl}</Play>
   </Gather>
-  <Say voice="alice">We did not hear a response. Feel free to check out your 45-second video audit on our website. Goodbye!</Say>
+  <Play>${base}/api/voice/audio?text=${encodeURIComponent("We did not hear a response. Feel free to check out your 45-second video audit on our website. Goodbye!")}</Play>
 </Response>`;
 
   return new NextResponse(twiml, {
@@ -89,13 +81,4 @@ async function handleVoiceWebhook(req: Request) {
       "Content-Type": "text/xml; charset=utf-8",
     },
   });
-}
-
-function escapeXml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
 }
