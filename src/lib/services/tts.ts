@@ -2,7 +2,7 @@ import { config } from "@/lib/integrations/config";
 import { uploadFile } from "@/lib/storage";
 
 /**
- * Audio engine supporting ElevenLabs (when ELEVENLABS_API_KEY is configured),
+ * Audio engine supporting ElevenLabs (using eleven_flash_v2_5),
  * Python `edge-tts`, or fallback.
  */
 export async function generateVoiceover(
@@ -11,7 +11,6 @@ export async function generateVoiceover(
 ): Promise<{ voiceover_url: string | null }> {
   const key = safeKey(businessName);
 
-  // 1. Try ElevenLabs if key is present
   const elevenKey = process.env.ELEVENLABS_API_KEY;
   if (elevenKey) {
     try {
@@ -51,7 +50,7 @@ export async function generateVoiceover(
 }
 
 async function runElevenLabs(script: string, apiKey: string): Promise<Buffer> {
-  const voiceId = process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb"; // Default professional marketing voice
+  const voiceId = process.env.ELEVENLABS_VOICE_ID || "7o2jINz1addxWQ92Mv17";
   const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
     method: "POST",
     headers: {
@@ -61,7 +60,7 @@ async function runElevenLabs(script: string, apiKey: string): Promise<Buffer> {
     },
     body: JSON.stringify({
       text: script,
-      model_id: "eleven_monolingual_v1",
+      model_id: "eleven_flash_v2_5",
       voice_settings: {
         stability: 0.5,
         similarity_boost: 0.75,

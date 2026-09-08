@@ -17,124 +17,61 @@ export interface ScrapeInput {
   website?: string | null;
 }
 
-// Minimal shapes for the optional Playwright browser (not installed by default).
-interface RemotePage {
-  goto: (url: string, opts?: Record<string, unknown>) => Promise<void>;
-  evaluate: <T>(fn: () => T) => Promise<T>;
-  screenshot: (opts?: Record<string, unknown>) => Promise<Buffer>;
-  close: () => Promise<void>;
-}
-interface RemoteBrowser {
-  newPage: (opts?: Record<string, unknown>) => Promise<RemotePage>;
-  close: () => Promise<void>;
-}
-interface RemoteChromium {
-  launch: (opts?: { headless?: boolean }) => Promise<RemoteBrowser>;
-}
-
 /**
- * Google Maps reputation scrape.
+ * Reputation scraper.
  *
- * Real mode drives headless Chromium via Playwright and extracts metrics from
- * the Google Maps listing for `business_name + city`. Because Google serves
- * heavy JS and enforces bot checks, real scraping is best-effort: any failure
- * falls back to the deterministic mock so the batch never dead-ends.
- *
- * Mock mode (default when no browser / playwright is installed) synthesizes
- * plausible metrics derived from the business name so the full pipeline can run
- * and render a video without external services.
+ * When OpenAI key is present, uses GPT to research or estimate realistic public
+ * business metrics. Otherwise falls back to deterministic mock.
+ * Admins can also instantly override any stat via the "Edit Stats" modal in /admin/prospects.
  */
-export async function scrapeReputation(
-  input: ScrapeInput,
-): Promise<ScrapeResult> {
-  const useReal =
-    (config.scraping.mode === "playwright" ||
-      (config.scraping.mode === "auto" && (await playwrightAvailable()))) &&
-    process.env.SCRAPER_DISABLE !== "1";
-
-  try {
-    if (useReal) {
-      return await scrapeWithPlaywright(input);
-    }
-  } catch (err) {
-    console.warn("[scrape] real scrape failed, using mock:", err);
-  }
-  return mockScrape(input);
-}
-
-async function playwrightAvailable(): Promise<boolean> {
-  try {
-    const { chromium } = (await eval(`import("playwright")`)) as {
-      chromium: RemoteChromium;
-    };
-    return Boolean(chromium);
-  } catch {
-    return false;
-  }
-}
-
-async function scrapeWithPlaywright(input: ScrapeInput): Promise<ScrapeResult> {
-  const { chromium } = (await eval(`import("playwright")`)) as {
-    chromium: RemoteChromium;
-  };
-  const browser = await chromium.launch({
-    headless: config.scraping.headless,
-  });
-  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-
-  const query = encodeURIComponent(`${input.business_name} ${input.city}`);
-  await page.goto(`https://www.google.com/maps/search/${query}`, {
-    waitUntil: "networkidle",
-    timeout: 60000,
-  });
-
-  // Best-effort extraction; result cards are rendered client-side.
-  const result = await page.evaluate(() => {
-    const text = document.body ? document.body.innerText : "";
-    const ratingMatch = text.match(/(\d\.\d)\s*\(\s*(\d[\d,]*)\s*\)/);
-    const rating = ratingMatch ? parseFloat(ratingMatch[1]) : 0;
-    const reviews = ratingMatch
-      ? parseInt(ratingMatch[2].replace(/,/g, ""), 10)
-      : 0;
-    return { rating, reviews };
-  });
-
-  const gmbShot = await uploadFile(
-    `audits/${input.business_name.replace(/\s+/g, "-").toLowerCase()}-gmb.png`,
-    await page.screenshot({ type: "png" }),
-    "image/png",
-  );
-
-  const siteShot: { url: string } = { url: "" };
-  if (input.website) {
+export async function scrapeReputation(input: ScrapeInput): Promise<ScrapeResult> {
+  const openAiKey = process.env.OPENAI_API_KEY;
+  if (openAiKey) {
     try {
-      await page.goto(input.website, {
-        waitUntil: "domcontentloaded",
-        timeout: 30000,
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openAiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4.1-mini",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are an expert local SEO analyst. Given a business name and city, return ONLY a JSON object with keys: google_rating (number, e.g. 4.8), review_count (number), unanswered_reviews (number), competitor_name (string, realistic local competitor), competitor_reviews (number). No markdown, no explanation.",
+            },
+            {
+              role: "user",
+              content: `Business: ${input.business_name}, City: ${input.city}`,
+            },
+          ],
+          temperature: 0.3,
+        }),
       });
-      const s = await uploadFile(
-        `audits/${input.business_name.replace(/\s+/g, "-").toLowerCase()}-site.png`,
-        await page.screenshot({ type: "png" }),
-        "image/png",
-      );
-      siteShot.url = s.url;
-    } catch {
-      /* website unreachable — leave blank */
+      const json = await res.json();
+      const content = json?.choices?.[0]?.message?.content;
+      if (content) {
+        const parsed = JSON.parse(content.replace(/```json/gi, "").replace(/```/g, "").trim());
+        if (parsed && typeof parsed.google_rating === "number") {
+          return {
+            google_rating: Number(parsed.google_rating) || 4.5,
+            review_count: Number(parsed.review_count) || 45,
+            unanswered_reviews: Number(parsed.unanswered_reviews) || 3,
+            competitor_name: String(parsed.competitor_name || `${input.business_name} Competitor`),
+            competitor_reviews: Number(parsed.competitor_reviews) || 95,
+            audit_screenshot_url: "",
+            website_preview_url: "",
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("[scraper] AI intelligence lookup failed, using mock:", err);
     }
   }
 
-  await browser.close();
-
-  const mock = mockScrape(input);
-  return {
-    google_rating: result.rating || mock.google_rating,
-    review_count: result.reviews || mock.review_count,
-    unanswered_reviews: Math.max(0, Math.round((result.reviews || 0) * 0.7)),
-    competitor_name: mock.competitor_name,
-    competitor_reviews: mock.competitor_reviews,
-    audit_screenshot_url: gmbShot.url,
-    website_preview_url: siteShot.url || "",
-  };
+  return mockScrape(input);
 }
 
 function hashString(s: string): number {
@@ -148,11 +85,11 @@ function hashString(s: string): number {
 
 function mockScrape(input: ScrapeInput): ScrapeResult {
   const seed = hashString(`${input.business_name}|${input.city}`) % 100;
-  const rating = Math.round((3.4 + (seed % 12) / 10) * 10) / 10; // 3.4 - 4.5
-  const reviewCount = 8 + (seed % 60); // 8 - 67
-  const unanswered = Math.max(1, Math.round(reviewCount * (0.55 + (seed % 3) / 10)));
-  const competitorReviews = reviewCount * (2 + (seed % 4)); // leader has more
-  const competitorName = `${input.business_name.split(" ")[0] || input.business_name} Pro`;
+  const rating = Math.round((4.2 + (seed % 8) / 10) * 10) / 10;
+  const reviewCount = 25 + (seed % 75);
+  const unanswered = Math.max(0, Math.round(reviewCount * 0.15));
+  const competitorReviews = reviewCount * 2;
+  const competitorName = `${input.business_name.split(" ")[0] || input.business_name} Leader`;
 
   return {
     google_rating: rating,
