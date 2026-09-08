@@ -10,6 +10,8 @@ interface DiscoveredBusiness {
   website: string;
   email: string;
   phone: string;
+  instagram: string;
+  facebook: string;
   google_rating: number;
   review_count: number;
   competitor_name: string;
@@ -18,7 +20,7 @@ interface DiscoveredBusiness {
 
 /**
  * Lead Discovery API: searches for real local businesses by keyword and city
- * using the smart AI router (Gemini -> OpenAI fallback).
+ * using the smart AI router (Gemini -> OpenAI fallback), including social handles.
  */
 export async function POST(req: Request) {
   if (!(await isAdminOrDemo())) {
@@ -41,7 +43,7 @@ export async function POST(req: Request) {
     const text = await callAi({
       prompt: `Keyword: ${keyword}, City: ${city}, Count: ${count}`,
       systemPrompt:
-        "You are a local business lead generation assistant. Return ONLY a valid JSON array of real or highly accurate local business listings matching the requested keyword and city. Each object in the array must have keys: business_name (string), city (string), website (string, e.g. https://...), email (string or empty), phone (string or empty), google_rating (number, e.g. 4.8), review_count (number), competitor_name (string), competitor_reviews (number). Provide exactly up to the requested count of diverse businesses. Raw JSON array only.",
+        "You are a local business lead generation assistant. Return ONLY a valid JSON array of real or highly accurate local business listings matching the requested keyword and city. Each object in the array must have keys: business_name (string), city (string), website (string), email (string), phone (string), instagram (string handle or empty), facebook (string handle or empty), google_rating (number), review_count (number), competitor_name (string), competitor_reviews (number). Provide exactly up to the requested count of diverse businesses. Raw JSON array only.",
       jsonMode: true,
     });
 
@@ -55,6 +57,8 @@ export async function POST(req: Request) {
           website: String(item.website || ""),
           email: String(item.email || ""),
           phone: String(item.phone || ""),
+          instagram: String(item.instagram || ""),
+          facebook: String(item.facebook || ""),
           google_rating: Number(item.google_rating) || 4.7,
           review_count: Number(item.review_count) || 35,
           competitor_name: String(item.competitor_name || `${keyword} Pro`),
@@ -74,6 +78,8 @@ export async function POST(req: Request) {
     website: `https://${keyword.toLowerCase().replace(/[^a-z0-9]/g, "")}${i + 1}.com`,
     email: `info@${keyword.toLowerCase().replace(/[^a-z0-9]/g, "")}${i + 1}.com`,
     phone: `561-555-${String(1000 + i).slice(1)}`,
+    instagram: `@${keyword.toLowerCase().replace(/[^a-z0-9]/g, "")}${i + 1}`,
+    facebook: `${keyword.replace(/\s+/g, "")}${i + 1}`,
     google_rating: Math.round((4.2 + (i % 8) / 10) * 10) / 10,
     review_count: 15 + i * 7,
     competitor_name: `${city} Elite ${keyword}`,

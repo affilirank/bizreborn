@@ -824,6 +824,22 @@ function ProspectRow({
                 >
                   WhatsApp
                 </a>
+                <a
+                  href={p.instagram ? (p.instagram.startsWith("http") ? p.instagram : `https://instagram.com/${p.instagram.replace("@", "")}`) : `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(p.business_name)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 rounded-full border border-pink-500/30 bg-pink-500/10 px-2.5 py-0.5 text-[10px] font-medium text-pink-300 hover:bg-pink-500/20"
+                >
+                  Instagram DM
+                </a>
+                <a
+                  href={p.facebook ? (p.facebook.startsWith("http") ? p.facebook : `https://facebook.com/${p.facebook}`) : `https://www.facebook.com/search/top?q=${encodeURIComponent(p.business_name)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 rounded-full border border-blue-500/30 bg-blue-500/10 px-2.5 py-0.5 text-[10px] font-medium text-blue-300 hover:bg-blue-500/20"
+                >
+                  Facebook DM
+                </a>
               </>
             )}
 
@@ -960,6 +976,22 @@ function PreviewModal({
               className="flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/20"
             >
               💬 WhatsApp
+            </a>
+            <a
+              href={p.instagram ? (p.instagram.startsWith("http") ? p.instagram : `https://instagram.com/${p.instagram.replace("@", "")}`) : `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(p.business_name)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-pink-500/30 bg-pink-500/10 px-3 py-2 text-xs font-semibold text-pink-300 transition hover:bg-pink-500/20"
+            >
+              📸 Instagram DM
+            </a>
+            <a
+              href={p.facebook ? (p.facebook.startsWith("http") ? p.facebook : `https://facebook.com/${p.facebook}`) : `https://www.facebook.com/search/top?q=${encodeURIComponent(p.business_name)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs font-semibold text-blue-300 transition hover:bg-blue-500/20"
+            >
+              📘 Facebook DM
             </a>
           </div>
         </div>

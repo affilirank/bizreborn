@@ -6,6 +6,8 @@ export interface ScrapeResult {
   unanswered_reviews: number;
   competitor_name: string;
   competitor_reviews: number;
+  instagram?: string | null;
+  facebook?: string | null;
   audit_screenshot_url: string;
   website_preview_url: string;
 }
@@ -18,21 +20,16 @@ export interface ScrapeInput {
 }
 
 /**
- * Reputation scraper. If website or business name is a Google Maps link,
- * or using AI router with direct Maps link extraction.
+ * Reputation & social handle scraper using the smart AI router.
  */
 export async function scrapeReputation(input: ScrapeInput): Promise<ScrapeResult> {
-// queryText defined below
-  
-  // If input is a Google Maps link or URL, use it directly
-  const isMapsLink = /google\.com\/maps|goo\.gl\/maps/i.test(input.business_name) || /google\.com\/maps|goo\.gl\/maps/i.test(input.website || "") || /google\.com\/maps|goo\.gl\/maps/i.test(input.google_maps_link || "");
   const queryText = input.google_maps_link ? `${input.business_name} ${input.city} [Maps Link: ${input.google_maps_link}]` : `${input.business_name} ${input.city}`;
   
   try {
     const text = await callAi({
-      prompt: `Target: ${queryText}${isMapsLink ? ` (Google Maps URL provided)` : ""}`,
+      prompt: `Target: ${queryText}`,
       systemPrompt:
-        "You are a precise Google Maps data extraction agent. Given a business name/URL and city, return ONLY a JSON object with accurate public reputation metrics: google_rating (number), review_count (number), unanswered_reviews (number), competitor_name (string, top local competitor), competitor_reviews (number). No markdown, raw JSON only.",
+        "You are a precise business data extraction agent. Given a business name and city, return ONLY a JSON object with: google_rating (number), review_count (number), unanswered_reviews (number), competitor_name (string), competitor_reviews (number), instagram (string handle or empty), facebook (string name/url or empty). No markdown, raw JSON only.",
       jsonMode: true,
     });
 
@@ -44,7 +41,9 @@ export async function scrapeReputation(input: ScrapeInput): Promise<ScrapeResult
           review_count: Number(parsed.review_count) || 130,
           unanswered_reviews: Number(parsed.unanswered_reviews) || 0,
           competitor_name: String(parsed.competitor_name || "Top Local Competitor"),
-          competitor_reviews: Number(parsed.competitor_reviews) || 180,
+          competitor_reviews: Number(parsed.competitor_reviews || 180),
+          instagram: String(parsed.instagram || "").trim() || null,
+          facebook: String(parsed.facebook || "").trim() || null,
           audit_screenshot_url: "",
           website_preview_url: "",
         };
@@ -73,6 +72,7 @@ function mockScrape(input: ScrapeInput): ScrapeResult {
   const unanswered = 0;
   const competitorReviews = 180;
   const competitorName = "Market Leader Realty";
+  const cleanName = input.business_name.toLowerCase().replace(/[^a-z0-9]/g, "");
 
   return {
     google_rating: rating,
@@ -80,6 +80,8 @@ function mockScrape(input: ScrapeInput): ScrapeResult {
     unanswered_reviews: unanswered,
     competitor_name: competitorName,
     competitor_reviews: competitorReviews,
+    instagram: `@${cleanName}`,
+    facebook: `${cleanName}official`,
     audit_screenshot_url: "",
     website_preview_url: "",
   };
