@@ -20,6 +20,7 @@ import {
   X,
   ArrowLeft,
   FileSignature,
+  Pencil,
   Database,
   TrendingUp,
 } from "lucide-react";
@@ -151,6 +152,7 @@ export default function ProspectsAdmin() {
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [preview, setPreview] = useState<Prospect | null>(null);
+  const [editing, setEditing] = useState<Prospect | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showSocials, setShowSocials] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -527,6 +529,7 @@ export default function ProspectsAdmin() {
                   onPreview={() => setPreview(p)}
                   onRetry={() => void retry(p.id)}
                   onDelete={() => void remove(p.id)}
+                  onEdit={() => setEditing(p)}
                   onCopyPitch={() => void copyText(absPitch(p), "Pitch link copied")}
                   onCopyEmail={() => void copyText(emailHtml(p), "Email (HTML) copied")}
                   onDraftProposal={() => draftProposal(p)}
@@ -537,12 +540,25 @@ export default function ProspectsAdmin() {
         </div>
       </div>
 
+      
+      {editing && (
+        <EditModal
+          p={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(updated) => {
+            setProspects((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+            setEditing(null);
+          }}
+        />
+      )}
+
       {preview && (
         <PreviewModal
           p={preview}
           onClose={() => setPreview(null)}
           onDraftProposal={() => draftProposal(preview)}
           onCopyEmail={() => void copyText(emailHtml(preview), "Email (HTML) copied")}
+          onEdit={() => { setEditing(preview); setPreview(null); }}
         />
       )}
 
@@ -600,6 +616,7 @@ function ProspectRow({
   onCopyPitch,
   onCopyEmail,
   onDraftProposal,
+  onEdit,
 }: {
   p: Prospect;
   checked: boolean;
@@ -610,6 +627,7 @@ function ProspectRow({
   onCopyPitch: () => void;
   onCopyEmail: () => void;
   onDraftProposal: () => void;
+  onEdit: () => void;
 }) {
   const badge = statusBadge[p.status || "pending"] || statusBadge.pending;
   const Icon =
@@ -696,6 +714,9 @@ function ProspectRow({
               </button>
             )}
 
+                        <button onClick={onEdit} className="inline-flex items-center gap-1 rounded-full border border-ink-800 bg-ink-900/60 px-2.5 py-0.5 text-[10px] font-medium text-ink-300 hover:text-white">
+              <Pencil size={10} /> Edit Stats
+            </button>
             <button onClick={onDelete} className="inline-flex items-center gap-1 rounded-full border border-ink-800 bg-ink-900/60 px-2.5 py-0.5 text-[10px] font-medium text-ink-500 hover:text-rose-400">
               <Trash2 size={10} /> Delete
             </button>
@@ -717,6 +738,7 @@ function PreviewModal({
   p: Prospect;
   onClose: () => void;
   onDraftProposal: () => void;
+  onEdit: () => void;
   onCopyEmail: () => void;
 }) {
   const url = absPitch(p);
@@ -807,6 +829,120 @@ function MiniStat({ label, value }: { label: string; value: string }) {
     <div className="rounded-lg border border-ink-800/60 bg-ink-950/60 p-2">
       <div className="font-sora text-base font-bold text-white">{value}</div>
       <div className="text-[10px] text-ink-500">{label}</div>
+    </div>
+  );
+}
+
+function EditModal({
+  p,
+  onClose,
+  onSaved,
+}: {
+  p: Prospect;
+  onClose: () => void;
+  onSaved: (updated: Prospect) => void;
+}) {
+  const [form, setForm] = useState({
+    business_name: p.business_name || "",
+    city: p.city || "",
+    website: p.website || "",
+    email: p.email || "",
+    google_rating: p.google_rating != null ? String(p.google_rating) : "4.8",
+    review_count: p.review_count != null ? String(p.review_count) : "130",
+    unanswered_reviews: p.unanswered_reviews != null ? String(p.unanswered_reviews) : "0",
+    competitor_name: p.competitor_name || "",
+    competitor_reviews: p.competitor_reviews != null ? String(p.competitor_reviews) : "50",
+  });
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/prospects/${p.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          google_rating: Number(form.google_rating) || 5.0,
+          review_count: Number(form.review_count) || 0,
+          unanswered_reviews: Number(form.unanswered_reviews) || 0,
+          competitor_reviews: Number(form.competitor_reviews) || 0,
+          regenerate: true,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.prospect) {
+        onSaved(json.prospect);
+      } else {
+        alert(json.error || "Save failed");
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-2xl border border-ink-800 bg-ink-900 p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="font-sora text-lg font-bold text-white">Edit Business &amp; Reputation Stats</h3>
+          <button onClick={onClose} className="text-ink-400 hover:text-white">
+            <X size={18} />
+          </button>
+        </div>
+        <p className="mt-1 text-xs text-ink-400">
+          Override inaccurate scrape data (e.g., your real 130 5-star reviews and competitor). Saving will instantly re-run the brand audit, ROI projection, and pitch video.
+        </p>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="text-[11px] text-ink-400">Business Name</label>
+            <Input value={form.business_name} onChange={(v) => setForm({ ...form, business_name: v })} placeholder="Business Name" />
+          </div>
+          <div>
+            <label className="text-[11px] text-ink-400">City</label>
+            <Input value={form.city} onChange={(v) => setForm({ ...form, city: v })} placeholder="City" />
+          </div>
+          <div>
+            <label className="text-[11px] text-ink-400">Google Rating (e.g. 5.0)</label>
+            <Input value={form.google_rating} onChange={(v) => setForm({ ...form, google_rating: v })} placeholder="5.0" />
+          </div>
+          <div>
+            <label className="text-[11px] text-ink-400">Review Count (e.g. 130)</label>
+            <Input value={form.review_count} onChange={(v) => setForm({ ...form, review_count: v })} placeholder="130" />
+          </div>
+          <div>
+            <label className="text-[11px] text-ink-400">Unanswered Reviews</label>
+            <Input value={form.unanswered_reviews} onChange={(v) => setForm({ ...form, unanswered_reviews: v })} placeholder="0" />
+          </div>
+          <div>
+            <label className="text-[11px] text-ink-400">Competitor Name</label>
+            <Input value={form.competitor_name} onChange={(v) => setForm({ ...form, competitor_name: v })} placeholder="Top Competitor" />
+          </div>
+          <div>
+            <label className="text-[11px] text-ink-400">Competitor Reviews</label>
+            <Input value={form.competitor_reviews} onChange={(v) => setForm({ ...form, competitor_reviews: v })} placeholder="45" />
+          </div>
+          <div>
+            <label className="text-[11px] text-ink-400">Website</label>
+            <Input value={form.website} onChange={(v) => setForm({ ...form, website: v })} placeholder="https://..." />
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border border-ink-800 px-4 py-2 text-xs font-medium text-ink-300 hover:text-white">
+            Cancel
+          </button>
+          <button
+            onClick={() => void save()}
+            disabled={saving}
+            className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-500 disabled:opacity-50"
+          >
+            {saving ? <Loader2 size={14} className="animate-spin" /> : null}
+            Save &amp; Regenerate Audit &amp; Video
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

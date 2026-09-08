@@ -2,19 +2,26 @@ import { config } from "@/lib/integrations/config";
 import { uploadFile } from "@/lib/storage";
 
 /**
- * Audio engine.
- *
- * Real mode shells out to Python `edge-tts` (Microsoft Edge neural TTS) to
- * synthesize a natural `voiceover.mp3` from the pitch script. When Python or
- * the edge-tts module is unavailable, it falls back to generating a silent MP3
- * placeholder so downstream muxing still works — and the actual narration can
- * be generated later simply by enabling TTS_MODE=edge-tts.
+ * Audio engine supporting ElevenLabs (when ELEVENLABS_API_KEY is configured),
+ * Python `edge-tts`, or fallback.
  */
 export async function generateVoiceover(
   script: string,
   businessName: string,
 ): Promise<{ voiceover_url: string | null }> {
   const key = safeKey(businessName);
+
+  // 1. Try ElevenLabs if key is present
+  const elevenKey = process.env.ELEVENLABS_API_KEY;
+  if (elevenKey) {
+    try {
+      const mp3 = await runElevenLabs(script, elevenKey);
+      const stored = await uploadFile(`audio/${key}-voiceover.mp3`, mp3, "audio/mpeg");
+      return { voiceover_url: stored.url };
+    } catch (err) {
+      console.warn("[tts] elevenlabs failed, trying edge-tts/stub:", err);
+    }
+  }
 
   const useReal =
     (config.tts.mode === "edge-tts" ||
@@ -27,12 +34,10 @@ export async function generateVoiceover(
       const stored = await uploadFile(`audio/${key}-voiceover.mp3`, mp3, "audio/mpeg");
       return { voiceover_url: stored.url };
     } catch (err) {
-      console.warn("[tts] edge-tts failed, narration will use the browser voice:", err);
+      console.warn("[tts] edge-tts failed, using stub:", err);
     }
   }
 
-  // No server TTS available (e.g. serverless). The pitch player narrates the
-  // script client-side with the Web Speech API, so we simply skip the file.
   if (process.env.TTS_STUB_UPLOAD === "1") {
     try {
       const stub = await silentMp3Stub();
@@ -43,6 +48,34 @@ export async function generateVoiceover(
     }
   }
   return { voiceover_url: null };
+}
+
+async function runElevenLabs(script: string, apiKey: string): Promise<Buffer> {
+  const voiceId = process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb"; // Default professional marketing voice
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+    method: "POST",
+    headers: {
+      "xi-api-key": apiKey,
+      "Content-Type": "application/json",
+      Accept: "audio/mpeg",
+    },
+    body: JSON.stringify({
+      text: script,
+      model_id: "eleven_monolingual_v1",
+      voice_settings: {
+        stability: 0.5,
+        similarity_boost: 0.75,
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`ElevenLabs error ${res.status}: ${errText}`);
+  }
+
+  const arrayBuffer = await res.arrayBuffer();
+  return Buffer.from(arrayBuffer);
 }
 
 async function edgeTtsAvailable(): Promise<boolean> {
@@ -59,7 +92,6 @@ async function runEdgeTts(script: string): Promise<Buffer> {
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const execFileP = promisify(execFile);
-  // Call a bundled python helper so we don't need node bindings for edge-tts.
   const py = `
 import asyncio, sys
 import edge_tts
@@ -81,8 +113,6 @@ asyncio.run(main())
 }
 
 async function silentMp3Stub(): Promise<Buffer> {
-  // Writes an MP3 of ~0.15s of silence using raw MPEG frames that FFmpeg and
-  // browsers can decode — a stand-in until real narration is enabled.
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const execFileP = promisify(execFile);
@@ -93,7 +123,6 @@ async function silentMp3Stub(): Promise<Buffer> {
   const wav = join(dir, "silence.wav");
   const mp3 = join(dir, "silence.mp3");
 
-  // 16-bit 22050 Hz mono, 0.15s of zeros.
   const rate = 22050;
   const sampleCount = Math.round(rate * 0.15);
   const buf = Buffer.alloc(sampleCount * 2);
@@ -120,7 +149,6 @@ async function silentMp3Stub(): Promise<Buffer> {
     await execFileP("ffmpeg", ["-y", "-i", wav, "-codec:a", "libmp3lame", mp3]);
     return readFileSync(mp3);
   } catch {
-    // No ffmpeg available — return the WAV bytes (browsers decode WAV too).
     return out;
   }
 }
