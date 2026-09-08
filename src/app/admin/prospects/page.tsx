@@ -246,11 +246,21 @@ export default function ProspectsAdmin() {
 
   // Live progress: poll while anything is in flight (works on serverless too).
   const inFlight = prospects.some((p) => p.status === "pending" || p.status === "scraping" || p.status === "rendering");
+  const prevInFlightRef = useRef(false);
+
   useEffect(() => {
     if (!inFlight) return;
     const id = setInterval(() => void refresh(), 2500);
     return () => clearInterval(id);
   }, [inFlight, refresh]);
+
+  useEffect(() => {
+    if (prevInFlightRef.current && !inFlight) {
+      const readyCount = prospects.filter((p) => p.status === "ready").length;
+      setToast(`Batch generation complete! ${readyCount} lead video audits are now ready.`);
+    }
+    prevInFlightRef.current = inFlight;
+  }, [inFlight, prospects]);
 
   useEffect(() => {
     if (!toast) return;
@@ -454,7 +464,14 @@ export default function ProspectsAdmin() {
         </div>
       )}
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-4 rounded-xl border border-brand-500/20 bg-brand-500/5 p-3 text-xs text-brand-300">
+        <p className="font-semibold">💡 Lead Status Flow Notice:</p>
+        <p className="mt-0.5 text-brand-200/80">
+          When queued businesses finish auditing and rendering, their status updates from <code>pending</code> / <code>scraping</code> to <code>ready</code>. If viewing specific tabs, check the &ldquo;All&rdquo; or &ldquo;Ready&rdquo; tab to view completed leads. A notification toast will also alert you when batches finish.
+        </p>
+      </div>
+
+    <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Total Uploaded" value={counts.all} icon={<Users size={16} />} color="text-brand-400" />
         <Stat label="Ready Pitches" value={counts.ready} icon={<Film size={16} />} color="text-glow-400" />
         <Stat label="In Progress" value={counts.pending + counts.scraping + counts.rendering} icon={<Loader2 size={16} />} color="text-amber-400" />
