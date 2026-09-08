@@ -27,6 +27,7 @@ import {
 import { BlogBuilder } from "@/components/dashboard/blog-builder";
 import { OfferBuilder } from "@/components/dashboard/offer-builder";
 import { ReportBuilder } from "@/components/dashboard/report-builder";
+import { TasksTab } from "@/components/dashboard/tasks-tab";
 import { AuditReportView } from "@/components/audit/audit-widget";
 import { Container } from "@/components/ui/section";
 import { KpiCard } from "@/components/dashboard/kpi-card";
@@ -312,14 +313,20 @@ export function AdminDashboard() {
     );
   };
 
-  const addTask = async () => {
-    if (!newTask.service.trim()) return;
+  const handleAddTask = async (t: {
+    client: string;
+    service: string;
+    due: string;
+    priority: AdminTask["priority"];
+    hours: string;
+  }) => {
+    if (!t.service.trim()) return;
     const created = await createTask({
-      client: newTask.client.trim(),
-      service: newTask.service.trim(),
-      due: newTask.due || undefined,
-      priority: newTask.priority,
-      estimatedHours: Number(newTask.hours) || 0,
+      client: t.client.trim(),
+      service: t.service.trim(),
+      due: t.due || undefined,
+      priority: t.priority,
+      estimatedHours: Number(t.hours) || 0,
     }).catch(() => null);
     if (created) {
       setTasks((prev) => [created, ...prev]);
@@ -327,24 +334,23 @@ export function AdminDashboard() {
       setTasks((prev) => [
         {
           id: `T-${Date.now()}`,
-          service: newTask.service.trim(),
-          client: newTask.client.trim() || "Unassigned client",
+          service: t.service.trim(),
+          client: t.client.trim() || "Unassigned client",
           assignee: null,
-          due: newTask.due
-            ? new Date(newTask.due).toLocaleDateString("en-US", {
+          due: t.due
+            ? new Date(t.due).toLocaleDateString("en-US", {
                 month: "short",
                 day: "numeric",
               })
             : "No due date",
-          priority: newTask.priority,
+          priority: t.priority,
           status: "queued",
-          estimatedHours: Number(newTask.hours) || 0,
+          estimatedHours: Number(t.hours) || 0,
           completedAt: null,
         },
         ...prev,
       ]);
     }
-    setNewTask({ client: "", service: "", due: "", priority: "medium", hours: "" });
   };
 
   const taskInputCls =
@@ -442,6 +448,12 @@ export function AdminDashboard() {
             className="flex items-center gap-2 rounded-xl border border-glow-500/40 bg-glow-500/10 px-4 py-2 text-sm font-semibold text-glow-300 transition hover:border-glow-400/60 hover:text-white"
           >
             <Film className="h-4 w-4" /> Lead Pitches
+          </Link>
+          <Link
+            href="/admin/crm"
+            className="flex items-center gap-2 rounded-xl border border-brand-500/40 bg-brand-500/10 px-4 py-2 text-sm font-semibold text-brand-300 transition hover:border-brand-400/60 hover:text-white"
+          >
+            <Users className="h-4 w-4" /> Full CRM
           </Link>
         </div>
 
@@ -594,157 +606,17 @@ export function AdminDashboard() {
           </ul>
         </Card>
 
-        {/* Fulfillment board */}
-        <Card className="mt-6 p-6">
-          <div className="mb-5 flex items-center justify-between">
-            <div>
-              <h4 className="font-display text-base font-bold text-white">Fulfillment Task Board</h4>
-              <p className="text-xs text-fog">Assign tasks to the team · recurring Stripe billing auto-syncs</p>
-            </div>
-            <Badge variant="brand">
-              <UserPlus className="h-3 w-3" /> {tasks.filter((t) => t.assignee).length}/{tasks.length} assigned
-            </Badge>
-          </div>
-
-          <div className="mb-5 grid gap-2 rounded-2xl border border-white/5 bg-ink-850/40 p-3 sm:grid-cols-[1fr_1fr_auto_auto_auto_auto]">
-            <input
-              value={newTask.client}
-              onChange={(e) => setNewTask({ ...newTask, client: e.target.value })}
-              placeholder="Client name"
-              className={taskInputCls}
-            />
-            <input
-              value={newTask.service}
-              onChange={(e) => setNewTask({ ...newTask, service: e.target.value })}
-              placeholder="Service / module (e.g. GBP Optimization)"
-              className={taskInputCls}
-            />
-            <input
-              type="date"
-              value={newTask.due}
-              onChange={(e) => setNewTask({ ...newTask, due: e.target.value })}
-              className={cn(taskInputCls, "sm:w-36")}
-            />
-            <input
-              value={newTask.hours}
-              onChange={(e) => setNewTask({ ...newTask, hours: e.target.value.replace(/[^0-9.]/g, "") })}
-              placeholder="Est hrs"
-              inputMode="decimal"
-              className={cn(taskInputCls, "sm:w-20")}
-            />
-            <select
-              value={newTask.priority}
-              onChange={(e) =>
-                setNewTask({
-                  ...newTask,
-                  priority: e.target.value as AdminTask["priority"],
-                })
-              }
-              className={cn(taskInputCls, "sm:w-28")}
-            >
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-            </select>
-            <button
-              onClick={addTask}
-              className="flex items-center justify-center gap-1.5 rounded-xl bg-brand-500/20 px-4 py-2 text-xs font-semibold text-brand-300 transition hover:bg-brand-500/30"
-            >
-              <Plus className="h-3.5 w-3.5" /> Add task
-            </button>
-          </div>
-
-          <ul className="space-y-2.5">
-            {tasks.map((t) => {
-              const prioStyle =
-                t.priority === "high"
-                  ? "border-rose-500/30 bg-rose-500/10 text-rose-300"
-                  : t.priority === "medium"
-                    ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
-                    : "border-white/10 bg-white/5 text-fog";
-              const done = t.status === "completed";
-              return (
-                <li key={t.id} className={cn("flex flex-wrap items-center gap-3 rounded-xl border border-white/5 bg-ink-850/50 px-4 py-3", done && "opacity-70")}>
-                  <span className="font-mono text-xs text-mute">{t.id}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-mist">{t.service}</span>
-                    <span className="text-[11px] text-mute">
-                      Client: {t.client} · Due {t.due}
-                      {done && t.completedAt && (
-                        <> · Done{" "}
-                          {new Date(t.completedAt).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </>
-                      )}
-                    </span>
-                  </span>
-                  <input
-                    value={t.estimatedHours ? String(t.estimatedHours) : ""}
-                    onChange={(e) =>
-                      setHours(t.id, Number(e.target.value.replace(/[^0-9.]/g, "")) || 0)
-                    }
-                    placeholder="hrs"
-                    inputMode="decimal"
-                    title="Estimated hours"
-                    className="w-16 rounded-lg border border-white/10 bg-ink-800 px-2.5 py-1.5 text-center text-xs font-medium text-white outline-none transition focus:border-glow-500/50"
-                  />
-                  <span className={cn("rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase", prioStyle)}>
-                    {t.priority}
-                  </span>
-                  {done ? (
-                    <>
-                      <Badge variant="emerald">
-                        <CheckCircle2 className="h-3 w-3" /> Done
-                      </Badge>
-                      <button
-                        onClick={() => reopenTask(t.id)}
-                        title="Reopen task"
-                        className="rounded-lg border border-white/10 p-1.5 text-mute transition hover:border-white/25 hover:text-white"
-                      >
-                        <RefreshCcw className="h-3.5 w-3.5" />
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <select
-                        value={t.assignee ?? ""}
-                        onChange={(e) => assign(t.id, e.target.value || null)}
-                        className={cn(
-                          "rounded-xl border border-white/10 bg-ink-800 px-3 py-2 text-xs font-medium text-white outline-none transition focus:border-brand-400/60",
-                          t.assignee ? "border-glow-500/40" : "",
-                        )}
-                      >
-                        <option value="">Unassigned</option>
-                        {TEAM.map((m) => (
-                          <option key={m} value={m}>
-                            {m}
-                          </option>
-                        ))}
-                      </select>
-                      {t.assignee && (
-                        <button
-                          onClick={() => complete(t.id)}
-                          className="flex items-center gap-1.5 rounded-lg border border-glow-500/30 bg-glow-500/10 px-3 py-1.5 text-[11px] font-semibold text-glow-400"
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Mark done
-                        </button>
-                      )}
-                    </>
-                  )}
-                  <button
-                    onClick={() => removeTask(t.id)}
-                    title="Remove task"
-                    className="rounded-lg p-1.5 text-mute transition hover:bg-rose-500/10 hover:text-rose-300"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
+                <div className="mt-6">
+          <TasksTab
+            tasks={tasks}
+            onAssign={assign}
+            onComplete={complete}
+            onReopen={reopenTask}
+            onRemove={removeTask}
+            onSetHours={setHours}
+            onAddTask={handleAddTask}
+          />
+        </div>
 
         {/* Work log */}
         <Card className="mt-6 p-6">

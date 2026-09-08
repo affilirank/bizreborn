@@ -24,12 +24,14 @@ export async function POST(
     return NextResponse.json({ error: "Offer not found." }, { status: 404 });
   }
 
-  // Note: these actions are token-gated (the token is the private secret a
-  // client receives with their proposal link). Payment completion is handled
-  // server-side by the public offer page after Stripe's redirect, not here.
-
   switch (action) {
     case "decline": {
+      const { data: rawOffer } = await admin
+        .from("offers")
+        .select("*")
+        .eq("token", token)
+        .maybeSingle();
+
       const { error } = await admin
         .from("offers")
         .update({ status: "declined" })
@@ -40,6 +42,34 @@ export async function POST(
           { status: 500 },
         );
       }
+
+      if (rawOffer) {
+        // Automatically update any associated fulfillment tasks or prospect records so they don't show active/false fulfillment status
+        await admin
+          .from("tasks")
+          .update({ status: "cancelled", assignee: null })
+          .eq("offer_id", rawOffer.id);
+
+        if (rawOffer.prospect_id) {
+          await admin
+            .from("prospects")
+            .update({ status: "declined" })
+            .eq("id", rawOffer.prospect_id);
+        }
+        if (rawOffer.client_email) {
+          await admin
+            .from("prospects")
+            .update({ status: "declined" })
+            .eq("email", rawOffer.client_email);
+        }
+        if (rawOffer.client_name) {
+          await admin
+            .from("prospects")
+            .update({ status: "declined" })
+            .ilike("business_name", rawOffer.client_name);
+        }
+      }
+
       return NextResponse.json({ offer });
     }
     case "payment-link": {
