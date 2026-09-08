@@ -1314,64 +1314,111 @@ function NewsletterModal({
   onClose,
   onCopy,
 }: {
-  data: { p: Prospect; sequence: { email1_subject: string; email1_body: string; email2_subject: string; email2_body: string; email3_subject: string; email3_body: string } };
+  data: {
+    p: Prospect;
+    sequence: {
+      email1_subject: string;
+      email1_body: string;
+      email1_html: string;
+      email2_subject: string;
+      email2_body: string;
+      email2_html: string;
+      email3_subject: string;
+      email3_body: string;
+      email3_html: string;
+    };
+  };
   onClose: () => void;
   onCopy: (text: string) => void;
 }) {
   const [activeTab, setActiveTab] = useState<1 | 2 | 3>(1);
+  const [viewMode, setViewMode] = useState<"preview" | "code">("preview");
   const { p, sequence } = data;
   const sub = activeTab === 1 ? sequence.email1_subject : activeTab === 2 ? sequence.email2_subject : sequence.email3_subject;
-  const body = activeTab === 1 ? sequence.email1_body : activeTab === 2 ? sequence.email2_body : sequence.email3_body;
+  const html = activeTab === 1 ? sequence.email1_html : activeTab === 2 ? sequence.email2_html : sequence.email3_html;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-ink-800 bg-ink-900 p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="flex max-h-[92vh] w-full max-w-3xl flex-col rounded-2xl border border-ink-800 bg-ink-900 p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-ink-800 pb-4">
           <div>
-            <h3 className="font-sora text-lg font-bold text-white">AI Newsletter Drip for {p.business_name}</h3>
-            <p className="text-xs text-ink-400">Tailored 3-part nurture sequence focusing on {p.city || "local"} market authority.</p>
+            <h3 className="font-sora text-lg font-bold text-white">⚡ Professional HTML Email Drip for {p.business_name}</h3>
+            <p className="text-xs text-ink-400">Pre-rendered with agency branding, logo, and video audit link.</p>
           </div>
           <button onClick={onClose} className="text-ink-400 hover:text-white">
             <X size={18} />
           </button>
         </div>
 
-        <div className="mt-4 flex gap-2 border-b border-ink-800 pb-3">
-          {[1, 2, 3].map((n) => (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-b border-ink-800 pb-3">
+          <div className="flex gap-2">
+            {[1, 2, 3].map((n) => (
+              <button
+                key={n}
+                onClick={() => setActiveTab(n as 1 | 2 | 3)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                  activeTab === n ? "bg-brand-600 text-white" : "bg-ink-950 text-ink-400 hover:text-white"
+                }`}
+              >
+                Email {n} ({n === 1 ? "The Hook" : n === 2 ? "Local Authority" : "The Close"})
+              </button>
+            ))}
+          </div>
+          <div className="flex rounded-lg bg-ink-950 p-1 border border-ink-800">
             <button
-              key={n}
-              onClick={() => setActiveTab(n as 1 | 2 | 3)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                activeTab === n ? "bg-brand-600 text-white" : "bg-ink-950 text-ink-400 hover:text-white"
+              onClick={() => setViewMode("preview")}
+              className={`rounded-md px-3 py-1 text-xs font-semibold transition ${
+                viewMode === "preview" ? "bg-brand-600 text-white" : "text-ink-400 hover:text-white"
               }`}
             >
-              Email {n} ({n === 1 ? "The Hook" : n === 2 ? "Local Authority" : "The Close"})
+              Live Preview
             </button>
-          ))}
+            <button
+              onClick={() => setViewMode("code")}
+              className={`rounded-md px-3 py-1 text-xs font-semibold transition ${
+                viewMode === "code" ? "bg-brand-600 text-white" : "text-ink-400 hover:text-white"
+              }`}
+            >
+              HTML Code
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 flex-1 space-y-3 overflow-y-auto">
           <div>
             <label className="text-[11px] text-ink-400">Subject Line</label>
             <div className="mt-1 flex items-center justify-between rounded-lg border border-ink-800 bg-ink-950 px-3 py-2 text-xs text-white">
-              <span>{sub}</span>
+              <span className="font-medium">{sub}</span>
               <button onClick={() => onCopy(sub)} className="text-brand-400 hover:underline"><Copy size={12} /></button>
             </div>
           </div>
+
           <div>
-            <label className="text-[11px] text-ink-400">Email Body</label>
-            <div className="mt-1 rounded-lg border border-ink-800 bg-ink-950 p-3 text-xs whitespace-pre-line text-ink-200">
-              {body}
-            </div>
+            <label className="text-[11px] text-ink-400">Rendered Email Template</label>
+            {viewMode === "preview" ? (
+              <div className="mt-1 overflow-hidden rounded-xl border border-ink-800 bg-white">
+                <iframe
+                  srcDoc={html}
+                  title="Email Preview"
+                  className="h-[380px] w-full border-0"
+                />
+              </div>
+            ) : (
+              <textarea
+                readOnly
+                value={html}
+                className="mt-1 h-[380px] w-full rounded-xl border border-ink-800 bg-ink-950 p-3 font-mono text-[11px] text-brand-300 outline-none"
+              />
+            )}
           </div>
         </div>
 
         <div className="mt-6 flex items-center justify-between border-t border-ink-800 pt-4">
           <button
-            onClick={() => onCopy(`Subject: ${sub}\n\n${body}`)}
+            onClick={() => onCopy(html)}
             className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-500"
           >
-            <Copy size={13} /> Copy Email #{activeTab}
+            <Copy size={13} /> Copy HTML Email #{activeTab}
           </button>
           <button onClick={onClose} className="rounded-lg border border-ink-800 px-4 py-2 text-xs font-medium text-ink-300 hover:text-white">
             Close

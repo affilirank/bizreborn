@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { isAdminOrDemo } from "@/lib/supabase/server";
 import { getProspectById } from "@/lib/prospects";
 import { LEADGEN } from "@/lib/config";
+import { renderProfessionalEmailHtml } from "@/lib/email-template";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Direct Email Sender API using Resend (or configured email API).
- * Falls back to simulation success when RESEND_API_KEY is absent.
+ * Direct Email Sender API using Resend with professional HTML templates.
  */
 export async function POST(req: Request) {
   if (!(await isAdminOrDemo())) {
@@ -32,27 +32,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Prospect has no email address." }, { status: 400 });
   }
 
-  const base =
-    process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
-  const pitchUrl = `${base}/pitch/${p.slug ?? ""}`;
-
   const subject =
     customSubject || `Your Custom Brand Growth Audit: ${p.business_name} × Biz Reborn`;
   
   const html =
     customHtml ||
-    [
-      `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111;background:#fafafa;border-radius:16px;">`,
-      `<h2 style="color:#6366F1;margin-bottom:8px;">Custom Growth Audit for ${p.business_name}</h2>`,
-      `<p>Hi there,</p>`,
-      `<p>We ran a deep multi-point brand audit on <strong>${p.business_name}</strong> across Google Maps, website speed, and local social velocity.</p>`,
-      `<p>Your current Google listing sits at <strong>${p.google_rating ?? "—"} stars</strong> with <strong>${p.review_count ?? 0} reviews</strong>. Meanwhile, your top local competitor is pulling significantly more search traffic and calls.</p>`,
-      `<p style="text-align:center;margin:28px 0;"><a href="${pitchUrl}" style="display:inline-block;background:#6366F1;color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:12px;font-weight:bold;font-size:15px;">Watch Your 45-Second Video Audit →</a></p>`,
-      `<p>We mapped out the exact fixes needed to lock in your Top 3 spot in the local map pack. Want to grab 10 minutes this week to walk through it?</p>`,
-      `<p>Simply reply to this email or reach out directly at <a href="mailto:${LEADGEN.email}" style="color:#6366F1;">${LEADGEN.email}</a>.</p>`,
-      `<p style="color:#64748b;font-size:13px;border-top:1px solid #e2e8f0;padding-top:16px;margin-top:24px;">— Biz Reborn Marketing · <a href="https://www.bizreborn.com" style="color:#6366F1;">www.bizreborn.com</a></p>`,
-      `</div>`,
-    ].join("");
+    renderProfessionalEmailHtml({
+      prospect: p,
+      subject,
+      body: `We ran a deep multi-point brand audit on ${p.business_name} across Google Maps, website speed, and local social velocity.\n\nYour current Google listing sits at ${p.google_rating ?? "—"} stars with ${p.review_count ?? 0} reviews. Meanwhile, your top local competitor is pulling significantly more search traffic and calls.\n\nWe mapped out the exact fixes needed to lock in your Top 3 spot in the local map pack. Want to grab 10 minutes this week to walk through it?`,
+      stepNumber: 1,
+    });
 
   const resendKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.EMAIL_FROM || `Biz Reborn Marketing <hello@bizreborn.com>`;
@@ -89,6 +79,6 @@ export async function POST(req: Request) {
   return NextResponse.json({
     success: true,
     simulated: true,
-    message: `Simulated email sent to ${p.email}. Add RESEND_API_KEY in Vercel to send live via domain.`,
+    message: `Simulated professional HTML email sent to ${p.email}. Add RESEND_API_KEY in Vercel to send live via domain.`,
   });
 }
