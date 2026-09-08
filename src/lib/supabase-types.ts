@@ -172,6 +172,7 @@ export interface Prospect {
   roi_projection: RoiProjection | null;
   recommended_services: number[] | null;
   google_rating: number | null;
+  google_maps_link: string | null;
   review_count: number | null;
   unanswered_reviews: number | null;
   competitor_name: string | null;

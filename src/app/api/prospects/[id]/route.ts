@@ -47,6 +47,7 @@ export async function PUT(
   if (body.instagram !== undefined) patch.instagram = String(body.instagram).trim() || null;
   if (body.facebook !== undefined) patch.facebook = String(body.facebook).trim() || null;
   if (body.tiktok !== undefined) patch.tiktok = String(body.tiktok).trim() || null;
+  if (body.google_maps_link !== undefined) patch.google_maps_link = String(body.google_maps_link).trim() || null;
 
   if (body.google_rating !== undefined) patch.google_rating = Number(body.google_rating) || null;
   if (body.review_count !== undefined) patch.review_count = Number(body.review_count) || null;

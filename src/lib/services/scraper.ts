@@ -14,6 +14,7 @@ export interface ScrapeInput {
   business_name: string;
   city: string;
   website?: string | null;
+  google_maps_link?: string | null;
 }
 
 /**
@@ -21,10 +22,11 @@ export interface ScrapeInput {
  * or using AI router with direct Maps link extraction.
  */
 export async function scrapeReputation(input: ScrapeInput): Promise<ScrapeResult> {
-  const queryText = `${input.business_name} ${input.city}`;
+// queryText defined below
   
   // If input is a Google Maps link or URL, use it directly
-  const isMapsLink = /google\.com\/maps|goo\.gl\/maps/i.test(input.business_name) || /google\.com\/maps|goo\.gl\/maps/i.test(input.website || "");
+  const isMapsLink = /google\.com\/maps|goo\.gl\/maps/i.test(input.business_name) || /google\.com\/maps|goo\.gl\/maps/i.test(input.website || "") || /google\.com\/maps|goo\.gl\/maps/i.test(input.google_maps_link || "");
+  const queryText = input.google_maps_link ? `${input.business_name} ${input.city} [Maps Link: ${input.google_maps_link}]` : `${input.business_name} ${input.city}`;
   
   try {
     const text = await callAi({

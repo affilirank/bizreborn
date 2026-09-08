@@ -85,6 +85,7 @@ function toMemoryRow(input: Partial<Prospect> & { business_name: string }): Pros
     business_name: input.business_name,
     city: input.city ?? null,
     website: input.website ?? null,
+    google_maps_link: input.google_maps_link ?? null,
     email: input.email ?? null,
     phone: input.phone ?? null,
     instagram: input.instagram ?? null,

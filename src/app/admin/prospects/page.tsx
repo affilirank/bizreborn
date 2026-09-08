@@ -135,6 +135,7 @@ const EMPTY_MANUAL = {
   business_name: "",
   city: "",
   website: "",
+  google_maps_link: "",
   email: "",
   phone: "",
   instagram: "",
@@ -317,6 +318,7 @@ export default function ProspectsAdmin() {
         business_name: r.business_name || r.name || r.business || "",
         city: r.city || "",
         website: r.website || r.url || "",
+        google_maps_link: r.google_maps_link || r.google_maps_url || r.maps_link || "",
         email: r.email || "",
         phone: r.phone || "",
         instagram: r.instagram || r.ig || "",
@@ -360,12 +362,20 @@ export default function ProspectsAdmin() {
             45-second video pitch with projected ROI, and hand you a proposal draft.
           </p>
         </div>
-        <button
-          onClick={() => void refresh()}
-          className="flex items-center gap-2 rounded-lg border border-ink-800 bg-ink-900/50 px-3 py-2 text-xs text-ink-300 transition hover:text-white"
-        >
-          <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowDiscovery(true)}
+            className="flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-500 shadow-lg shadow-brand-600/25"
+          >
+            <Compass size={14} /> Find Leads by Keyword
+          </button>
+          <button
+            onClick={() => void refresh()}
+            className="flex items-center gap-2 rounded-lg border border-ink-800 bg-ink-900/50 px-3 py-2 text-xs text-ink-300 transition hover:text-white"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
+          </button>
+        </div>
       </div>
 
       {store?.setupRequired && (
@@ -455,6 +465,7 @@ export default function ProspectsAdmin() {
               <Input value={manual.business_name} onChange={(v) => setManual({ ...manual, business_name: v })} placeholder="Business name *" />
               <Input value={manual.city} onChange={(v) => setManual({ ...manual, city: v })} placeholder="City" />
               <Input value={manual.website} onChange={(v) => setManual({ ...manual, website: v })} placeholder="Website" />
+              <Input value={manual.google_maps_link} onChange={(v) => setManual({ ...manual, google_maps_link: v })} placeholder="Google Maps / GBP Link" />
               <Input value={manual.email} onChange={(v) => setManual({ ...manual, email: v })} placeholder="Email (for proposal)" />
               <Input value={manual.phone} onChange={(v) => setManual({ ...manual, phone: v })} placeholder="Phone" />
               
@@ -880,6 +891,7 @@ function EditModal({
     business_name: p.business_name || "",
     city: p.city || "",
     website: p.website || "",
+    google_maps_link: p.google_maps_link || "",
     email: p.email || "",
     google_rating: p.google_rating != null ? String(p.google_rating) : "4.8",
     review_count: p.review_count != null ? String(p.review_count) : "130",
@@ -960,6 +972,10 @@ function EditModal({
           <div>
             <label className="text-[11px] text-ink-400">Website</label>
             <Input value={form.website} onChange={(v) => setForm({ ...form, website: v })} placeholder="https://..." />
+          </div>
+          <div>
+            <label className="text-[11px] text-ink-400">Google Maps / GBP Link</label>
+            <Input value={form.google_maps_link} onChange={(v) => setForm({ ...form, google_maps_link: v })} placeholder="https://maps.google.com/..." />
           </div>
         </div>
 

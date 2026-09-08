@@ -44,6 +44,7 @@ alter table public.prospects add column if not exists tiktok text;
 alter table public.prospects add column if not exists audit_report jsonb;
 alter table public.prospects add column if not exists roi_projection jsonb;
 alter table public.prospects add column if not exists recommended_services integer[];
+alter table public.prospects add column if not exists google_maps_link text;
 
 create index if not exists prospects_status_idx on public.prospects (status);
 create index if not exists prospects_slug_idx on public.prospects (slug);

@@ -35,6 +35,7 @@ export async function POST(req: Request) {
     instagram?: string;
     facebook?: string;
     tiktok?: string;
+    google_maps_link?: string;
     google_rating?: number;
     review_count?: number;
     unanswered_reviews?: number;
@@ -59,6 +60,7 @@ export async function POST(req: Request) {
       instagram: str(row.instagram || row.ig),
       facebook: str(row.facebook || row.fb),
       tiktok: str(row.tiktok),
+      google_maps_link: str(row.google_maps_link || row.google_maps_url || row.maps_link || row.maps_url),
       google_rating: row.google_rating !== undefined && row.google_rating !== "" ? Number(row.google_rating) : undefined,
       review_count: row.review_count !== undefined && row.review_count !== "" ? Number(row.review_count) : undefined,
       unanswered_reviews: row.unanswered_reviews !== undefined && row.unanswered_reviews !== "" ? Number(row.unanswered_reviews) : undefined,

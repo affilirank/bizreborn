@@ -113,6 +113,7 @@ class BatchQueue {
           business_name: prospect.business_name,
           city: prospect.city ?? "",
           website: prospect.website,
+          google_maps_link: prospect.google_maps_link,
         });
         await updateProspect(id, { ...scraped });
       }
