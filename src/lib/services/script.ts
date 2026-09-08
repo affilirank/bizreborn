@@ -1,6 +1,6 @@
-import { config, hasGemini } from "@/lib/integrations/config";
 import { LEADGEN } from "@/lib/config";
 import type { ProspectAudit, RoiProjection } from "@/lib/supabase-types";
+import { callAi } from "@/lib/ai-router";
 
 export interface ScriptInput {
   business_name: string;
@@ -43,30 +43,14 @@ function buildPrompt(input: ScriptInput): string {
 }
 
 /**
- * Free Google Gemini 1.5 Flash text synthesis for the pitch script.
- * Falls back to a deterministic template when GEMINI_API_KEY is absent.
+ * Generates the pitch script using Gemini first (free tier), with automatic fallback to OpenAI.
  */
 export async function generatePitchScript(input: ScriptInput): Promise<string> {
-  if (hasGemini()) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${config.gemini.model}:generateContent?key=${config.gemini.apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: buildPrompt(input) }] }],
-          }),
-        },
-      );
-      const json = await res.json();
-      const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) return text.trim();
-      console.warn("[gemini] no text in response, using fallback");
-    } catch (err) {
-      console.warn("[gemini] request failed, using fallback:", err);
-    }
-  }
+  const text = await callAi({
+    prompt: buildPrompt(input),
+    systemPrompt: "You are an expert short-form video copywriter for local marketing agency Biz Reborn Marketing.",
+  });
+  if (text) return text;
   return fallbackScript(input);
 }
 
@@ -78,12 +62,6 @@ function shorten(s: string, max = 110): string {
 export function fallbackScript(input: ScriptInput): string {
   const rating = input.google_rating ?? 4.0;
   const reviews = input.review_count ?? 0;
-  const isDominating = (rating >= 4.9 && reviews >= 100) || (rating === 5.0 && reviews >= 40);
-
-  if (isDominating) {
-    return `Hi ${input.business_name}, this is Biz Reborn Marketing. You have achieved a rare local market monopoly with ${rating} stars and ${reviews} reviews. Your challenge is no longer beating local competitors, but multi-location expansion, 24/7 AI voice receptionists, and automated lead capture. Email ${LEADGEN.email} today to claim your scaling growth playbook.`;
-  }
-
   const unanswered = input.unanswered_reviews ?? Math.max(1, Math.round(reviews * 0.7));
   const competitor = input.competitor_name ?? "your top local competitor";
   const compReviews = input.competitor_reviews ?? 0;

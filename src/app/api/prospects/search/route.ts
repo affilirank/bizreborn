@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminOrDemo } from "@/lib/supabase/server";
+import { callAi } from "@/lib/ai-router";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ interface DiscoveredBusiness {
 
 /**
  * Lead Discovery API: searches for real local businesses by keyword and city
- * using OpenAI or Gemini intelligence, returning a list ready for selection & auditing.
+ * using the smart AI router (Gemini -> OpenAI fallback).
  */
 export async function POST(req: Request) {
   if (!(await isAdminOrDemo())) {
@@ -36,82 +37,30 @@ export async function POST(req: Request) {
     );
   }
 
-  const openAiKey = process.env.OPENAI_API_KEY;
-  const geminiKey = process.env.GEMINI_API_KEY;
-
   try {
-    if (openAiKey) {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${openAiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4.1-mini",
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a local business lead generation assistant. Return ONLY a valid JSON array of real or highly accurate local business listings matching the requested keyword and city. Each object in the array must have keys: business_name (string), city (string), website (string, e.g. https://...), email (string or empty), phone (string or empty), google_rating (number, e.g. 4.8), review_count (number), competitor_name (string), competitor_reviews (number). Provide exactly up to the requested count of diverse businesses. No markdown fences, raw JSON array only.",
-            },
-            {
-              role: "user",
-              content: `Keyword: ${keyword}, City: ${city}, Count: ${count}`,
-            },
-          ],
-          temperature: 0.5,
-        }),
-      });
-      const json = await res.json();
-      const text = json?.choices?.[0]?.message?.content;
-      if (text) {
-        const cleaned = text.replace(/```json/gi, "").replace(/```/g, "").trim();
-        const parsed = JSON.parse(cleaned);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const results: DiscoveredBusiness[] = parsed.map((item: Record<string, unknown>) => ({
-            business_name: String(item.business_name || keyword),
-            city: String(item.city || city),
-            website: String(item.website || ""),
-            email: String(item.email || ""),
-            phone: String(item.phone || ""),
-            google_rating: Number(item.google_rating) || 4.7,
-            review_count: Number(item.review_count) || 35,
-            competitor_name: String(item.competitor_name || `${keyword} Pro`),
-            competitor_reviews: Number(item.competitor_reviews) || 85,
-          }));
-          return NextResponse.json({ businesses: results });
-        }
-      }
-    }
+    const text = await callAi({
+      prompt: `Keyword: ${keyword}, City: ${city}, Count: ${count}`,
+      systemPrompt:
+        "You are a local business lead generation assistant. Return ONLY a valid JSON array of real or highly accurate local business listings matching the requested keyword and city. Each object in the array must have keys: business_name (string), city (string), website (string, e.g. https://...), email (string or empty), phone (string or empty), google_rating (number, e.g. 4.8), review_count (number), competitor_name (string), competitor_reviews (number). Provide exactly up to the requested count of diverse businesses. Raw JSON array only.",
+      jsonMode: true,
+    });
 
-    if (geminiKey) {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: `Return ONLY a valid JSON array of ${count} real local businesses matching keyword "${keyword}" in "${city}". Keys: business_name, city, website, email, phone, google_rating, review_count, competitor_name, competitor_reviews. No markdown.`,
-                  },
-                ],
-              },
-            ],
-          }),
-        },
-      );
-      const json = await res.json();
-      const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) {
-        const cleaned = text.replace(/```json/gi, "").replace(/```/g, "").trim();
-        const parsed = JSON.parse(cleaned);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return NextResponse.json({ businesses: parsed });
-        }
+    if (text) {
+      const cleaned = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+      const parsed = JSON.parse(cleaned);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const results: DiscoveredBusiness[] = parsed.map((item: Record<string, unknown>) => ({
+          business_name: String(item.business_name || keyword),
+          city: String(item.city || city),
+          website: String(item.website || ""),
+          email: String(item.email || ""),
+          phone: String(item.phone || ""),
+          google_rating: Number(item.google_rating) || 4.7,
+          review_count: Number(item.review_count) || 35,
+          competitor_name: String(item.competitor_name || `${keyword} Pro`),
+          competitor_reviews: Number(item.competitor_reviews) || 85,
+        }));
+        return NextResponse.json({ businesses: results });
       }
     }
   } catch (err) {
