@@ -27,7 +27,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const keyword = String(body?.keyword ?? "").trim();
   const city = String(body?.city ?? "").trim();
-  const count = Math.min(50, Math.max(5, Number(body?.count ?? 20)));
+  const count = Math.min(200, Math.max(5, Number(body?.count ?? 50)));
 
   if (!keyword || !city) {
     return NextResponse.json(

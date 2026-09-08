@@ -510,7 +510,7 @@ export default function ProspectsAdmin() {
         {/* Table column */}
         <div className="lg:col-span-2">
           <div className="flex flex-wrap gap-1.5 border-b border-ink-800/60 pb-3">
-            {(["all", "pending", "scraping", "rendering", "ready", "failed"] as Tab[]).map((t) => (
+            {(["all", "saved", "pending", "scraping", "rendering", "ready", "failed"] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -665,7 +665,7 @@ function ProspectRow({
 }) {
   const badge = statusBadge[p.status || "pending"] || statusBadge.pending;
   const Icon =
-    { pending: Clock, scraping: Loader2, rendering: Film, ready: CheckCircle, failed: AlertTriangle }[p.status || "pending"] || Clock;
+    { saved: Clock, pending: Clock, scraping: Loader2, rendering: Film, ready: CheckCircle, failed: AlertTriangle }[p.status || "pending"] || Clock;
   const spinning = p.status === "scraping" || p.status === "rendering" || p.status === "pending";
   const roi = p.roi_projection;
   const grade = p.audit_report?.grade;
@@ -1046,11 +1046,15 @@ function DiscoveryModal({
     });
   };
 
-  const importSelected = async () => {
+  const importSelected = async (generateNow: boolean) => {
     if (selected.size === 0) return;
     setImporting(true);
     try {
-      const rows = Array.from(selected).map((i) => results[i]).filter(Boolean);
+      const rows = Array.from(selected).map((i) => ({
+        ...results[i],
+        status: generateNow ? "pending" : "saved",
+      })).filter(Boolean);
+
       const res = await fetch("/api/prospects/batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1059,12 +1063,13 @@ function DiscoveryModal({
       const json = await res.json();
       if (res.ok && Array.isArray(json.prospects)) {
         const ids = (json.prospects as Prospect[]).map((p) => p.id);
-        // Kick off audit & video generation for all imported leads
-        await fetch("/api/prospects", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "generate", ids }),
-        });
+        if (generateNow && ids.length > 0) {
+          await fetch("/api/prospects", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "generate", ids }),
+          });
+        }
         onImported();
       } else {
         alert(json.error || "Import failed");
@@ -1167,12 +1172,20 @@ function DiscoveryModal({
               Cancel
             </button>
             <button
-              onClick={() => void importSelected()}
+              onClick={() => void importSelected(false)}
+              disabled={importing || selected.size === 0}
+              className="flex items-center gap-2 rounded-lg border border-ink-700 bg-ink-800 px-4 py-2 text-xs font-semibold text-white transition hover:bg-ink-700 disabled:opacity-50"
+            >
+              {importing ? <Loader2 size={14} className="animate-spin" /> : null}
+              Save to Lead Library ({selected.size})
+            </button>
+            <button
+              onClick={() => void importSelected(true)}
               disabled={importing || selected.size === 0}
               className="flex items-center gap-2 rounded-lg bg-glow-600 px-5 py-2 text-xs font-semibold text-white transition hover:bg-glow-500 disabled:opacity-50"
             >
               {importing ? <Loader2 size={14} className="animate-spin" /> : <Film size={14} />}
-              Import &amp; Start Audits &amp; Pitches ({selected.size})
+              Import &amp; Generate ({selected.size})
             </button>
           </div>
         </div>

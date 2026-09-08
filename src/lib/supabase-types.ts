@@ -130,6 +130,7 @@ export interface Asset {
 }
 
 export type ProspectStatus =
+  | "saved"
   | "pending"
   | "scraping"
   | "rendering"
