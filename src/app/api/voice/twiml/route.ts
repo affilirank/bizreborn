@@ -84,7 +84,9 @@ Your tone is warm, energetic, straightforward, confident, and professional. Keep
   const aiOutput = await callAi({
     prompt,
     systemPrompt,
-    maxTokens: 55,
+    maxTokens: 200,
+    thinkingLevel: "minimal",
+    timeoutMs: 8000,
   });
 
   if (aiOutput) {

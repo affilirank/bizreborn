@@ -39,7 +39,7 @@ export async function POST(req: Request) {
       prompt,
       systemPrompt: "You are an expert B2B agency copywriter specializing in high-converting local marketing email drips.",
       jsonMode: true,
-      maxTokens: 1500,
+      maxTokens: 2500,
     });
 
     if (text) {

@@ -4,6 +4,7 @@ import { isAdminOrDemo } from "@/lib/supabase/server";
 import { callAi, parseAiJson } from "@/lib/ai-router";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 interface DiscoveredBusiness {
   qualifying_score: number;
@@ -42,9 +43,9 @@ export async function POST(req: Request) {
     const text = await callAi({
       prompt: `Keyword: ${keyword}, City: ${city}, Count: ${count}`,
       systemPrompt:
-        "You are an expert local business lead generation assistant with access to Google Search grounding. Search the web and return ONLY a valid JSON object with a single root key businesses containing an array of real, verified local business listings matching the requested keyword and city. Each object in the array must have keys: business_name (string), city (string), website (string, e.g. https://www.[cleanname]fl.com), email (string, e.g. info@[cleanname]fl.com), phone (string, valid local format e.g. 772-555-0142), instagram (string handle or empty), facebook (string handle or empty), google_rating (number or null), review_count (number or null), competitor_name (string, name of the local market leader), competitor_reviews (number, higher than review_count). Provide exactly up to the requested count of diverse, real businesses with robust competitor review comparisons. Raw JSON object only, no markdown code fences, no conversational filler.",
+        "You are an expert local business lead generation assistant. Return ONLY a valid JSON object with a single root key businesses containing an array of real, locally-known business listings matching the requested keyword and city. Each object in the array must have keys: business_name (string), city (string), website (string, e.g. https://www.[cleanname]fl.com), email (string, e.g. info@[cleanname]fl.com), phone (string, valid local format e.g. 772-555-0142), instagram (string handle or empty), facebook (string handle or empty), google_rating (number or null), review_count (number or null), competitor_name (string, name of the local market leader), competitor_reviews (number, higher than review_count). Provide exactly up to the requested count of diverse local businesses with robust competitor review comparisons. Return the most well-known, credible businesses you know for that keyword and city; never invent public figures you are certain do not exist — prefer fewer, real results over fabricated counts. Raw JSON object only, no markdown code fences, no conversational filler.",
       jsonMode: true,
-      maxTokens: 2500,
+      maxTokens: 6000,
       useSearchGrounding: true,
       timeoutMs: 45000,
     });

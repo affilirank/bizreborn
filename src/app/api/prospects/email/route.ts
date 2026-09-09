@@ -49,7 +49,7 @@ export async function POST(req: Request) {
       const text = await callAi({
         prompt,
         systemPrompt: "You are an expert B2B copywriter specializing in high-converting local marketing outreach.",
-        maxTokens: 500,
+        maxTokens: 800,
       });
       if (text) {
         emailBody = text.replace(/```/g, "").trim();

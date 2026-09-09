@@ -1,6 +1,11 @@
 /**
- * Smart AI Router: tries Google Gemini (gemini-3.5-flash) directly with search grounding and a robust timeout,
+ * Smart AI Router: tries Google Gemini (gemini-3.6-flash) directly with search grounding and a robust timeout,
  * and automatically falls back instantly to OpenAI (gpt-5.4-mini) when rate-limited or unavailable.
+ *
+ * Search grounding degrades gracefully: if the grounding call is rejected (no
+ * Google Search quota on the key, or a transient 429/503), the same prompt is
+ * retried once WITHOUT the grounding tool before falling through to OpenAI, so
+ * the scraper still returns real results instead of canned data.
  */
 
 export interface AiRequest {
@@ -9,8 +14,10 @@ export interface AiRequest {
   jsonMode?: boolean;
   maxTokens?: number;
   useSearchGrounding?: boolean;
-  /** Overall budget per provider attempt in ms (defaults to 8000). */
+  /** Overall budget per provider attempt in ms (defaults to 15000). */
   timeoutMs?: number;
+  /** Gemini thinking level (default "low"). Use "minimal" for ultra-low-latency voice paths. */
+  thinkingLevel?: "minimal" | "low" | "medium" | "high";
 }
 
 /**
@@ -52,61 +59,120 @@ export function parseAiJson<T = any>(text: string | null): T | null {
   return null;
 }
 
+async function geminiGenerate(opts: {
+  key: string;
+  model: string;
+  prompt: string;
+  systemPrompt?: string;
+  jsonMode?: boolean;
+  maxTokens: number;
+  timeoutMs: number;
+  thinkingLevel: "minimal" | "low" | "medium" | "high";
+  withGrounding: boolean;
+}): Promise<string | null> {
+  const bodyPayload: any = {
+    contents: [
+      {
+        parts: [
+          {
+            text: opts.systemPrompt
+              ? `${opts.systemPrompt}
+
+${opts.prompt}`
+              : opts.prompt,
+          },
+        ],
+      },
+    ],
+    generationConfig: {
+      ...(opts.jsonMode ? { responseMimeType: "application/json" } : {}),
+      maxOutputTokens: opts.maxTokens,
+      thinkingConfig: { thinkingLevel: opts.thinkingLevel },
+    },
+  };
+
+  if (opts.withGrounding) {
+    bodyPayload.tools = [{ googleSearch: {} }];
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), opts.timeoutMs);
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${opts.model}:generateContent?key=${opts.key}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bodyPayload),
+        signal: controller.signal,
+      },
+    );
+    const json = await res.json();
+    const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (res.ok && text) {
+      return text.trim();
+    }
+    return null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export async function callAi(req: AiRequest): Promise<string | null> {
   const geminiKey = process.env.GEMINI_API_KEY;
   const openAiKey = process.env.OPENAI_API_KEY;
-  const geminiModel = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
+  const geminiModel = process.env.GEMINI_MODEL || "gemini-3.6-flash";
   const openAiModel = process.env.CHAT_OPENAI_MODEL || "gpt-5.4-mini";
   const maxTokens = req.maxTokens || 1000;
-  const timeoutMs = req.timeoutMs || 8000;
+  const timeoutMs = req.timeoutMs || 15000;
+  const thinkingLevel = req.thinkingLevel || "low";
 
-  // 1. Try Gemini directly with search grounding and robust timeout
+  // 1. Try Gemini. Grounding is best-effort: retry without it on failure so a
+  //    missing Google Search quota never takes down the whole pipeline.
   if (geminiKey) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const bodyPayload: any = {
-        contents: [
-          {
-            parts: [
-              {
-                text: req.systemPrompt
-                  ? `${req.systemPrompt}
-
-${req.prompt}`
-                  : req.prompt,
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          ...(req.jsonMode ? { responseMimeType: "application/json" } : {}),
-          maxOutputTokens: maxTokens,
-        },
-      };
-
-      if (req.useSearchGrounding) {
-        bodyPayload.tools = [{ googleSearch: {} }];
+    let text: string | null = null;
+    if (req.useSearchGrounding) {
+      text = await geminiGenerate({
+        key: geminiKey,
+        model: geminiModel,
+        prompt: req.prompt,
+        systemPrompt: req.systemPrompt,
+        jsonMode: req.jsonMode,
+        maxTokens,
+        timeoutMs,
+        thinkingLevel,
+        withGrounding: true,
+      });
+      if (!text) {
+        text = await geminiGenerate({
+          key: geminiKey,
+          model: geminiModel,
+          prompt: req.prompt,
+          systemPrompt: req.systemPrompt,
+          jsonMode: req.jsonMode,
+          maxTokens,
+          timeoutMs,
+          thinkingLevel,
+          withGrounding: false,
+        });
       }
-
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(bodyPayload),
-          signal: controller.signal,
-        },
-      );
-      clearTimeout(timeoutId);
-      const json = await res.json();
-      const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (res.ok && text) {
-        return text.trim();
-      }
-    } catch (err) {
-      clearTimeout(timeoutId);
-      // Fall back instantly to OpenAI
+    } else {
+      text = await geminiGenerate({
+        key: geminiKey,
+        model: geminiModel,
+        prompt: req.prompt,
+        systemPrompt: req.systemPrompt,
+        jsonMode: req.jsonMode,
+        maxTokens,
+        timeoutMs,
+        thinkingLevel,
+        withGrounding: false,
+      });
+    }
+    if (text) {
+      return text;
     }
   }
 
