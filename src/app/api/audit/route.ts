@@ -53,6 +53,7 @@ export async function POST(req: Request) {
       prompt: aiPrompt,
       systemPrompt: "You are an expert agency auditor and local SEO specialist. Provide real, rigorous intelligence based on public business data.",
       jsonMode: true,
+      maxTokens: 4000,
     });
 
     if (text) {

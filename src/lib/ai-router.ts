@@ -16,7 +16,9 @@ export interface AiRequest {
   useSearchGrounding?: boolean;
   /** Overall budget per provider attempt in ms (defaults to 15000). */
   timeoutMs?: number;
-  /** Gemini thinking level (default "low"). Use "minimal" for ultra-low-latency voice paths. */
+  /** Gemini thinking level (default "minimal"). "minimal" keeps latency and
+   *  token burn down on 3.x thinking models; use "low"/"medium" for deeply
+   *  reasoned tasks. */
   thinkingLevel?: "minimal" | "low" | "medium" | "high";
 }
 
@@ -125,9 +127,9 @@ export async function callAi(req: AiRequest): Promise<string | null> {
   const openAiKey = process.env.OPENAI_API_KEY;
   const geminiModel = process.env.GEMINI_MODEL || "gemini-3.6-flash";
   const openAiModel = process.env.CHAT_OPENAI_MODEL || "gpt-5.4-mini";
-  const maxTokens = req.maxTokens || 1000;
+  const maxTokens = req.maxTokens || 2000;
   const timeoutMs = req.timeoutMs || 15000;
-  const thinkingLevel = req.thinkingLevel || "low";
+  const thinkingLevel = req.thinkingLevel || "minimal";
 
   // 1. Try Gemini. Grounding is best-effort: retry without it on failure so a
   //    missing Google Search quota never takes down the whole pipeline.
