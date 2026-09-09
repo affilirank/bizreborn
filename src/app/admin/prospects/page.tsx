@@ -1656,7 +1656,7 @@ function VoiceCallModal({
         setLogs((prev) => [
           ...prev,
           { sender: "system", text: json.simulated ? "Simulated live call connected (add Twilio keys for carrier delivery)." : "Live call connected successfully via Twilio!", time: new Date().toLocaleTimeString() },
-          { sender: "ai", text: `[Alex - gpt-4.1-mini + ElevenLabs 7o2jINz1addxWQ92Mv17]: Hi ${p.business_name}, this is Alex from Biz Reborn. We ran a brand audit on your Google listing (${p.google_rating ?? "4.5"} stars, ${p.review_count ?? 50} reviews). Do you have 45 seconds to discuss your review growth?`, time: new Date().toLocaleTimeString() }
+          { sender: "ai", text: `[Sarah - Gemini + ElevenLabs]: Hi ${p.business_name}, this is Sarah from Biz Reborn. We ran a brand audit on your Google listing (${p.google_rating ?? "4.5"} stars, ${p.review_count ?? 50} reviews). Do you have 45 seconds to discuss your review growth?`, time: new Date().toLocaleTimeString() }
         ]);
       } else {
         setStatus("ended");

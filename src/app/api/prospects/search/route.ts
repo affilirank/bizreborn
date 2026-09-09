@@ -46,6 +46,7 @@ export async function POST(req: Request) {
       jsonMode: true,
       maxTokens: 2500,
       useSearchGrounding: true,
+      timeoutMs: 45000,
     });
 
     if (text) {

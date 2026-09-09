@@ -1,6 +1,6 @@
 /**
- * Smart AI Router: tries Google Gemini (gemini-1.5-flash) directly with search grounding and a robust timeout,
- * and automatically falls back instantly to OpenAI (gpt-4o-mini) when rate-limited or unavailable.
+ * Smart AI Router: tries Google Gemini (gemini-3.5-flash) directly with search grounding and a robust timeout,
+ * and automatically falls back instantly to OpenAI (gpt-5.4-mini) when rate-limited or unavailable.
  */
 
 export interface AiRequest {
@@ -9,6 +9,8 @@ export interface AiRequest {
   jsonMode?: boolean;
   maxTokens?: number;
   useSearchGrounding?: boolean;
+  /** Overall budget per provider attempt in ms (defaults to 8000). */
+  timeoutMs?: number;
 }
 
 /**
@@ -53,14 +55,15 @@ export function parseAiJson<T = any>(text: string | null): T | null {
 export async function callAi(req: AiRequest): Promise<string | null> {
   const geminiKey = process.env.GEMINI_API_KEY;
   const openAiKey = process.env.OPENAI_API_KEY;
-  const geminiModel = process.env.GEMINI_MODEL || "gemini-1.5-flash";
-  const openAiModel = process.env.CHAT_OPENAI_MODEL || "gpt-4o-mini";
+  const geminiModel = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
+  const openAiModel = process.env.CHAT_OPENAI_MODEL || "gpt-5.4-mini";
   const maxTokens = req.maxTokens || 1000;
+  const timeoutMs = req.timeoutMs || 8000;
 
-  // 1. Try Gemini directly with search grounding and robust timeout (8s)
+  // 1. Try Gemini directly with search grounding and robust timeout
   if (geminiKey) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const bodyPayload: any = {
         contents: [
@@ -117,7 +120,7 @@ ${req.prompt}`
       messages.push({ role: "user", content: req.prompt });
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
       const res = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",

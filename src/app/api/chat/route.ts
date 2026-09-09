@@ -5,7 +5,7 @@ import {
   kbContextForRag,
 } from "@/lib/chat";
 
-const OPENAI_MODEL = process.env.CHAT_OPENAI_MODEL ?? "gpt-4.1-mini";
+const OPENAI_MODEL = process.env.CHAT_OPENAI_MODEL ?? "gpt-5.4-mini";
 
 // Best-effort in-memory rate limit (per warm instance). Protects spend from
 // casual abuse; the hybrid router still answers locally even when limited.
