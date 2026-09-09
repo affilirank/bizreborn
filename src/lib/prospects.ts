@@ -68,6 +68,27 @@ export function getProspectStoreStatus(): ProspectStoreStatus {
 const memoryStore = new Map<string, Prospect>();
 let memorySeq = 0;
 
+/**
+ * Generates a real UUID for new prospects. The Supabase `prospects.id`
+ * column is `uuid`, so the old `local-...` ids made every upsert fail
+ * silently — rows only ever lived in one serverless instance's memory,
+ * which caused "Prospect not found" errors on later reads.
+ */
+function newId(): string {
+  try {
+    const c = globalThis.crypto;
+    if (c && typeof c.randomUUID === "function") {
+      const u = c.randomUUID();
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(u)) {
+        return u;
+      }
+    }
+  } catch {
+    // fall through to local fallback
+  }
+  return `00000000-0000-4000-8000-${String(memorySeq).padStart(12, "0")}`;
+}
+
 function memoryUpsertRows(rows: Prospect[]): Prospect[] {
   for (const row of rows) {
     memoryStore.set(row.id, { ...row });
@@ -79,7 +100,7 @@ function toMemoryRow(input: Partial<Prospect> & { business_name: string }): Pros
   memorySeq += 1;
   const now = new Date().toISOString();
   return {
-    id: input.id || `local-${now.replace(/\D/g, "").slice(0, 14)}-${memorySeq}`,
+    id: input.id || newId(),
     business_name: input.business_name,
     city: input.city ?? null,
     website: input.website ?? null,
