@@ -40,6 +40,15 @@ alter table public.prospects add column if not exists audit_report jsonb;
 alter table public.prospects add column if not exists roi_projection jsonb;
 alter table public.prospects add column if not exists recommended_services integer[];
 
+-- Columns added after the second release. BEFORE these existed, the app
+-- wrote them anyway and PostgREST rejected the whole insert/update on
+-- unknown columns, so no prospect ever persisted to the shared DB.
+alter table public.prospects add column if not exists google_maps_link text;
+alter table public.prospects add column if not exists qualifying_score numeric;
+alter table public.prospects add column if not exists missing_gbp_apple boolean;
+alter table public.prospects add column if not exists communication_logs jsonb;
+alter table public.prospects add column if not exists last_contacted_at timestamptz;
+
 create index if not exists prospects_status_idx on public.prospects (status);
 create index if not exists prospects_slug_idx on public.prospects (slug);
 create index if not exists prospects_created_idx on public.prospects (created_at desc);

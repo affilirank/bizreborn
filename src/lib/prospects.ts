@@ -204,6 +204,57 @@ export async function getProspectBySlug(slug: string): Promise<Prospect | null> 
   return null;
 }
 
+/**
+ * Columns that exist on the live `public.prospects` table. Anything outside
+ * this set is stripped before writing so a schema that is missing a column
+ * can never make PostgREST reject the whole batch again (which is exactly
+ * what silently killed every save before the qualifying_score etc. migration).
+ */
+const SYNC_COLUMNS = new Set([
+  "id",
+  "business_name",
+  "city",
+  "website",
+  "email",
+  "phone",
+  "instagram",
+  "facebook",
+  "tiktok",
+  "google_rating",
+  "review_count",
+  "unanswered_reviews",
+  "competitor_name",
+  "competitor_reviews",
+  "audit_report",
+  "roi_projection",
+  "recommended_services",
+  "audit_screenshot_url",
+  "website_preview_url",
+  "voiceover_url",
+  "video_url",
+  "thumbnail_url",
+  "pitch_script",
+  "slug",
+  "status",
+  "error",
+  "created_at",
+  "updated_at",
+  "google_maps_link",
+  "qualifying_score",
+  "missing_gbp_apple",
+  "communication_logs",
+  "last_contacted_at",
+]);
+
+function pickSync(row: object): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(row)) {
+    if (SYNC_COLUMNS.has(k)) out[k] = v;
+    else if (v !== undefined && v !== null) console.warn(`[prospects] dropping unsynced column ${k}`);
+  }
+  return out;
+}
+
 export async function insertProspects(
   inputs: Array<Partial<Prospect> & { business_name: string }>,
 ): Promise<Prospect[]> {
@@ -212,8 +263,10 @@ export async function insertProspects(
 
   const sb = await serviceDb();
   if (sb && !tableMissing) {
-    const payload = rows.map(({ id: _id, ...r }) => r);
-    const { data, error } = await sb.from("prospects").upsert(rows, { onConflict: "id" }).select();
+    const { data, error } = await sb
+      .from("prospects")
+      .upsert(rows.map(pickSync), { onConflict: "id" })
+      .select();
     if (!noteError(error) && Array.isArray(data)) {
       const inserted = data as Prospect[];
       memoryUpsertRows(inserted);
@@ -241,7 +294,7 @@ export async function updateProspect(
   if (sb && !tableMissing) {
     const { data, error } = await sb
       .from("prospects")
-      .update({ ...clean, updated_at: updatedAt })
+      .update(pickSync({ ...clean, updated_at: updatedAt }))
       .eq("id", id)
       .select()
       .maybeSingle();
