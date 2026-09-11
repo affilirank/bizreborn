@@ -1,6 +1,78 @@
 import { SITE, LEADGEN } from "@/lib/config";
 import type { Prospect } from "@/lib/supabase-types";
 
+/** Who actually signs Biz Reborn outreach (placeholder-proof sign-off). */
+export const OUTREACH_SIGNER = {
+  name: "Daniel Brown",
+  title: "Lead Growth Specialist",
+};
+
+const PLACEHOLDER_RE = /\[([^\]\n]{1,40})\]/gi;
+
+const STANDARD_REPLACEMENTS: Record<string, string> = {
+  "your name": OUTREACH_SIGNER.name,
+  "your full name": OUTREACH_SIGNER.name,
+  "insert your name": OUTREACH_SIGNER.name,
+  "insert name": OUTREACH_SIGNER.name,
+  "sender name": OUTREACH_SIGNER.name,
+  "signer name": OUTREACH_SIGNER.name,
+  name: OUTREACH_SIGNER.name,
+  "your company": SITE.name,
+  "your company name": SITE.name,
+  company: SITE.name,
+  "company name": SITE.name,
+  "agency name": SITE.name,
+  agency: SITE.name,
+  "your brand": SITE.name,
+  "your email": LEADGEN.email,
+  "your email address": LEADGEN.email,
+  "email address": LEADGEN.email,
+  email: LEADGEN.email,
+  phone: SITE.phone,
+  "phone number": SITE.phone,
+  "your phone": SITE.phone,
+  "phone #": SITE.phone,
+  "your site": "https://www.bizreborn.com",
+  website: "https://www.bizreborn.com",
+  "your website": "https://www.bizreborn.com",
+  "website link": "https://www.bizreborn.com",
+};
+
+/**
+ * Scrubs outreach copy for LLM placeholder leaks (`[Your Name]`,
+ * `[Company]`, `[link]`, …) and fills them with the real values, so no
+ * email or pitch copy ever ships with a dangling bracket. Runs as a
+ * backstop on every outbound email (AI-generated or hand-written).
+ */
+export function sanitizeOutreachCopy(text: string, prospect?: Prospect | null): string {
+  if (!text) return text;
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
+  const pitchUrl = `${base}/pitch/${prospect?.slug ?? ""}`;
+
+  const perProspect: Record<string, string> = {
+    link: pitchUrl,
+    "your link": pitchUrl,
+    "insert link": pitchUrl,
+    "pitch link": pitchUrl,
+    "audit link": pitchUrl,
+    "video link": pitchUrl,
+    "video audit link": pitchUrl,
+    business: prospect?.business_name ?? "your business",
+    "business name": prospect?.business_name ?? "your business",
+    "your business": prospect?.business_name ?? "your business",
+    "your business name": prospect?.business_name ?? "your business",
+    city: prospect?.city || "your city",
+    "your city": prospect?.city || "your city",
+  };
+
+  const map: Record<string, string> = { ...STANDARD_REPLACEMENTS, ...perProspect };
+
+  return text.replace(PLACEHOLDER_RE, (full, inner: string) => {
+    const key = inner.trim().toLowerCase().replace(/\s+/g, " ");
+    return Object.prototype.hasOwnProperty.call(map, key) ? map[key] : full;
+  });
+}
+
 interface EmailTemplateProps {
   prospect: Prospect;
   subject: string;

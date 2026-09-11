@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdminOrDemo } from "@/lib/supabase/server";
 import { getProspectById } from "@/lib/prospects";
 import { callAi } from "@/lib/ai-router";
-import { renderProfessionalEmailHtml } from "@/lib/email-template";
+import { renderProfessionalEmailHtml, sanitizeOutreachCopy, OUTREACH_SIGNER } from "@/lib/email-template";
 import { deliverEmail } from "@/lib/crm-actions";
 
 export const dynamic = "force-dynamic";
@@ -33,8 +33,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Prospect has no email address." }, { status: 400 });
   }
 
-  const subject =
-    customSubject || `Your Custom Brand Growth Audit: ${p.business_name} × Biz Reborn`;
+  const subject = sanitizeOutreachCopy(
+    customSubject || `Your Custom Brand Growth Audit: ${p.business_name} × Biz Reborn`,
+    p,
+  );
   
   let emailBody = customHtml;
   if (!emailBody) {
@@ -43,17 +45,18 @@ export async function POST(req: Request) {
       `Business: ${p.business_name}, City: ${p.city || "Local"}, Rating: ${p.google_rating != null ? `${p.google_rating} stars (${p.review_count ?? 0} reviews)` : "Unverified"}`,
       `Top Flaws: ${flaws}`,
       `Write a high-converting, personalized B2B outreach email pitching our local marketing agency services (Biz Reborn).`,
+      `Sign off as ${OUTREACH_SIGNER.name}, ${OUTREACH_SIGNER.title} at Biz Reborn Marketing — do NOT use bracket placeholders like [Your Name], [Company], or [link]; always fill in the actual sender name and agency.`,
       `Return ONLY the email body text (no subject line, no markdown fences, plain text with line breaks). Keep it punchy, professional, and under 150 words.`,
     ].join("\n");
 
     try {
       const text = await callAi({
         prompt,
-        systemPrompt: "You are an expert B2B copywriter specializing in high-converting local marketing outreach.",
+        systemPrompt: "You are an expert B2B copywriter specializing in high-converting local marketing outreach. Never emit placeholder brackets.",
         maxTokens: 800,
       });
       if (text) {
-        emailBody = text.replace(/```/g, "").trim();
+        emailBody = sanitizeOutreachCopy(text.replace(/```/g, "").trim(), p);
       }
     } catch (err) {
       console.error("[email] AI generation failed, using fallback:", err);

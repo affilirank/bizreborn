@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdminOrDemo } from "@/lib/supabase/server";
 import { getProspectById } from "@/lib/prospects";
 import { callAi } from "@/lib/ai-router";
-import { renderProfessionalEmailHtml } from "@/lib/email-template";
+import { renderProfessionalEmailHtml, sanitizeOutreachCopy, OUTREACH_SIGNER } from "@/lib/email-template";
 import { deliverEmail } from "@/lib/crm-actions";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +30,7 @@ export async function POST(req: Request) {
     `Business: ${p.business_name}, City: ${p.city || "Local"}, Grade: ${grade}`,
     `Top Flaws: ${flaws}`,
     `Write a 3-part email nurture sequence (Email 1: The Hook & Video Audit, Email 2: Niche Local Authority Newsletter/Strategy, Email 3: The Financial Close & ROI).`,
+    `Never use bracket placeholders like [Your Name], [Company], [Email], or [link] — always fill in the actual sender name (${OUTREACH_SIGNER.name}, ${OUTREACH_SIGNER.title} at Biz Reborn Marketing) and real details.`,
     `Return ONLY a valid JSON object with keys: email1_subject, email1_body, email2_subject, email2_body, email3_subject, email3_body. No markdown fences, raw JSON only.`,
   ].join("\n");
 
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
   try {
     const text = await callAi({
       prompt,
-      systemPrompt: "You are an expert B2B agency copywriter specializing in high-converting local marketing email drips.",
+      systemPrompt: "You are an expert B2B agency copywriter specializing in high-converting local marketing email drips. Never emit bracket placeholders.",
       jsonMode: true,
       maxTokens: 2500,
     });
@@ -62,19 +63,26 @@ export async function POST(req: Request) {
     email3_body: `Hi ${p.business_name},\n\nLeaving reviews unanswered quietly drops your map pack ranking. Our automated review boost system locks in your Top 3 spot.\n\nReady to get started? Reply to schedule your call.`,
   };
 
-  // Render professional HTML versions for each email
+  // Render professional HTML versions for each email (sanitized against placeholders)
+  const s1 = sanitizeOutreachCopy(sequence.email1_subject, p);
+  const b1 = sanitizeOutreachCopy(sequence.email1_body, p);
+  const s2 = sanitizeOutreachCopy(sequence.email2_subject, p);
+  const b2 = sanitizeOutreachCopy(sequence.email2_body, p);
+  const s3 = sanitizeOutreachCopy(sequence.email3_subject, p);
+  const b3 = sanitizeOutreachCopy(sequence.email3_body, p);
+
   const wrapped = {
-    email1_subject: sequence.email1_subject,
-    email1_body: sequence.email1_body,
-    email1_html: renderProfessionalEmailHtml({ prospect: p, subject: sequence.email1_subject, body: sequence.email1_body, stepNumber: 1 }),
+    email1_subject: s1,
+    email1_body: b1,
+    email1_html: renderProfessionalEmailHtml({ prospect: p, subject: s1, body: b1, stepNumber: 1 }),
 
-    email2_subject: sequence.email2_subject,
-    email2_body: sequence.email2_body,
-    email2_html: renderProfessionalEmailHtml({ prospect: p, subject: sequence.email2_subject, body: sequence.email2_body, stepNumber: 2 }),
+    email2_subject: s2,
+    email2_body: b2,
+    email2_html: renderProfessionalEmailHtml({ prospect: p, subject: s2, body: b2, stepNumber: 2 }),
 
-    email3_subject: sequence.email3_subject,
-    email3_body: sequence.email3_body,
-    email3_html: renderProfessionalEmailHtml({ prospect: p, subject: sequence.email3_subject, body: sequence.email3_body, stepNumber: 3 }),
+    email3_subject: s3,
+    email3_body: b3,
+    email3_html: renderProfessionalEmailHtml({ prospect: p, subject: s3, body: b3, stepNumber: 3 }),
   };
 
   // Live send of a single drip step via Resend (with real tracking + proof log).

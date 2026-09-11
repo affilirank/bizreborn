@@ -1,6 +1,6 @@
 import type { CommunicationLog, Prospect } from "@/lib/supabase-types";
 import { updateProspect } from "@/lib/prospects";
-import { renderProfessionalEmailHtml } from "@/lib/email-template";
+import { renderProfessionalEmailHtml, sanitizeOutreachCopy } from "@/lib/email-template";
 import {
   PIPELINE_ORDER,
   emailStats,
@@ -110,7 +110,11 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
   }
 
   const trackingUid = makeUid(prospect.id);
-  const htmlWithPixel = injectTrackingPixel(html, trackingUid);
+  // Backstop: no placeholder like [Your Name] may ever reach a recipient,
+  // even from hand-written custom HTML or the welcome template.
+  const cleanSubject = sanitizeOutreachCopy(subject, prospect);
+  const cleanHtml = sanitizeOutreachCopy(html, prospect);
+  const htmlWithPixel = injectTrackingPixel(cleanHtml, trackingUid);
 
   const resendKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.EMAIL_FROM || `Biz Reborn Marketing <hello@bizreborn.com>`;
@@ -133,7 +137,7 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
         body: JSON.stringify({
           from: fromEmail,
           to: [prospect.email],
-          subject,
+          subject: cleanSubject,
           html: htmlWithPixel,
           reply_to: replyTo,
         }),
@@ -154,7 +158,7 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
   const meta: CommunicationLog["meta"] = {
     kind,
     email_uid: trackingUid,
-    subject,
+    subject: cleanSubject,
     to: prospect.email,
     sent_at: new Date().toISOString(),
     status: error ? "error" : simulated ? "simulated" : "sent",
@@ -164,7 +168,7 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
 
   const notes = [
     stepLabel ? `${stepLabel} · ` : "",
-    `"${subject}"`,
+    `"${cleanSubject}"`,
     simulated
       ? "simulated (RESEND_API_KEY missing)"
       : error
