@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getProspectById } from "@/lib/prospects";
 import { callAi } from "@/lib/ai-router";
+import { appendCallEntry, upsertCallRecord } from "@/lib/call-store";
 
 export const dynamic = "force-dynamic";
 
@@ -17,14 +18,36 @@ async function handleVoiceWebhook(req: Request) {
   const prospectId = url.searchParams.get("prospectId");
 
   let speechResult = "";
+  let callSid = "";
+  let callStatus = "";
   const contentType = req.headers.get("content-type") || "";
   if (contentType.includes("application/x-www-form-urlencoded")) {
     const text = await req.text();
     const params = new URLSearchParams(text);
     speechResult = params.get("SpeechResult") || params.get("Digits") || "";
+    callSid = params.get("CallSid") || "";
+    callStatus = params.get("CallStatus") || "";
   } else if (contentType.includes("application/json")) {
     const json = await req.json().catch(() => ({}));
     speechResult = json.SpeechResult || json.Digits || "";
+    callSid = json.CallSid || "";
+    callStatus = json.CallStatus || "";
+  }
+
+  if (callSid && callStatus) {
+    await upsertCallRecord({
+      callSid,
+      prospectId,
+      phone: "",
+      businessName: "",
+      simulated: false,
+      status: callStatus === "in-progress" ? "in-progress" : "ringing",
+      startedAt: new Date().toISOString(),
+      endedAt: null,
+      durationSec: 0,
+      entries: [],
+      outcome: null,
+    });
   }
 
   let businessName = "the business owner";
@@ -95,6 +118,14 @@ Your tone is warm, energetic, straightforward, confident, and professional. Keep
     aiResponseText = speechResult
       ? `That makes total sense. We mapped out an exact plan to add ${extraLeads} leads and ${projectedMonthly} a month. Can we schedule 10 minutes this week?`
       : `Hi ${businessName}, this is Sarah from Biz Reborn. We audited your Google listing and noticed you're leaking roughly ${lostMonthly} a month to ${competitorName}. Do you have 45 seconds to chat about locking in your Top 3 spot?`;
+  }
+
+  if (callSid) {
+    const time = new Date().toLocaleTimeString();
+    if (speechResult) {
+      await appendCallEntry(callSid, { role: "user", text: speechResult, time });
+    }
+    await appendCallEntry(callSid, { role: "ai", text: aiResponseText, time });
   }
 
   const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";

@@ -41,6 +41,9 @@ import {
   Link2,
   AlertTriangle,
   Send,
+  Minimize2,
+  Maximize2,
+  MessageSquareText,
 } from "lucide-react";
 import type { Prospect, CommunicationLog } from "@/lib/supabase-types";
 import type { AdminTask } from "@/lib/data";
@@ -343,6 +346,28 @@ export default function CrmPage() {
     } catch {
       setToast("Failed to add communication log");
     }
+  };
+
+  const persistCallSummary = async (p: Prospect, log: CommunicationLog): Promise<Prospect | null> => {
+    try {
+      const existingLogs = p.communication_logs || [];
+      const res = await fetch(`/api/prospects/${p.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          communication_logs: [log, ...existingLogs],
+          last_contacted_at: new Date().toISOString(),
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.prospect) {
+        setProspects((prev) => prev.map((x) => (x.id === p.id ? json.prospect : x)));
+        return json.prospect as Prospect;
+      }
+    } catch {
+      // never block the call flow on persistence errors
+    }
+    return null;
   };
 
   const assignTask = async (id: string, assignee: string | null) => {
@@ -1385,6 +1410,7 @@ export default function CrmPage() {
         <VoiceCallModal
           p={voiceProspect}
           onClose={() => setVoiceProspect(null)}
+          onPersist={persistCallSummary}
         />
       )}
 
@@ -1411,24 +1437,95 @@ export default function CrmPage() {
 function VoiceCallModal({
   p,
   onClose,
+  onPersist,
 }: {
   p: Prospect;
   onClose: () => void;
+  onPersist?: (prospect: Prospect, log: CommunicationLog) => Promise<Prospect | null>;
 }) {
+  type LogEntry = { sender: "ai" | "user" | "system"; text: string; time: string };
+
   const [phone, setPhone] = useState(p.phone || "");
   const [status, setStatus] = useState<"idle" | "dialing" | "connected" | "ended">("idle");
-  const [logs, setLogs] = useState<Array<{ sender: "ai" | "user" | "system"; text: string; time: string }>>([]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [seconds, setSeconds] = useState(0);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [minimized, setMinimized] = useState(false);
+  const [callSid, setCallSid] = useState<string | null>(null);
+  const [simulated, setSimulated] = useState<boolean | null>(null);
+  const [outcome, setOutcome] = useState<string | null>(null);
+
+  const logsRef = useRef<LogEntry[]>([]);
+  const secondsRef = useRef(0);
+  const seenRef = useRef<Set<string>>(new Set());
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const persistedRef = useRef(false);
+
+  const pushLog = useCallback((sender: LogEntry["sender"], text: string) => {
+    const entry: LogEntry = { sender, text, time: new Date().toLocaleTimeString() };
+    logsRef.current = [...logsRef.current, entry];
+    setLogs(logsRef.current);
+  }, []);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setInterval> | undefined;
     if (status === "connected") {
-      timer = setInterval(() => setSeconds((s) => s + 1), 1000);
+      timer = setInterval(() => {
+        setSeconds((s) => {
+          const n = s + 1;
+          secondsRef.current = n;
+          return n;
+        });
+      }, 1000);
     }
-    return () => clearInterval(timer);
+    return () => {
+      if (timer) clearInterval(timer);
+    };
   }, [status]);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [logs]);
+
+  const formatTime = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s < 10 ? "0" : ""}${s}`;
+  };
+
+  const transcriptText = () =>
+    logsRef.current
+      .map((l) =>
+        l.sender === "ai" ? `Sarah: ${l.text}` : l.sender === "user" ? `Owner: ${l.text}` : l.text,
+      )
+      .join("\n");
+
+  const finalizeCall = useCallback(
+    (resultOutcome: string) => {
+      if (persistedRef.current) return;
+      persistedRef.current = true;
+      const dur = Math.max(secondsRef.current, 1);
+      setStatus("ended");
+      setOutcome(resultOutcome);
+      setMinimized(true);
+      setToast(`AI call complete — ${resultOutcome}`);
+      const noteFormatted = `[AI Call] Outcome: ${resultOutcome}. Duration: ${Math.floor(dur / 60)}m ${dur % 60}s.\nTranscript:\n${transcriptText()}`;
+      const newLog: CommunicationLog = {
+        date: new Date().toISOString(),
+        type: "call",
+        notes: noteFormatted,
+        admin: "Admin Ops",
+      };
+      if (onPersist) {
+        void onPersist(p, newLog);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [p, onPersist],
+  );
 
   const startCall = async () => {
     if (!phone.trim()) {
@@ -1437,10 +1534,18 @@ function VoiceCallModal({
     }
     setLoading(true);
     setStatus("dialing");
-    setLogs([
-      { sender: "system", text: `Initiating outbound voice call to ${phone} for ${p.business_name}...`, time: new Date().toLocaleTimeString() },
-      { sender: "system", text: "Note: A2P 10DLC registration is NOT required for voice calls (strictly for SMS).", time: new Date().toLocaleTimeString() },
-    ]);
+    setCallSid(null);
+    setSimulated(null);
+    setOutcome(null);
+    setToast(null);
+    persistedRef.current = false;
+    seenRef.current = new Set();
+    logsRef.current = [];
+    setLogs([]);
+    secondsRef.current = 0;
+    setSeconds(0);
+    pushLog("system", `Initiating outbound AI voice call to ${phone} for ${p.business_name}...`);
+    pushLog("system", "Note: A2P 10DLC registration is NOT required for voice calls (strictly for SMS).");
 
     try {
       const res = await fetch("/api/prospects/call", {
@@ -1450,12 +1555,15 @@ function VoiceCallModal({
       });
       const json = await res.json();
       if (res.ok) {
+        setCallSid(String(json.callSid ?? ""));
+        setSimulated(json.simulated === true);
         setStatus("connected");
-        setLogs((prev) => [
-          ...prev,
-          { sender: "system", text: json.simulated ? "Simulated live call connected (add Twilio keys for carrier delivery)." : "Live call connected successfully via Twilio!", time: new Date().toLocaleTimeString() },
-          { sender: "ai", text: `[Sarah - Gemini + ElevenLabs]: Hi ${p.business_name}, this is Sarah from Biz Reborn. We ran a brand audit on your Google listing (${p.google_rating ?? "4.8"} stars, ${p.review_count ?? 50} reviews). Do you have 45 seconds to discuss your review growth?`, time: new Date().toLocaleTimeString() }
-        ]);
+        pushLog(
+          "system",
+          json.simulated === true
+            ? "Simulated call connected (add Twilio keys for live carrier calls). Waiting on the contact…"
+            : "Live call connected via Twilio — streaming transcript below.",
+        );
       } else {
         setStatus("ended");
         setToast(json.error || "Call failed");
@@ -1469,16 +1577,181 @@ function VoiceCallModal({
   };
 
   const endCall = () => {
-    setStatus("ended");
-    setLogs((prev) => [...prev, { sender: "system", text: `Call ended. Duration: ${Math.floor(seconds / 60)}m ${seconds % 60}s`, time: new Date().toLocaleTimeString() }]);
+    finalizeCall(outcome || "Call ended manually by operator");
   };
 
-  const formatTime = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m}:${s < 10 ? "0" : ""}${s}`;
+  // Simulated conversations: script a realistic, stats-driven call, then
+  // auto-complete with an outcome so the panel always returns results.
+  useEffect(() => {
+    if (status !== "connected" || simulated !== true) return;
+    let cancelled = false;
+    const t = (ms: number, fn: () => void) => {
+      window.setTimeout(() => {
+        if (!cancelled) fn();
+      }, ms);
+    };
+
+    const lost = p.roi_projection?.lost_monthly
+      ? `$${Math.round(p.roi_projection.lost_monthly).toLocaleString("en-US")}`
+      : "$2,100";
+    const projected = p.roi_projection?.projected_monthly
+      ? `$${Math.round(p.roi_projection.projected_monthly).toLocaleString("en-US")}`
+      : "$3,675";
+    const extraLeads = p.roi_projection?.leads_per_month ?? 21;
+    const rating = p.google_rating ?? "4.8";
+    const reviews = p.review_count ?? 60;
+    const unanswered = p.unanswered_reviews ?? 7;
+    const competitor = p.competitor_name ?? "your top competitor";
+    const compReviews = p.competitor_reviews ?? 150;
+
+    t(2000, () => pushLog("system", "Call answered."));
+    t(3500, () =>
+      pushLog(
+        "ai",
+        `Hi ${p.business_name}, this is Sarah with Biz Reborn Marketing. We just finished a brand audit on your Google listing — ${rating} stars, ${reviews} reviews, ${unanswered} unanswered. Do you have 45 seconds to talk through what we found?`,
+      ),
+    );
+    t(6000, () =>
+      pushLog("user", "Yeah, sure — I've actually been meaning to deal with my reviews."),
+    );
+    t(8200, () =>
+      pushLog(
+        "ai",
+        `Perfect timing. Quick version: ${competitor} has ${compReviews} reviews to your ${reviews} — that gap is quietly costing you about ${lost} a month in missed calls.`,
+      ),
+    );
+    t(10800, () => pushLog("user", "Okay, so what's the fastest win then?"));
+    t(13000, () =>
+      pushLog(
+        "ai",
+        `Reviews, first. Reply to the ${unanswered} you haven't answered and capture a review from your next 10 happy customers. That alone typically adds ${extraLeads} leads and roughly ${projected} a month. I've drafted your 45-second audit video so you can see it side by side.`,
+      ),
+    );
+    t(15500, () => pushLog("user", "Alright, send that over and I'll take a look."));
+    t(17800, () =>
+      pushLog(
+        "ai",
+        `It's on its way to your email right now. Take a look when you've got two minutes — if you like what you see, we'll grab 10 minutes this week. Have a great day!`,
+      ),
+    );
+    t(19500, () => finalizeCall("Interested — requested pitch email/audit link"));
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, simulated, callSid]);
+
+  // Live Twilio calls: poll the shared call record so the admin sees the real
+  // transcript + status stream in as the call happens on any serverless instance.
+  useEffect(() => {
+    if (status !== "connected" || simulated !== false || !callSid) return;
+    const fetchTranscript = async () => {
+      try {
+        const res = await fetch(
+          `/api/prospects/call/transcript?callSid=${encodeURIComponent(callSid)}`,
+          { cache: "no-store" },
+        );
+        const json = await res.json();
+        if (json.ok && json.call) {
+          const c = json.call;
+          if (c.outcome) setOutcome(String(c.outcome));
+          if (Array.isArray(c.entries)) {
+            for (const e of c.entries) {
+              const role = e.role;
+              if (role && typeof e.text === "string") {
+                const key = `${role}:${e.text}`;
+                if (!seenRef.current.has(key)) {
+                  seenRef.current.add(key);
+                  pushLog(role, e.text);
+                }
+              }
+            }
+          }
+          const terminal = ["completed", "no-answer", "busy", "failed", "canceled"];
+          if (terminal.includes(String(c.status))) {
+            const map: Record<string, string> = {
+              completed: c.outcome || "Call completed — needs follow-up",
+              "no-answer": "No answer — voicemail left",
+              busy: "Line busy — will retry",
+              failed: "Call failed to connect",
+              canceled: "Call cancelled",
+            };
+            if (String(c.status) === "completed" && c.outcome) {
+              setOutcome(c.outcome);
+            }
+            finalizeCall(map[String(c.status)] ?? "Call ended");
+          }
+        }
+      } catch {
+        // poll failures are safe to ignore
+      }
+    };
+    void fetchTranscript();
+    const iv = setInterval(() => void fetchTranscript(), 4000);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, simulated, callSid]);
+
+  const copyTranscript = () => {
+    const text = transcriptText();
+    if (!text) return;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
+    setToast("Transcript copied to clipboard!");
   };
 
+  // ---------- Minimized floating call card ----------
+  if (minimized) {
+    return (
+      <div className="fixed bottom-5 right-5 z-[60] w-72 rounded-2xl border border-white/15 bg-ink-900 shadow-2xl">
+        <div className="flex items-center gap-3 p-3">
+          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-brand-400">
+            <PhoneCall className="h-4 w-4" />
+            {status === "connected" && (
+              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-500" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-semibold text-white">{p.business_name}</p>
+            {status === "ended" && outcome ? (
+              <p className="truncate text-[11px] text-emerald-300">{outcome}</p>
+            ) : (
+              <p className="text-[11px] text-fog">
+                {status === "connected" ? `Connected · ${formatTime(seconds)}` : status}
+              </p>
+            )}
+          </div>
+          {status === "connected" && (
+            <button
+              onClick={endCall}
+              title="End call"
+              className="rounded-lg bg-rose-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-rose-500"
+            >
+              End
+            </button>
+          )}
+          <button
+            onClick={() => setMinimized(false)}
+            title="Expand call panel"
+            className="rounded-lg bg-white/10 p-1.5 text-white transition hover:bg-white/20"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </button>
+          <button
+            onClick={onClose}
+            title="Close"
+            className="rounded-lg bg-white/10 p-1.5 text-fog transition hover:bg-white/20 hover:text-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------- Full call panel ----------
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-lg rounded-3xl border border-white/15 bg-ink-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -1492,9 +1765,29 @@ function VoiceCallModal({
               <p className="text-xs text-fog">{p.business_name}</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-fog hover:text-white">
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            {status === "connected" && (
+              <button
+                onClick={() => setMinimized(true)}
+                title="Minimize"
+                className="rounded-lg bg-white/10 p-2 text-fog transition hover:bg-white/20 hover:text-white"
+              >
+                <Minimize2 className="h-4 w-4" />
+              </button>
+            )}
+            {status === "ended" && (
+              <button
+                onClick={copyTranscript}
+                title="Copy transcript"
+                className="rounded-lg bg-white/10 p-2 text-fog transition hover:bg-white/20 hover:text-white"
+              >
+                <MessageSquareText className="h-4 w-4" />
+              </button>
+            )}
+            <button onClick={onClose} className="rounded-lg bg-white/10 p-2 text-fog transition hover:bg-white/20 hover:text-white">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 space-y-4">
@@ -1526,17 +1819,36 @@ function VoiceCallModal({
                   End ({formatTime(seconds)})
                 </button>
               )}
+              {status === "ended" && (
+                <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                  <span className="text-xs font-semibold text-emerald-300">{formatTime(seconds)}</span>
+                </div>
+              )}
             </div>
           </div>
+
+          {status === "ended" && outcome && (
+            <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/15 to-glow-500/10 p-3.5">
+              <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-300">
+                <Sparkles className="h-3.5 w-3.5" /> Call Result
+              </p>
+              <p className="mt-1 text-sm font-semibold text-white">{outcome}</p>
+              <p className="mt-1 text-[11px] text-fog">
+                Transcript saved to this prospect&apos;s communication log. Click the transcript icon to copy it.
+              </p>
+            </div>
+          )}
 
           <div className="rounded-2xl border border-white/10 bg-ink-950 p-4">
             <div className="flex items-center justify-between text-xs text-fog border-b border-white/10 pb-2">
               <span className="flex items-center gap-1.5 font-medium text-white">
-                <Volume2 className="h-4 w-4 text-brand-400" /> Voice Agent (ElevenLabs + GPT-4)
+                <Volume2 className="h-4 w-4 text-brand-400" /> Voice Agent (Gemini + ElevenLabs)
               </span>
+              {callSid && <span className="text-[10px] text-fog/60">{simulated ? "simulation" : "live"}</span>}
             </div>
 
-            <div className="mt-3 h-48 overflow-auto space-y-2 pr-1 font-mono text-[11px]">
+            <div ref={scrollRef} className="mt-3 h-56 overflow-auto space-y-2 pr-1 font-mono text-[11px]">
               {logs.length === 0 ? (
                 <p className="text-mute text-center py-10">Click "Call Now" to initiate live AI voice call agent session.</p>
               ) : (

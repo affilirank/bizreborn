@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdminOrDemo } from "@/lib/supabase/server";
 import { getProspectById } from "@/lib/prospects";
+import { upsertCallRecord } from "@/lib/call-store";
 
 export const dynamic = "force-dynamic";
 
@@ -73,10 +74,30 @@ export async function POST(req: Request) {
 
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
+        const callSid = String(data.sid ?? "");
+        await upsertCallRecord({
+          callSid: callSid || `CA_${Date.now()}`,
+          prospectId: prospectId || null,
+          phone,
+          businessName: businessName || "Business",
+          simulated: false,
+          status: "dialing",
+          startedAt: new Date().toISOString(),
+          endedAt: null,
+          durationSec: 0,
+          entries: [
+            {
+              role: "system",
+              text: `Outbound call initiated to ${phone} for ${businessName || "Business"}.`,
+              time: new Date().toLocaleTimeString(),
+            },
+          ],
+          outcome: null,
+        });
         return NextResponse.json({
           success: true,
           simulated: false,
-          callSid: data.sid,
+          callSid: callSid || `CA_${Date.now()}`,
           status: data.status,
           message: `Live outbound call initiated to ${phone} from ${twilioNumber} via Twilio!`,
         });
@@ -92,10 +113,31 @@ export async function POST(req: Request) {
   }
 
   // Fallback simulation when Twilio keys are absent
+  const simulatedSid = `CA_simulated_${Date.now()}`;
+  await upsertCallRecord({
+    callSid: simulatedSid,
+    prospectId: prospectId || null,
+    phone,
+    businessName: businessName || "Business",
+    simulated: true,
+    status: "in-progress",
+    startedAt: new Date().toISOString(),
+    endedAt: null,
+    durationSec: 0,
+    entries: [
+      {
+        role: "system",
+        text: `Simulated outbound call connected to ${phone} for ${businessName || "Business"}.`,
+        time: new Date().toLocaleTimeString(),
+      },
+    ],
+    outcome: null,
+  });
+
   return NextResponse.json({
     success: true,
     simulated: true,
-    callSid: `CA_simulated_${Date.now()}`,
+    callSid: simulatedSid,
     status: "in-progress",
     message: `Simulated AI voice call initiated to ${phone} for ${businessName || "Business"}. Note: A2P 10DLC registration is NOT required for voice calls. Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER for live calls.`,
   });
