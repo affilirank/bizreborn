@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { finishCall, upsertCallRecord } from "@/lib/call-store";
-import type { CallStatus } from "@/lib/call-store";
+import { finishCall, getCallRecord, upsertCallRecord } from "@/lib/call-store";
+import type { CallStatus, CallRecord } from "@/lib/call-store";
+import { getProspectById } from "@/lib/prospects";
+import { applyContactLog, makeContactLog } from "@/lib/crm-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +10,8 @@ export const dynamic = "force-dynamic";
  * Twilio Call Status webhook (/api/voice/status).
  * Receives initiated/ringing/answered/completed + busy/no-answer/failed/canceled
  * events and records the live transcript + final outcome into prospect_calls.
+ * Preserves the caller record's prospect_id/phone/entries across event replay,
+ * and bumps the pipeline when a call is actually answered.
  */
 export async function POST(req: Request) {
   const text = await req.text();
@@ -22,37 +26,35 @@ export async function POST(req: Request) {
     return new NextResponse("missing CallSid", { status: 200 });
   }
 
-  if (status === "ringing" || status === "queued" || status === "initiated") {
-    await upsertCallRecord({
+  const base = (): Promise<CallRecord | null> => getCallRecord(callSid);
+  const merge = async (): Promise<CallRecord> => {
+    const existing = await base();
+    return {
       callSid,
-      prospectId: null,
-      phone: "",
-      businessName: "",
-      simulated: false,
+      prospectId: existing?.prospectId ?? null,
+      phone: existing?.phone ?? "",
+      businessName: existing?.businessName ?? "",
+      simulated: existing?.simulated ?? false,
       status: "ringing",
-      startedAt: now,
-      endedAt: null,
-      durationSec: 0,
-      entries: [],
-      outcome: null,
-    });
+      startedAt: existing?.startedAt ?? now,
+      endedAt: existing?.endedAt ?? null,
+      durationSec: existing?.durationSec ?? 0,
+      entries: existing?.entries ?? [],
+      outcome: existing?.outcome ?? null,
+    };
+  };
+
+  if (status === "ringing" || status === "queued" || status === "initiated") {
+    const rec = await merge();
+    rec.status = "ringing";
+    await upsertCallRecord(rec);
     return new NextResponse("ok", { status: 200 });
   }
 
   if (status === "in-progress" || status === "answered") {
-    await upsertCallRecord({
-      callSid,
-      prospectId: null,
-      phone: "",
-      businessName: "",
-      simulated: false,
-      status: "in-progress",
-      startedAt: now,
-      endedAt: null,
-      durationSec: 0,
-      entries: [],
-      outcome: null,
-    });
+    const rec = await merge();
+    rec.status = "in-progress";
+    await upsertCallRecord(rec);
     return new NextResponse("ok", { status: 200 });
   }
 
@@ -70,7 +72,26 @@ export async function POST(req: Request) {
               : null;
 
   if (mapped) {
-    await finishCall(callSid, mapped, duration);
+    const finished = await finishCall(callSid, mapped, duration);
+    if (mapped === "completed" && finished?.prospectId) {
+      try {
+        const p = await getProspectById(finished.prospectId);
+        if (p) {
+          await applyContactLog(
+            p,
+            makeContactLog({
+              kind: "call",
+              trigger: "answered",
+              stepLabel: `Call answered ${duration > 0 ? `(${duration}s) ` : ""}`,
+              outcome: finished.outcome ?? "completed",
+            }),
+            "answered",
+          );
+        }
+      } catch (err) {
+        console.warn("[voice/status] pipeline bump failed:", err);
+      }
+    }
   }
 
   return new NextResponse("ok", { status: 200 });

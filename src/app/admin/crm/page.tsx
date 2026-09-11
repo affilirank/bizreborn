@@ -54,15 +54,12 @@ import { cn } from "@/lib/utils";
 import { PitchPlayer } from "@/components/pitch/pitch-player";
 import { PREFILL_KEY, type OfferPrefill } from "@/lib/offer-prefill";
 import { LEADGEN } from "@/lib/config";
-
-const TEMPERATURES = [
-  "Hot",
-  "Warm",
-  "Cold",
-  "Replied",
-  "Proposal Sent",
-  "Client (Active)",
-];
+import {
+  TEMPERATURES,
+  emailStats,
+  nextPipelineStatus,
+  prospectTemperature,
+} from "@/lib/pipeline";
 
 const tempBadgeCls: Record<string, string> = {
   Hot: "border-rose-500/30 bg-rose-500/10 text-rose-300",
@@ -231,7 +228,7 @@ export default function CrmPage() {
       const res = await fetch(`/api/prospects/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: temperature, last_contacted_at: new Date().toISOString() }),
+        body: JSON.stringify({ temperature, last_contacted_at: new Date().toISOString() }),
       });
       const json = await res.json();
       if (res.ok && json.prospect) {
@@ -327,6 +324,8 @@ export default function CrmPage() {
         admin: "Admin Ops",
       };
       const updatedLogs = [newEntry, ...existingLogs];
+      const trigger = newLogAnswered === "Answered" ? "answered" : "outreach";
+      const next = nextPipelineStatus(commsProspect.temperature ?? commsProspect.status, trigger);
 
       const res = await fetch(`/api/prospects/${commsProspect.id}`, {
         method: "PUT",
@@ -334,6 +333,7 @@ export default function CrmPage() {
         body: JSON.stringify({
           communication_logs: updatedLogs,
           last_contacted_at: new Date().toISOString(),
+          temperature: next,
         }),
       });
       const json = await res.json();
@@ -351,12 +351,20 @@ export default function CrmPage() {
   const persistCallSummary = async (p: Prospect, log: CommunicationLog): Promise<Prospect | null> => {
     try {
       const existingLogs = p.communication_logs || [];
+      const m = (log.meta as Record<string, unknown>) ?? {};
+      const outcome = String(m.outcome ?? p.communication_logs?.[0]?.notes ?? "");
+      const answered =
+        /answered|interested|replied|booked|callback|pitch|email/i.test(outcome) &&
+        !/no ?-?answer|voicemail|not interested|wrong/i.test(outcome);
+      const trigger = answered ? "answered" : "outreach";
+      const next = nextPipelineStatus(p.temperature ?? p.status, trigger);
       const res = await fetch(`/api/prospects/${p.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           communication_logs: [log, ...existingLogs],
           last_contacted_at: new Date().toISOString(),
+          temperature: next,
         }),
       });
       const json = await res.json();
@@ -456,16 +464,19 @@ export default function CrmPage() {
       (p.city && p.city.toLowerCase().includes(search.toLowerCase()));
     const matchesTemp =
       selectedTemp === "all" ||
-      (p.status && p.status.toLowerCase() === selectedTemp.toLowerCase());
+      prospectTemperature(p).toLowerCase() === selectedTemp.toLowerCase();
     return matchesSearch && matchesTemp;
   });
 
   const counts = {
     total: prospects.length,
-    hot: prospects.filter((p) => p.status?.toLowerCase() === "hot" || p.status?.toLowerCase() === "ready").length,
-    warm: prospects.filter((p) => p.status?.toLowerCase() === "warm" || p.status?.toLowerCase() === "saved").length,
-    active: prospects.filter((p) => p.status?.toLowerCase() === "client (active)" || p.status?.toLowerCase() === "closed").length,
-    proposal: prospects.filter((p) => p.status?.toLowerCase() === "proposal sent" || p.status?.toLowerCase() === "pitched").length,
+    hot: prospects.filter((p) => {
+      const t = prospectTemperature(p);
+      return t === "Hot" || t === "Replied";
+    }).length,
+    warm: prospects.filter((p) => prospectTemperature(p) === "Warm").length,
+    active: prospects.filter((p) => prospectTemperature(p) === "Client (Active)").length,
+    proposal: prospects.filter((p) => prospectTemperature(p) === "Proposal Sent").length,
   };
 
   const filteredTasks = tasks.filter((t) => {
@@ -606,7 +617,7 @@ export default function CrmPage() {
                   </thead>
                   <tbody className="divide-y divide-white/5">
                     {filteredProspects.map((p) => {
-                      const temp = p.status || "Warm";
+                      const temp = prospectTemperature(p);
                       const healthScore = p.audit_report?.health_score ?? p.qualifying_score ?? 70;
                       const grade = p.audit_report?.grade ?? (healthScore > 80 ? "A" : healthScore > 65 ? "B" : "C");
                       const projectedMonthly = p.roi_projection?.projected_monthly ?? 2450;
@@ -1005,7 +1016,7 @@ export default function CrmPage() {
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-white">Pipeline Status / Temperature:</span>
                   <select
-                    value={previewProspect.status || "Warm"}
+                    value={prospectTemperature(previewProspect)}
                     onChange={(e) => updateProspectTemp(previewProspect.id, e.target.value)}
                     className="rounded-xl border border-white/10 bg-ink-900 px-3 py-1.5 text-xs font-bold text-white outline-none"
                   >
@@ -1309,7 +1320,14 @@ export default function CrmPage() {
             <div className="mb-6 grid gap-3 sm:grid-cols-2 rounded-2xl border border-white/10 bg-ink-900/60 p-4">
               <div>
                 <p className="text-[11px] uppercase tracking-wider text-fog font-semibold">Email Open Rate (Tracked)</p>
-                <p className="font-display text-lg font-bold text-glow-400 mt-0.5">68.4% (3 Opens / 4 Sent)</p>
+                {(() => {
+                  const s = emailStats(commsProspect);
+                  return (
+                    <p className="font-display text-lg font-bold text-glow-400 mt-0.5">
+                      {s.sends > 0 ? `${s.rate}% (${s.opens} Opens / ${s.sends} Sent)` : "No tracked sends yet"}
+                    </p>
+                  );
+                })()}
               </div>
               <div>
                 <p className="text-[11px] uppercase tracking-wider text-fog font-semibold">Audit Score &amp; ROI</p>

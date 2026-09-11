@@ -3,6 +3,7 @@ import { isAdminOrDemo } from "@/lib/supabase/server";
 import { getProspectById } from "@/lib/prospects";
 import { callAi } from "@/lib/ai-router";
 import { renderProfessionalEmailHtml } from "@/lib/email-template";
+import { deliverEmail } from "@/lib/crm-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,33 @@ export async function POST(req: Request) {
     email3_body: sequence.email3_body,
     email3_html: renderProfessionalEmailHtml({ prospect: p, subject: sequence.email3_subject, body: sequence.email3_body, stepNumber: 3 }),
   };
+
+  // Live send of a single drip step via Resend (with real tracking + proof log).
+  const action = String(body?.action ?? "").trim();
+  const step = Number(body?.step ?? 0);
+  if (action === "send" && step >= 1 && step <= 3) {
+    const label = step === 1 ? "The Hook · Video Audit" : step === 2 ? "Local Authority Nurture" : "The Financial Close & ROI";
+    const subject =
+      step === 1 ? wrapped.email1_subject : step === 2 ? wrapped.email2_subject : wrapped.email3_subject;
+    const html =
+      step === 1 ? wrapped.email1_html : step === 2 ? wrapped.email2_html : wrapped.email3_html;
+    const result = await deliverEmail({
+      prospect: p,
+      subject,
+      html,
+      kind: "drip",
+      stepLabel: `Drip email ${step} · ${label}`,
+      trigger: "outreach",
+    });
+    return NextResponse.json({
+      sent: result.ok || result.simulated,
+      simulated: result.simulated,
+      messageId: result.messageId ?? null,
+      trackingUid: result.trackingUid,
+      error: result.error ?? null,
+      prospect: result.prospect ?? p,
+    });
+  }
 
   return NextResponse.json({ sequence: wrapped });
 }

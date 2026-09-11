@@ -169,11 +169,26 @@ export interface CommunicationLog {
   type: string;
   notes: string;
   admin?: string;
+  meta?: {
+    kind?: string;
+    email_uid?: string;
+    subject?: string;
+    to?: string;
+    message_id?: string;
+    status?: string;
+    sent_at?: string;
+    opened_at?: string;
+    opens?: number;
+    opened?: boolean;
+    simulated?: boolean;
+    [key: string]: unknown;
+  };
 }
 
 export interface Prospect {
   qualifying_score?: number | null;
   missing_gbp_apple?: boolean | null;
+  temperature?: string | null;
   id: string;
   business_name: string;
   city: string | null;

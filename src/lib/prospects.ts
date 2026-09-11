@@ -132,6 +132,7 @@ function toMemoryRow(input: Partial<Prospect> & { business_name: string }): Pros
         .toString(36)
         .slice(2, 6)}`,
     status: input.status ?? "saved",
+    temperature: input.temperature ?? "Cold",
     last_contacted_at: input.last_contacted_at ?? null,
     communication_logs: input.communication_logs ?? null,
     error: input.error ?? null,
@@ -244,6 +245,7 @@ const SYNC_COLUMNS = new Set([
   "missing_gbp_apple",
   "communication_logs",
   "last_contacted_at",
+  "temperature",
 ]);
 
 function pickSync(row: object): Record<string, unknown> {

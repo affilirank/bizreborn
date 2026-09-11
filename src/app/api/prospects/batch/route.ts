@@ -6,6 +6,7 @@ import { buildBrandAudit } from "@/lib/services/brand-audit";
 import { generatePitchScript } from "@/lib/services/script";
 import { generateVoiceover } from "@/lib/services/tts";
 import { renderPitchVideo } from "@/lib/services/renderer";
+import { welcomeCreatedProspects } from "@/lib/crm-actions";
 import type { Prospect } from "@/lib/supabase-types";
 
 export const dynamic = "force-dynamic";
@@ -128,5 +129,14 @@ export async function POST(req: Request) {
   }
 
   const inserted = await insertProspects(processedRows);
+
+  // Instant welcome + "free audit is coming" emails for every new lead with
+  // a valid email. Idempotent; never blocks the save response.
+  try {
+    await welcomeCreatedProspects(inserted);
+  } catch (err) {
+    console.warn("[batch] welcome emails partially failed:", err);
+  }
+
   return NextResponse.json({ prospects: inserted }, { status: 201 });
 }

@@ -3,6 +3,7 @@ import { isAdminOrDemo } from "@/lib/supabase/server";
 import { getProspectById } from "@/lib/prospects";
 import { callAi } from "@/lib/ai-router";
 import { renderProfessionalEmailHtml } from "@/lib/email-template";
+import { deliverEmail } from "@/lib/crm-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -70,41 +71,26 @@ export async function POST(req: Request) {
     stepNumber: 1,
   });
 
-  const resendKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.EMAIL_FROM || `Biz Reborn Marketing <hello@bizreborn.com>`;
+  const result = await deliverEmail({
+    prospect: p,
+    subject,
+    html,
+    kind: "email",
+    stepLabel: "Proposal pitch email",
+    trigger: "proposal",
+  });
 
-  if (resendKey) {
-    try {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${resendKey}`,
-        },
-        body: JSON.stringify({
-          from: fromEmail,
-          to: [p.email],
-          subject,
-          html,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        return NextResponse.json({ success: true, id: data?.id ?? "sent" });
-      }
-      return NextResponse.json(
-        { error: data?.message ?? "Resend failed to deliver email." },
-        { status: 400 },
-      );
-    } catch (err) {
-      console.error("[email] Resend exception:", err);
-    }
-  }
-
-  // Fallback simulation when RESEND_API_KEY is not configured yet
   return NextResponse.json({
-    success: true,
-    simulated: true,
-    message: `Simulated professional HTML email sent to ${p.email}. Add RESEND_API_KEY in Vercel to send live via domain.`,
+    success: result.ok || result.simulated,
+    simulated: result.simulated,
+    messageId: result.messageId ?? null,
+    trackingUid: result.trackingUid,
+    error: result.error ?? null,
+    message: result.ok
+      ? "Pitch email sent successfully."
+      : result.simulated
+        ? `Simulated email sent to ${p.email}. Real open tracking + delivery requires RESEND_API_KEY.`
+        : `Email failed: ${result.error}`,
+    prospect: result.prospect ?? p,
   });
 }

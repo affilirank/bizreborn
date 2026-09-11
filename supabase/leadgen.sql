@@ -49,6 +49,11 @@ alter table public.prospects add column if not exists missing_gbp_apple boolean;
 alter table public.prospects add column if not exists communication_logs jsonb;
 alter table public.prospects add column if not exists last_contacted_at timestamptz;
 
+-- CRM pipeline temperature (Cold -> Warm -> Hot -> Replied -> Proposal Sent -> Client).
+-- Kept separate from `status` (which drives pitch-video render state) so the two
+-- never collide.
+alter table public.prospects add column if not exists temperature text default 'Cold';
+
 create index if not exists prospects_status_idx on public.prospects (status);
 create index if not exists prospects_slug_idx on public.prospects (slug);
 create index if not exists prospects_created_idx on public.prospects (created_at desc);

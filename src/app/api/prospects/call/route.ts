@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { isAdminOrDemo } from "@/lib/supabase/server";
 import { getProspectById } from "@/lib/prospects";
 import { upsertCallRecord } from "@/lib/call-store";
+import { applyContactLog, makeContactLog } from "@/lib/crm-actions";
+import type { Prospect } from "@/lib/supabase-types";
 
 export const dynamic = "force-dynamic";
 
@@ -22,15 +24,16 @@ export async function POST(req: Request) {
 
   let phone = explicitPhone;
   let businessName = String(body?.businessName ?? "").trim();
+  let prospect: Prospect | null = null;
 
   if (prospectId) {
-    const p = await getProspectById(prospectId);
-    if (p) {
-      if (!phone && p.phone) {
-        phone = p.phone;
+    prospect = await getProspectById(prospectId);
+    if (prospect) {
+      if (!phone && prospect.phone) {
+        phone = prospect.phone;
       }
-      if (!businessName && p.business_name) {
-        businessName = p.business_name;
+      if (!businessName && prospect.business_name) {
+        businessName = prospect.business_name;
       }
     }
   }
@@ -94,6 +97,17 @@ export async function POST(req: Request) {
           ],
           outcome: null,
         });
+        if (prospect) {
+          try {
+            await applyContactLog(
+              prospect,
+              makeContactLog({ kind: "call", trigger: "outreach", stepLabel: "Outbound AI voice call initiated" }),
+              "outreach",
+            );
+          } catch (err) {
+            console.warn("[call] pipeline log failed:", err);
+          }
+        }
         return NextResponse.json({
           success: true,
           simulated: false,
@@ -133,6 +147,18 @@ export async function POST(req: Request) {
     ],
     outcome: null,
   });
+
+  if (prospect) {
+    try {
+      await applyContactLog(
+        prospect,
+        makeContactLog({ kind: "call", trigger: "outreach", stepLabel: "Outbound AI voice call initiated (simulated)" }),
+        "outreach",
+      );
+    } catch (err) {
+      console.warn("[call] pipeline log failed:", err);
+    }
+  }
 
   return NextResponse.json({
     success: true,

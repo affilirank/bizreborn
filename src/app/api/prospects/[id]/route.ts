@@ -56,6 +56,13 @@ export async function PUT(
   if (body.competitor_name !== undefined) patch.competitor_name = String(body.competitor_name).trim() || null;
   if (body.competitor_reviews !== undefined) patch.competitor_reviews = body.competitor_reviews !== "" && body.competitor_reviews !== null && !isNaN(Number(body.competitor_reviews)) ? Number(body.competitor_reviews) : null;
 
+  // CRM state fields — these MUST persist (logs, temperature, last contact).
+  if (body.status !== undefined) patch.status = String(body.status).trim() || null;
+  if (body.temperature !== undefined) patch.temperature = String(body.temperature).trim() || null;
+  if (body.last_contacted_at !== undefined && body.last_contacted_at !== null) patch.last_contacted_at = String(body.last_contacted_at).trim();
+  if (body.error !== undefined) patch.error = body.error === null ? null : String(body.error).trim();
+  if (Array.isArray(body.communication_logs)) patch.communication_logs = body.communication_logs;
+
   // Update base fields first
   let updated = await updateProspect(id, patch);
   if (!updated) {
