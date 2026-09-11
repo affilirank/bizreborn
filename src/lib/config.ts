@@ -18,3 +18,25 @@ export const LEADGEN = {
   /** Max simultaneous pipeline runs per batch. */
   defaultConcurrency: 3,
 };
+
+/** Strategy-call booking calendar (public /book page + admin management). */
+export const BOOKING = {
+  /** Business operating timezone — slots are generated and stored in this zone. */
+  timezone: "America/New_York",
+  /** Days of week we take calls (0=Sun … 6=Sat). */
+  workingDays: [1, 2, 3, 4, 5],
+  /** First slot of the day (business-local wall clock). */
+  startHour: 9,
+  /** First hour NOT bookable (i.e. last slot starts at endHour - slotMinutes). */
+  endHour: 17,
+  /** Length of each call. */
+  durationMinutes: 60,
+  /** How many calendar days ahead prospects can book. */
+  daysAhead: 14,
+  /** Minimum notice required before a slot starts (hours). */
+  minLeadHours: 24,
+  /** Call flavors offered on the form. */
+  callTypes: ["Strategy Call", "Discovery Call", "Follow-up Call"],
+  /** Default status when a booking is created (auto-confirmed). */
+  defaultStatus: "confirmed",
+} as const;

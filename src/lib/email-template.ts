@@ -74,7 +74,7 @@ export function sanitizeOutreachCopy(text: string, prospect?: Prospect | null): 
 }
 
 interface EmailTemplateProps {
-  prospect: Prospect;
+  prospect: Prospect | null;
   subject: string;
   body: string;
   stepNumber: number;
@@ -87,7 +87,7 @@ interface EmailTemplateProps {
 export function renderProfessionalEmailHtml(props: EmailTemplateProps): string {
   const { prospect, subject, body, stepNumber } = props;
   const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
-  const pitchUrl = `${base}/pitch/${prospect.slug ?? ""}`;
+  const pitchUrl = `${base}/pitch/${prospect?.slug ?? ""}`;
   const agencyName = SITE.name;
   const agencyEmail = LEADGEN.email;
   const agencyPhone = SITE.phone;
@@ -137,7 +137,7 @@ export function renderProfessionalEmailHtml(props: EmailTemplateProps): string {
           <tr>
             <td style="padding:40px 36px 24px 36px;">
               <p style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#6366F1;font-weight:700;margin:0 0 12px 0;">
-                Prepared for ${prospect.business_name} (${prospect.city || "Local Market"})
+                Prepared for ${prospect?.business_name || "Local Business"} (${prospect?.city || "Local Market"})
               </p>
               <h1 style="font-size:22px;font-weight:800;color:#0f172a;margin:0 0 20px 0;line-height:1.3;">
                 ${subject}
@@ -170,7 +170,7 @@ export function renderProfessionalEmailHtml(props: EmailTemplateProps): string {
                 Direct: <a href="mailto:${agencyEmail}" style="color:#6366F1;text-decoration:none;">${agencyEmail}</a> · Phone: ${agencyPhone}
               </p>
               <p style="margin:0;font-size:11px;color:#94a3b8;">
-                You are receiving this because we prepared a complimentary local growth audit for ${prospect.business_name}. <a href="${base}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a>
+                You are receiving this because we prepared a complimentary local growth audit for ${prospect?.business_name || "your business"}. <a href="${base}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a>
               </p>
             </td>
           </tr>

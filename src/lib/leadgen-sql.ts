@@ -79,6 +79,13 @@ create policy "prospects read public when ready"
 alter table public.offers add column if not exists video_url text;
 alter table public.offers add column if not exists prospect_id uuid;
 
+-- Recurring retainer proposals: billing mode, term options (6/12/24 mo) and
+-- per-term discounted monthly rates the manager sets against the list price.
+alter table public.offers add column if not exists billing_mode text not null default 'one-time';
+alter table public.offers add column if not exists term_months integer;
+alter table public.offers add column if not exists monthly_list_price integer not null default 0;
+alter table public.offers add column if not exists monthly_term_prices jsonb not null default '{}'::jsonb;
+
 -- Media bucket (only needed for real MP4/voiceover renders).
 insert into storage.buckets (id, name, public) values ('leadgen', 'leadgen', true)
   on conflict (id) do nothing;
@@ -96,4 +103,38 @@ create policy "leadgen write admin"
   with check (bucket_id = 'leadgen' and exists (
     select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'
   ));
+
+-- Strategy/discovery call bookings (public scheduling + admin management).
+-- Public inserts happen through the API's service-role client; the table stays
+-- admin-read/manage-only under RLS so prospect names/emails are never exposed.
+create table if not exists public.bookings (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  email text not null,
+  phone text,
+  business_name text,
+  notes text,
+  call_type text not null default 'Strategy Call',
+  scheduled_at timestamptz not null,
+  duration_min integer not null default 60,
+  timezone text,
+  status text not null default 'confirmed',
+  prospect_id uuid,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint bookings_duration_positive check (duration_min > 0)
+);
+
+create index if not exists bookings_scheduled_idx on public.bookings (scheduled_at);
+create index if not exists bookings_status_idx on public.bookings (status, scheduled_at);
+create index if not exists bookings_email_idx on public.bookings (email);
+
+alter table public.bookings enable row level security;
+
+drop policy if exists "bookings admin all" on public.bookings;
+create policy "bookings admin all"
+  on public.bookings for all
+  to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
 `;

@@ -2,6 +2,7 @@ import "server-only";
 
 import { createServiceClient } from "@/lib/supabase/admin";
 import type { MonthlyReport, Offer } from "@/lib/types";
+import { SERVICE_MAP } from "@/data/services";
 
 /**
  * Server-only access to offers & reports for public token pages and the
@@ -50,6 +51,23 @@ export async function completeOffer(token: string): Promise<Offer | null> {
   if (!offer) return null;
   if (offer.status === "paid") return offerFromRow(offer);
 
+  // Recurring retainer proposals charge initiation/setup (one-time) + a
+  // per-month retainer at the discounted rate. One-time proposals bill the
+  // whole package up front.
+  const items = (offer.services as number[])
+    .map((id) => SERVICE_MAP[id])
+    .filter(Boolean);
+  const setupTotal = items.reduce((s, x) => s + x.oneTime, 0);
+  const monthlyMode = (offer.billing_mode ?? "one-time") === "monthly";
+  const rawTerms =
+    typeof offer.monthly_term_prices === "object" && offer.monthly_term_prices !== null
+      ? (offer.monthly_term_prices as Record<string, unknown>)
+      : {};
+  const term = offer.term_months == null ? 12 : Number(offer.term_months);
+  const termRate = Math.round(Number(rawTerms[String(term)] ?? 0));
+  const oneTimeTotal = monthlyMode ? setupTotal : Number(offer.offer_price ?? 0);
+  const monthlyTotal = monthlyMode ? (termRate || Number(offer.offer_price ?? 0)) : 0;
+
   const { data: order, error: orderError } = await admin
     .from("orders")
     .insert({
@@ -58,11 +76,12 @@ export async function completeOffer(token: string): Promise<Offer | null> {
       email: offer.client_email ?? "client@bizreborn.io",
       vertical: "professional",
       service_ids: offer.services,
-      one_time_total: offer.offer_price,
-      monthly_total: 0,
+      one_time_total: oneTimeTotal,
+      monthly_total: monthlyTotal,
       tier: null,
       status: "active",
       projection: {},
+      stripe_session_id: null,
     })
     .select("id")
     .single();
@@ -88,6 +107,17 @@ export async function completeOffer(token: string): Promise<Offer | null> {
 // ---------- Row mappers ----------
 
 function offerFromRow(r: Record<string, unknown>): Offer {
+  const rawTerms =
+    typeof r.monthly_term_prices === "object" && r.monthly_term_prices !== null
+      ? (r.monthly_term_prices as Record<string, unknown>)
+      : {};
+  const monthlyTermPrices: Partial<Record<number, number>> = {};
+  for (const term of [6, 12, 24]) {
+    const value = Number(rawTerms[String(term)]);
+    if (Number.isFinite(value) && value > 0) {
+      monthlyTermPrices[term] = Math.round(value);
+    }
+  }
   return {
     id: String(r.id),
     token: String(r.token),
@@ -102,6 +132,10 @@ function offerFromRow(r: Record<string, unknown>): Offer {
     stripePaymentLink: (r.stripe_payment_link as string | null) ?? null,
     notes: (r.notes as string | null) ?? "",
     videoUrl: (r.video_url as string | null) ?? null,
+    billingMode: (r.billing_mode ?? "one-time") as Offer["billingMode"],
+    termMonths: r.term_months == null ? null : Number(r.term_months),
+    monthlyListPrice: Number(r.monthly_list_price ?? 0),
+    monthlyTermPrices,
     paidAt: (r.paid_at as string | null) ?? null,
     createdAt: String(r.created_at),
   };

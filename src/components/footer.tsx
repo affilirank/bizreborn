@@ -4,6 +4,7 @@ import { SITE } from "@/lib/config";
 const links = [
   { href: "/audit", label: "AI Brand Audit" },
   { href: "/services", label: "Service Menu" },
+  { href: "/book", label: "Book a Call" },
   { href: "/blog", label: "Blog & Guides" },
   { href: "/contact", label: "Contact Us" },
   { href: "/dashboard", label: "Client Portal" },

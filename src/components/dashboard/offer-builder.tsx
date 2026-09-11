@@ -75,6 +75,12 @@ export function OfferBuilder() {
   const [clientEmail, setClientEmail] = React.useState("");
   const [selected, setSelected] = React.useState<number[]>([]);
   const [offerPrice, setOfferPrice] = React.useState("");
+  const [billingMode, setBillingMode] = React.useState<"one-time" | "monthly">("one-time");
+  const [termPrices, setTermPrices] = React.useState<Record<number, string>>({
+    6: "",
+    12: "",
+    24: "",
+  });
   const [notes, setNotes] = React.useState("");
   const [videoUrl, setVideoUrl] = React.useState("");
   const [prospectId, setProspectId] = React.useState<string | null>(null);
@@ -122,10 +128,26 @@ export function OfferBuilder() {
     (s, id) => s + (ALL_SERVICES.find((x) => x.id === id)?.oneTime ?? 0) + (ALL_SERVICES.find((x) => x.id === id)?.monthly ?? 0),
     0,
   );
+  const oneTimeTotal = selected.reduce(
+    (s, id) => s + (ALL_SERVICES.find((x) => x.id === id)?.oneTime ?? 0),
+    0,
+  );
+  const monthlyListTotal = selected.reduce(
+    (s, id) => s + (ALL_SERVICES.find((x) => x.id === id)?.monthly ?? 0),
+    0,
+  );
+  const parsedTermPrices: Partial<Record<number, number>> = {};
+  for (const term of [6, 12, 24]) {
+    const value = Math.round(Number(termPrices[term]));
+    if (Number.isFinite(value) && value > 0) parsedTermPrices[term] = value;
+  }
   const finalPrice = Number(offerPrice) || listTotal;
+  const term12Rate = parsedTermPrices[12] ?? monthlyListTotal;
+  const shownPrice = billingMode === "monthly" ? term12Rate : finalPrice;
+  const shownList = billingMode === "monthly" ? monthlyListTotal : listTotal;
   const discountPct =
-    listTotal > finalPrice
-      ? Math.round(((listTotal - finalPrice) / listTotal) * 100)
+    shownList > shownPrice
+      ? Math.round(((shownList - shownPrice) / shownList) * 100)
       : 0;
 
   const resetForm = () => {
@@ -133,6 +155,8 @@ export function OfferBuilder() {
     setClientEmail("");
     setSelected([]);
     setOfferPrice("");
+    setBillingMode("one-time");
+    setTermPrices({ 6: "", 12: "", 24: "" });
     setNotes("");
     setVideoUrl("");
     setProspectId(null);
@@ -152,10 +176,12 @@ export function OfferBuilder() {
         clientName: clientName.trim(),
         clientEmail: clientEmail.trim(),
         services: selected,
-        offerPrice: finalPrice,
+        offerPrice: billingMode === "monthly" ? term12Rate : finalPrice,
         notes: notes.trim(),
         videoUrl: videoUrl.trim() || null,
         prospectId,
+        billingMode,
+        monthlyTermPrices: parsedTermPrices,
       });
       setCreated(offer);
       setOffers((prev) => [offer, ...prev]);
@@ -163,6 +189,8 @@ export function OfferBuilder() {
       setClientEmail("");
       setSelected([]);
       setOfferPrice("");
+      setBillingMode("one-time");
+      setTermPrices({ 6: "", 12: "", 24: "" });
       setNotes("");
       setVideoUrl("");
       setProspectId(null);
@@ -330,31 +358,113 @@ export function OfferBuilder() {
             })}
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1.4fr]">
-            <label className="block">
-              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-mute">
-                Offer price (USD)
-              </span>
-              <input
-                value={offerPrice}
-                onChange={(e) => setOfferPrice(e.target.value.replace(/[^0-9]/g, ""))}
-                placeholder={String(listTotal || "0")}
-                inputMode="numeric"
-                className="w-full rounded-xl border border-white/10 bg-ink-800 px-3 py-2.5 text-sm text-white placeholder:text-mute outline-none transition focus:border-brand-400/60"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-mute">
-                Pitch video / audit link (optional)
-              </span>
-              <input
-                value={videoUrl}
-                onChange={(e) => setVideoUrl(e.target.value)}
-                placeholder="https://www.bizreborn.com/pitch/… or an .mp4"
-                className="w-full rounded-xl border border-white/10 bg-ink-800 px-3 py-2.5 text-sm text-white placeholder:text-mute outline-none transition focus:border-brand-400/60"
-              />
-            </label>
+          <div className="mt-4 flex w-fit items-center rounded-xl border border-white/10 bg-ink-800 p-1">
+            <button
+              onClick={() => setBillingMode("one-time")}
+              className={cn(
+                "rounded-lg px-3 py-1.5 text-xs font-semibold transition",
+                billingMode === "one-time"
+                  ? "bg-brand-500 text-white"
+                  : "text-fog hover:text-white",
+              )}
+            >
+              One-time
+            </button>
+            <button
+              onClick={() => setBillingMode("monthly")}
+              className={cn(
+                "rounded-lg px-3 py-1.5 text-xs font-semibold transition",
+                billingMode === "monthly"
+                  ? "bg-brand-500 text-white"
+                  : "text-fog hover:text-white",
+              )}
+            >
+              Recurring retainer
+            </button>
           </div>
+
+          {billingMode === "one-time" ? (
+            <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1.4fr]">
+              <label className="block">
+                <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-mute">
+                  Offer price (USD)
+                </span>
+                <input
+                  value={offerPrice}
+                  onChange={(e) => setOfferPrice(e.target.value.replace(/[^0-9]/g, ""))}
+                  placeholder={String(listTotal || "0")}
+                  inputMode="numeric"
+                  className="w-full rounded-xl border border-white/10 bg-ink-800 px-3 py-2.5 text-sm text-white placeholder:text-mute outline-none transition focus:border-brand-400/60"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-mute">
+                  Pitch video / audit link (optional)
+                </span>
+                <input
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  placeholder="https://www.bizreborn.com/pitch/… or an .mp4"
+                  className="w-full rounded-xl border border-white/10 bg-ink-800 px-3 py-2.5 text-sm text-white placeholder:text-mute outline-none transition focus:border-brand-400/60"
+                />
+              </label>
+            </div>
+          ) : (
+            <div className="mt-3 rounded-xl border border-brand-500/20 bg-brand-500/5 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-brand-300">
+                Recurring retainer — set discounted monthly rates per term
+              </p>
+              <p className="mt-1.5 text-xs text-fog">
+                Initiation/setup of{" "}
+                <span className="font-semibold text-white">
+                  ${oneTimeTotal.toLocaleString()}
+                </span>{" "}
+                is charged once at signup, then the monthly rate repeats for the
+                client&apos;s chosen commitment term. Listed monthly rate:{" "}
+                <span className="font-semibold text-white">
+                  ${monthlyListTotal.toLocaleString()}/mo
+                </span>
+                . Leave a term blank to charge list rate for that term.
+              </p>
+              <div className="mt-3 grid grid-cols-3 gap-3">
+                {[6, 12, 24].map((term) => {
+                  const rate = Number(termPrices[term]);
+                  const parsed = Number.isFinite(rate) && rate > 0 ? rate : null;
+                  const savePct =
+                    parsed && monthlyListTotal > parsed
+                      ? Math.round(((monthlyListTotal - parsed) / monthlyListTotal) * 100)
+                      : 0;
+                  return (
+                    <label key={term} className="block">
+                      <span className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-mute">
+                        <span>{term}-month</span>
+                        {savePct > 0 && (
+                          <span className="text-glow-400">-{savePct}%</span>
+                        )}
+                      </span>
+                      <input
+                        value={termPrices[term]}
+                        onChange={(e) =>
+                          setTermPrices((prev) => ({
+                            ...prev,
+                            [term]: e.target.value.replace(/[^0-9]/g, ""),
+                          }))
+                        }
+                        placeholder={String(monthlyListTotal || "0")}
+                        inputMode="numeric"
+                        className="w-full rounded-xl border border-white/10 bg-ink-800 px-3 py-2.5 text-sm text-white placeholder:text-mute outline-none transition focus:border-brand-400/60"
+                      />
+                      <span className="mt-1 block truncate text-[10px] text-mute">
+                        {parsed
+                          ? `${(parsed * term).toLocaleString()} total over term`
+                          : "list rate"}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <label className="mt-3 block">
             <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-mute">
@@ -425,7 +535,8 @@ export function OfferBuilder() {
               <div>
                 <p className="text-[11px] text-mute">Regular price</p>
                 <p className="text-sm font-semibold text-mute line-through">
-                  ${listTotal.toLocaleString()}
+                  ${shownList.toLocaleString()}
+                  {billingMode === "monthly" ? "/mo" : ""}
                 </p>
               </div>
               {discountPct > 0 && (
@@ -434,9 +545,17 @@ export function OfferBuilder() {
                 </Badge>
               )}
               <div className="text-right">
-                <p className="text-[11px] text-mute">Offer price</p>
+                <p className="text-[11px] text-mute">
+                  {billingMode === "monthly" ? "12-month rate" : "Offer price"}
+                </p>
                 <p className="font-display text-2xl font-extrabold text-glow-400">
-                  ${finalPrice.toLocaleString()}
+                  ${shownPrice.toLocaleString()}
+                  {billingMode === "monthly" ? "/mo" : ""}
+                </p>
+                <p className="mt-0.5 text-[10px] text-mute">
+                  {billingMode === "monthly"
+                    ? `${selected.length > 0 ? `setup ${oneTimeTotal.toLocaleString()} + ` : ""}6/12/24-mo terms`
+                    : "one-time investment"}
                 </p>
               </div>
             </div>
@@ -468,27 +587,34 @@ export function OfferBuilder() {
                 >
                   <Mail className="h-3.5 w-3.5" /> Email to client
                 </a>
-                {created.stripePaymentLink ? (
-                  <a
-                    href={created.stripePaymentLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-1.5 rounded-lg bg-glow-500/20 py-2 text-xs font-semibold text-glow-400 transition hover:bg-glow-500/30"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" /> Open Stripe payment link
-                  </a>
+                {created.billingMode === "one-time" ? (
+                  created.stripePaymentLink ? (
+                    <a
+                      href={created.stripePaymentLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-1.5 rounded-lg bg-glow-500/20 py-2 text-xs font-semibold text-glow-400 transition hover:bg-glow-500/30"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" /> Open Stripe payment link
+                    </a>
+                  ) : (
+                    <button
+                      onClick={() => handlePaymentLink(created)}
+                      className="flex items-center justify-center gap-1.5 rounded-lg bg-glow-500/20 py-2 text-xs font-semibold text-glow-400 transition hover:bg-glow-500/30"
+                    >
+                      {busyToken === created.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <DollarSign className="h-3.5 w-3.5" />
+                      )}{" "}
+                      Generate payment link
+                    </button>
+                  )
                 ) : (
-                  <button
-                    onClick={() => handlePaymentLink(created)}
-                    className="flex items-center justify-center gap-1.5 rounded-lg bg-glow-500/20 py-2 text-xs font-semibold text-glow-400 transition hover:bg-glow-500/30"
-                  >
-                    {busyToken === created.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <DollarSign className="h-3.5 w-3.5" />
-                    )}{" "}
-                    Generate payment link
-                  </button>
+                  <p className="flex items-center justify-center gap-1.5 rounded-lg border border-white/10 py-2 text-xs text-mute">
+                    <BadgePercent className="h-3.5 w-3.5" /> Client picks their
+                    term &amp; pays on the proposal page
+                  </p>
                 )}
               </div>
             </div>
@@ -528,12 +654,25 @@ export function OfferBuilder() {
                   <p className="truncate text-sm font-medium text-mist">{o.clientName}</p>
                   <p className="truncate text-[11px] text-mute">
                     {o.services.length} modules ·{" "}
-                    {o.discountPct > 0 && (
-                      <span className="line-through">${o.listPrice.toLocaleString()}</span>
+                    {o.billingMode === "monthly" ? (
+                      <>
+                        {o.discountPct > 0 ? "list " : ""}
+                        <span className={o.discountPct > 0 ? "line-through" : ""}>
+                          ${o.listPrice.toLocaleString()}/mo
+                        </span>{" "}
+                        → ${o.offerPrice.toLocaleString()}/mo
+                        {o.discountPct > 0 ? ` · save ${o.discountPct}%` : ""}
+                      </>
+                    ) : (
+                      <>
+                        {o.discountPct > 0 && (
+                          <span className="line-through">${o.listPrice.toLocaleString()}</span>
+                        )}{" "}
+                        ${o.offerPrice.toLocaleString()}
+                        {o.discountPct > 0 ? ` · save ${o.discountPct}%` : ""}
+                      </>
                     )}{" "}
-                    ${o.offerPrice.toLocaleString()}
-                    {o.discountPct > 0 ? ` · save ${o.discountPct}%` : ""} ·{" "}
-                    {new Date(o.createdAt).toLocaleDateString()}
+                    · {new Date(o.createdAt).toLocaleDateString()}
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -555,7 +694,7 @@ export function OfferBuilder() {
                   >
                     <Mail className="h-3.5 w-3.5" />
                   </a>
-                  {!o.stripePaymentLink && o.status !== "paid" && (
+                  {o.billingMode === "one-time" && !o.stripePaymentLink && o.status !== "paid" && (
                     <button
                       onClick={() => handlePaymentLink(o)}
                       title="Generate payment link"

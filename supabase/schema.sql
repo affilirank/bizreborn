@@ -363,6 +363,10 @@ create table public.offers (
   stripe_payment_link text,
   notes text,
   paid_at timestamptz,
+  billing_mode text not null default 'one-time',
+  term_months integer,
+  monthly_list_price integer not null default 0,
+  monthly_term_prices jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
 

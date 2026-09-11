@@ -543,6 +543,10 @@ export interface CreateOfferInput {
   notes: string;
   videoUrl?: string | null;
   prospectId?: string | null;
+  /** "one-time" (default) or recurring retainer with commitment terms. */
+  billingMode?: "one-time" | "monthly";
+  /** Discounted monthly rates per commitment term: { 6, 12, 24 }. */
+  monthlyTermPrices?: Partial<Record<number, number>>;
 }
 
 export async function createOffer(input: CreateOfferInput): Promise<Offer> {
@@ -963,9 +967,26 @@ function offerFromRow(r: Record<string, unknown>): Offer {
     stripePaymentLink: (r.stripe_payment_link as string | null) ?? null,
     notes: (r.notes as string | null) ?? "",
     videoUrl: (r.video_url as string | null) ?? null,
+    billingMode: (r.billing_mode ?? "one-time") as Offer["billingMode"],
+    termMonths: r.term_months == null ? null : Number(r.term_months),
+    monthlyListPrice: Number(r.monthly_list_price ?? 0),
+    monthlyTermPrices: normalizeTermPrices(r.monthly_term_prices),
     paidAt: (r.paid_at as string | null) ?? null,
     createdAt: String(r.created_at),
   };
+}
+
+function normalizeTermPrices(v: unknown): Partial<Record<number, number>> {
+  const raw =
+    typeof v === "object" && v !== null
+      ? (v as Record<string, unknown>)
+      : {};
+  const out: Partial<Record<number, number>> = {};
+  for (const term of [6, 12, 24]) {
+    const value = Number(raw[String(term)]);
+    if (Number.isFinite(value) && value > 0) out[term] = Math.round(value);
+  }
+  return out;
 }
 
 function reportFromRow(r: Record<string, unknown>): MonthlyReport {
@@ -1012,10 +1033,22 @@ function demoGetOffers(): Offer[] {
 
 function demoSaveOffer(input: CreateOfferInput): Offer {
   const items = demoGetOffers();
-  const listPrice = input.services.reduce(
-    (s, id) => s + (SERVICE_MAP[id]?.oneTime ?? 0) + (SERVICE_MAP[id]?.monthly ?? 0),
+  const billingMode = input.billingMode ?? "one-time";
+  const monthlyListPrice = input.services.reduce(
+    (s, id) => s + (SERVICE_MAP[id]?.monthly ?? 0),
     0,
   );
+  const oneTimeListPrice = input.services.reduce(
+    (s, id) => s + (SERVICE_MAP[id]?.oneTime ?? 0),
+    0,
+  );
+  const monthlyTermPrices = input.monthlyTermPrices ?? {};
+  const listPrice =
+    billingMode === "monthly" ? monthlyListPrice : oneTimeListPrice;
+  const offerPrice =
+    billingMode === "monthly"
+      ? (monthlyTermPrices[12] ?? monthlyListPrice)
+      : input.offerPrice;
   const offer: Offer = {
     id: `O-${Date.now()}`,
     token: `demo-${Date.now()}`,
@@ -1026,15 +1059,19 @@ function demoSaveOffer(input: CreateOfferInput): Offer {
       .map((id) => SERVICE_MAP[id]?.title)
       .filter(Boolean),
     listPrice,
-    offerPrice: input.offerPrice,
+    offerPrice,
     discountPct:
-      listPrice > input.offerPrice
-        ? Math.round(((listPrice - input.offerPrice) / listPrice) * 100)
+      listPrice > offerPrice
+        ? Math.round(((listPrice - offerPrice) / listPrice) * 100)
         : 0,
     status: "draft",
     stripePaymentLink: null,
     notes: input.notes,
     videoUrl: input.videoUrl ?? null,
+    billingMode,
+    termMonths: billingMode === "monthly" ? 12 : null,
+    monthlyListPrice,
+    monthlyTermPrices,
     paidAt: null,
     createdAt: new Date().toISOString(),
   };

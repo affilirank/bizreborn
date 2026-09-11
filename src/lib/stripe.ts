@@ -54,3 +54,80 @@ export async function createOfferPaymentLink(opts: {
 
   return link.url;
 }
+
+/**
+ * Creates a Stripe Checkout Session for a recurring retainer proposal. Charges
+ * the one-time initiation/setup fees immediately plus the first month of the
+ * discounted monthly retainer for the chosen commitment term, then continues
+ * billing monthly. Returns the hosted checkout URL (or null when unconfigured).
+ */
+export async function createOfferCheckoutSession(opts: {
+  token: string;
+  clientName: string;
+  clientEmail: string;
+  serviceTitles: string[];
+  setupItems: Array<{ title: string; amount: number }>;
+  monthlyRate: number;
+  termMonths: number;
+  discountPct: number;
+}): Promise<string | null> {
+  const stripe = getStripe();
+  if (!stripe) return null;
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
+  for (const setup of opts.setupItems) {
+    if (setup.amount <= 0) continue;
+    lineItems.push({
+      price_data: {
+        currency: "usd",
+        product_data: {
+          name: `${setup.title} (Initiation / Setup)`,
+          description: "Biz Reborn one-time setup fee",
+        },
+        unit_amount: Math.round(setup.amount) * 100,
+      },
+      quantity: 1,
+    });
+  }
+  lineItems.push({
+    price_data: {
+      currency: "usd",
+      product_data: {
+        name: `${opts.clientName} — Retainer (${opts.termMonths}-month rate)`,
+        description: opts.discountPct > 0
+          ? `Recurring marketing retainer — save ${opts.discountPct}% over list with a ${opts.termMonths}-month commitment`
+          : `Recurring marketing retainer — ${opts.termMonths}-month commitment`,
+      },
+      recurring: { interval: "month" as const },
+      unit_amount: Math.round(opts.monthlyRate) * 100,
+    },
+    quantity: 1,
+  });
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    customer_email: opts.clientEmail || undefined,
+    line_items: lineItems,
+    metadata: {
+      offerToken: opts.token,
+      clientName: opts.clientName,
+      email: opts.clientEmail,
+      services: opts.serviceTitles.join(", "),
+      termMonths: String(opts.termMonths),
+      monthlyRate: String(opts.monthlyRate),
+      source: "offer-builder",
+    },
+    subscription_data: {
+      metadata: {
+        offerToken: opts.token,
+        clientName: opts.clientName,
+        source: "offer-builder",
+      },
+    },
+    success_url: `${baseUrl}/offer/${opts.token}?paid=1&term=${opts.termMonths}`,
+    cancel_url: `${baseUrl}/offer/${opts.token}`,
+  });
+
+  return session.url;
+}

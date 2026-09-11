@@ -28,7 +28,11 @@ export async function POST(req: Request) {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
-      await persistOrder(session);
+      // Proposal (offer-builder) checkouts already persist their own order in
+      // completeOffer; don't create a second one here.
+      if (session.metadata?.source !== "offer-builder") {
+        await persistOrder(session);
+      }
       break;
     }
     case "invoice.payment_succeeded": {

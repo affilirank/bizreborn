@@ -96,7 +96,9 @@ export async function POST(req: Request) {
       step === 1 ? wrapped.email1_html : step === 2 ? wrapped.email2_html : wrapped.email3_html;
     const result = await deliverEmail({
       prospect: p,
-      subject,
+      // Every drip subject announces which step of the 3-step campaign it is,
+      // so recipients (and the operator) always know where they are.
+      subject: `[Step ${step} of 3] ${subject}`,
       html,
       kind: "drip",
       stepLabel: `Drip email ${step} · ${label}`,

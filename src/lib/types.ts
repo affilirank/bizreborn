@@ -176,6 +176,18 @@ export interface Offer {
   notes: string;
   /** Pitch video (mp4) or a /pitch/[slug] page URL embedded in the proposal. */
   videoUrl: string | null;
+  /**
+   * Recurring retainer billing. "one-time" = classic setup+package price;
+   * "monthly" = initiation/setup fees + a per-month retainer with 6/12/24
+   * month commitment terms, each carrying its own discounted monthly rate.
+   */
+  billingMode: "one-time" | "monthly";
+  /** Chosen commitment term in months (null when billing is one-time). */
+  termMonths: number | null;
+  /** Regular (undiscounted) monthly retainer for the selected services. */
+  monthlyListPrice: number;
+  /** Discounted monthly rate per term, keyed by months: { 6, 12, 24 }. */
+  monthlyTermPrices: Partial<Record<number, number>>;
   paidAt: string | null;
   createdAt: string;
 }

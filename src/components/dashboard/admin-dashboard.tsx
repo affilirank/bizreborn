@@ -23,6 +23,7 @@ import {
   Film,
   Timer,
   History,
+  CalendarClock,
 } from "lucide-react";
 import { BlogBuilder } from "@/components/dashboard/blog-builder";
 import { OfferBuilder } from "@/components/dashboard/offer-builder";
@@ -340,6 +341,12 @@ export function AdminDashboard() {
             className="flex items-center gap-2 rounded-xl border border-brand-500/40 bg-brand-500/10 px-4 py-2 text-sm font-semibold text-brand-300 transition hover:border-brand-400/60 hover:text-white"
           >
             <Users className="h-4 w-4" /> Full CRM
+          </Link>
+          <Link
+            href="/admin/bookings"
+            className="flex items-center gap-2 rounded-xl border border-glow-500/40 bg-glow-500/10 px-4 py-2 text-sm font-semibold text-glow-300 transition hover:border-glow-400/60 hover:text-white"
+          >
+            <CalendarClock className="h-4 w-4" /> Bookings
           </Link>
         </div>
 

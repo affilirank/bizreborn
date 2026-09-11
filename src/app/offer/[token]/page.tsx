@@ -9,6 +9,7 @@ import { completeOffer, getOfferByToken } from "@/lib/portal";
 import { getProspectBySlug } from "@/lib/prospects";
 import { LEADGEN } from "@/lib/config";
 import { PitchPlayer } from "@/components/pitch/pitch-player";
+import { OfferBilling } from "@/components/offers/offer-billing";
 import { OfferDecline } from "./offer-actions";
 
 export const dynamic = "force-dynamic";
@@ -180,51 +181,79 @@ export default async function OfferPage({
 
         {/* Price */}
         <div className="mt-6 rounded-3xl border border-white/8 bg-ink-850/60 p-6 sm:p-8">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-mute">
-                Regular price
-              </p>
-              <p className="mt-1 text-2xl font-bold text-mute line-through">
-                ${offer.listPrice.toLocaleString()}
-              </p>
-            </div>
-            {offer.discountPct > 0 && (
-              <Badge variant="emerald" className="px-3 py-1.5">
-                <BadgePercent className="h-3.5 w-3.5" /> Save {offer.discountPct}%
-              </Badge>
-            )}
-            <div className="text-right">
-              <p className="text-xs font-semibold uppercase tracking-wider text-mute">
-                Your price
-              </p>
-              <p className="font-display text-4xl font-extrabold text-glow-400">
-                ${offer.offerPrice.toLocaleString()}
-              </p>
-              <p className="mt-0.5 text-[11px] text-fog">one-time investment</p>
-            </div>
-          </div>
+          {offer.billingMode === "monthly" ? (
+            paidOffer || declined ? (
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-mute">
+                    Monthly retainer
+                  </p>
+                  <p className="font-display text-4xl font-extrabold text-glow-400">
+                    $
+                    {(offer.monthlyTermPrices[offer.termMonths ?? 12] ?? offer.offerPrice).toLocaleString()}
+                    /mo
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-fog">
+                    {offer.termMonths ?? 12}-month commitment · recurring
+                  </p>
+                </div>
+                <Badge variant="emerald" className="px-3 py-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5" />{" "}
+                  {paidOffer ? "Active" : "Declined"}
+                </Badge>
+              </div>
+            ) : (
+              <OfferBilling offer={offer} />
+            )
+          ) : (
+            <>
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-mute">
+                    Regular price
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-mute line-through">
+                    ${offer.listPrice.toLocaleString()}
+                  </p>
+                </div>
+                {offer.discountPct > 0 && (
+                  <Badge variant="emerald" className="px-3 py-1.5">
+                    <BadgePercent className="h-3.5 w-3.5" /> Save {offer.discountPct}%
+                  </Badge>
+                )}
+                <div className="text-right">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-mute">
+                    Your price
+                  </p>
+                  <p className="font-display text-4xl font-extrabold text-glow-400">
+                    ${offer.offerPrice.toLocaleString()}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-fog">one-time investment</p>
+                </div>
+              </div>
 
-          {!paidOffer && !declined && (
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-              {offer.stripePaymentLink ? (
-                <Link
-                  href={offer.stripePaymentLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex h-13 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-500 px-8 text-base font-semibold text-white shadow-[0_8px_30px_-8px_rgba(99,102,241,0.7)] transition hover:bg-brand-400"
-                >
-                  Pay ${offer.offerPrice.toLocaleString()} &amp; get started
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              ) : (
-                <div className="flex-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
-                  A secure payment link is being generated — your manager will
-                  send it to you shortly.
+              {!paidOffer && !declined && (
+                <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  {offer.stripePaymentLink ? (
+                    <Link
+                      href={offer.stripePaymentLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-13 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-500 px-8 text-base font-semibold text-white shadow-[0_8px_30px_-8px_rgba(99,102,241,0.7)] transition hover:bg-brand-400"
+                    >
+                      Pay ${offer.offerPrice.toLocaleString()} &amp; get started
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  ) : (
+                    <div className="flex-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+                      A secure payment link is being generated — your manager will
+                      send it to you shortly.
+                    </div>
+                  )}
+                  <OfferDecline token={offer.token} />
                 </div>
               )}
-              <OfferDecline token={offer.token} />
-            </div>
+            </>
           )}
         </div>
 
