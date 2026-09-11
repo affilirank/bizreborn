@@ -114,6 +114,9 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
 
   const resendKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.EMAIL_FROM || `Biz Reborn Marketing <hello@bizreborn.com>`;
+  // Every prospect reply should land in the operator's real inbox, not a
+  // brand-only From address that may have no mailbox behind it.
+  const replyTo = process.env.REPLY_TO_EMAIL || "bizrebornmarketing@gmail.com";
 
   let messageId: string | undefined;
   let simulated = false;
@@ -132,6 +135,7 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
           to: [prospect.email],
           subject,
           html: htmlWithPixel,
+          reply_to: replyTo,
         }),
       });
       const data = await res.json().catch(() => ({}));
