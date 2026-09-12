@@ -1,6 +1,7 @@
 import type { CommunicationLog, Prospect } from "@/lib/supabase-types";
 import { updateProspect } from "@/lib/prospects";
 import { renderProfessionalEmailHtml, sanitizeOutreachCopy } from "@/lib/email-template";
+import { canReceiveEmail } from "@/lib/services/email-validate";
 import {
   PIPELINE_ORDER,
   emailStats,
@@ -106,6 +107,18 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
       simulated: false,
       trackingUid: makeUid(prospect.id),
       error: "Prospect has no email address.",
+    };
+  }
+
+  // Hard gate: never send to a domain that cannot actually receive mail
+  // (invented/parked/dead addresses are exactly what was hard-bouncing).
+  const deliverable = await canReceiveEmail(prospect.email);
+  if (!deliverable) {
+    return {
+      ok: false,
+      simulated: false,
+      trackingUid: makeUid(prospect.id),
+      error: `Recipient domain ${prospect.email.split("@")[1]} has no MX record (cannot receive mail). Send blocked — fix the address or mark the lead invalid.`,
     };
   }
 

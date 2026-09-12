@@ -29,6 +29,7 @@ import {
   Phone,
   PhoneCall,
   Volume2,
+  MapPin,
 } from "lucide-react";
 import type { Prospect } from "@/lib/supabase-types";
 import type { ProspectStoreStatus } from "@/lib/prospects";
@@ -36,8 +37,9 @@ import { fmtNumber } from "@/lib/utils";
 import { PitchPlayer } from "@/components/pitch/pitch-player";
 import { PREFILL_KEY, type OfferPrefill } from "@/lib/offer-prefill";
 import { LEADGEN } from "@/lib/config";
+import { mapsSearchUrl } from "@/lib/services/email-validate";
 
-type Tab = "all" | "saved" | "queued" | "audited" | "pitched" | "replied" | "booked" | "closed" | "failed";
+type Tab = "all" | "saved" | "queued" | "audited" | "pitched" | "replied" | "booked" | "closed" | "failed" | "invalid";
 
 const statusBadge: Record<string, { label: string; cls: string }> = {
   saved: { label: "Saved", cls: "text-blue-400 border-blue-500/20 bg-blue-500/5" },
@@ -52,6 +54,7 @@ const statusBadge: Record<string, { label: string; cls: string }> = {
   booked: { label: "Booked", cls: "text-emerald-400 border-emerald-500/20 bg-emerald-500/5" },
   closed: { label: "Closed", cls: "text-green-400 border-green-500/20 bg-green-500/5" },
   failed: { label: "Failed", cls: "text-rose-400 border-rose-500/20 bg-rose-500/5" },
+  invalid: { label: "Invalid Lead", cls: "text-rose-400 border-rose-500/40 bg-rose-600/10" },
 };
 
 const money = (n: number | null | undefined) =>
@@ -338,6 +341,7 @@ export default function ProspectsAdmin() {
     booked: prospects.filter((p) => p.status === "booked").length,
     closed: prospects.filter((p) => p.status === "closed").length,
     failed: prospects.filter((p) => p.status === "failed").length,
+    invalid: prospects.filter((p) => p.status === "invalid").length,
   };
 
   function toggle(id: string) {
@@ -648,7 +652,7 @@ export default function ProspectsAdmin() {
         {/* Table column */}
         <div className="lg:col-span-2">
           <div className="flex flex-wrap gap-1.5 border-b border-ink-800/60 pb-3">
-            {(["all", "saved", "pending", "scraping", "rendering", "ready", "failed"] as Tab[]).map((t) => (
+            {(["all", "saved", "pending", "scraping", "rendering", "ready", "failed", "invalid"] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -839,7 +843,7 @@ function ProspectRow({
 }) {
   const badge = statusBadge[p.status || "pending"] || statusBadge.pending;
   const Icon =
-    { saved: Clock, queued: Clock, audited: Loader2, pitched: Send, replied: Mail, booked: CheckCircle, closed: CheckCircle, pending: Clock, scraping: Loader2, rendering: Film, ready: CheckCircle, failed: AlertTriangle }[p.status || "pending"] || Clock;
+    { saved: Clock, queued: Clock, audited: Loader2, pitched: Send, replied: Mail, booked: CheckCircle, closed: CheckCircle, pending: Clock, scraping: Loader2, rendering: Film, ready: CheckCircle, failed: AlertTriangle, invalid: AlertTriangle }[p.status || "pending"] || Clock;
   const spinning = p.status === "scraping" || p.status === "rendering" || p.status === "pending";
   const roi = p.roi_projection;
   const grade = p.audit_report?.grade;
@@ -1097,6 +1101,14 @@ function PreviewModal({
               className="flex items-center justify-center gap-1.5 rounded-lg border border-ink-700 bg-ink-800/80 px-3 py-2 text-xs font-medium text-ink-200 transition hover:text-white"
             >
               <Mail size={13} /> Open in email client
+            </a>
+            <a
+              href={p.google_maps_link || mapsSearchUrl(p.business_name, p.city)}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-300 transition hover:bg-emerald-500/20"
+            >
+              <MapPin size={13} /> Verify on Google Maps
             </a>
             <button
               onClick={onCopyEmail}

@@ -189,10 +189,12 @@ export async function POST(
         currentOffer = { ...currentOffer, stripePaymentLink: paymentLink };
       }
       const result = await sendOfferEmail(currentOffer);
-      await admin
-        .from("offers")
-        .update({ status: "sent" })
-        .eq("token", token);
+      if (result.ok || result.simulated) {
+        await admin
+          .from("offers")
+          .update({ status: "sent" })
+          .eq("token", token);
+      }
       return NextResponse.json({
         ok: result.ok,
         simulated: result.simulated,

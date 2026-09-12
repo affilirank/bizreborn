@@ -1,5 +1,6 @@
 import type { Offer } from "@/lib/types";
 import { SITE, LEADGEN } from "@/lib/config";
+import { canReceiveEmail } from "@/lib/services/email-validate";
 
 const FROM = () => process.env.EMAIL_FROM || `Biz Reborn Marketing <hello@bizreborn.com>`;
 const REPLY_TO = () => process.env.REPLY_TO_EMAIL || "bizrebornmarketing@gmail.com";
@@ -270,6 +271,14 @@ async function sendEmail(opts: OfferEmailInput): Promise<EmailResult> {
 /** Sends the branded proposal email to the client. Never throws (best-effort). */
 export async function sendOfferEmail(offer: Offer): Promise<EmailResult> {
   if (!offer.clientEmail) return { ok: false, simulated: false, error: "No client email." };
+  const deliverable = await canReceiveEmail(offer.clientEmail);
+  if (!deliverable) {
+    return {
+      ok: false,
+      simulated: false,
+      error: `Recipient domain ${offer.clientEmail.split("@")[1]} has no MX record (cannot receive mail). Send blocked — fix the client email.`,
+    };
+  }
   const subject = `Your Customized Biz Reborn Proposal — ${offer.clientName}`;
   return sendEmail({
     to: offer.clientEmail,
