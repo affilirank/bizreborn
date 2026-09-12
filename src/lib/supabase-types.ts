@@ -217,6 +217,8 @@ export interface Prospect {
   slug: string | null;
   status: ProspectStatus | null;
   last_contacted_at?: string | null;
+  campaign_stage?: string | null;
+  campaign_last_run_at?: string | null;
   communication_logs?: CommunicationLog[] | null;
   error: string | null;
   created_at: string;
