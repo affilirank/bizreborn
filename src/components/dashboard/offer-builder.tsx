@@ -39,26 +39,6 @@ const STATUS_STYLE: Record<Offer["status"], string> = {
   declined: "border-rose-500/30 bg-rose-500/10 text-rose-300",
 };
 
-function mailtoForOffer(offer: Offer, paymentLink: string | null): string {
-  const url = `${window.location.origin}/offer/${offer.token}`;
-  const subject = `Your Customized Biz Reborn Proposal — ${offer.clientName}`;
-  const body = [
-    `Hi ${offer.clientName},`,
-    "",
-    "We put together a customized package tailored to your business.",
-    "",
-    `Review your proposal here: ${url}`,
-    paymentLink ? `\nSecure payment link: ${paymentLink}\n` : "",
-    "We're ready when you are — the plan starts the moment you accept.",
-    "",
-    "Talk soon,",
-    "The Biz Reborn Team",
-  ]
-    .filter((line) => line !== "")
-    .join("\n");
-  return `mailto:${offer.clientEmail || ""}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-}
-
 async function copyText(text: string) {
   try {
     await navigator.clipboard.writeText(text);
@@ -89,6 +69,8 @@ export function OfferBuilder() {
   const [created, setCreated] = React.useState<Offer | null>(null);
   const [copiedToken, setCopiedToken] = React.useState<string | null>(null);
   const [busyToken, setBusyToken] = React.useState<string | null>(null);
+  const [sendingId, setSendingId] = React.useState<string | null>(null);
+  const [sentId, setSentId] = React.useState<string | null>(null);
   const [error, setError] = React.useState("");
 
   React.useEffect(() => {
@@ -222,6 +204,44 @@ export function OfferBuilder() {
       }
     } finally {
       setBusyToken(null);
+    }
+  };
+
+  const handleSend = async (offer: Offer) => {
+    setError("");
+    if (!offer.clientEmail) {
+      setError("Add a client email to send the proposal.");
+      return;
+    }
+    setSendingId(offer.id);
+    try {
+      const res = await fetch(`/api/offers/${offer.token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send" }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.ok) {
+        const sent = {
+          ...offer,
+          status: "sent" as const,
+          stripePaymentLink:
+            (json.paymentLink as string | null) ?? offer.stripePaymentLink,
+        };
+        setOffers((prev) => prev.map((o) => (o.id === offer.id ? sent : o)));
+        setCreated((prev) => (prev?.id === offer.id ? sent : prev));
+        setSentId(offer.id);
+        window.setTimeout(() => setSentId(null), 2500);
+      } else if (json?.simulated) {
+        setError("Email service isn't configured — the proposal link is copied instead.");
+        await copyOfferLink(offer);
+      } else {
+        setError(json?.error ?? "Could not send the proposal email.");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send the proposal email.");
+    } finally {
+      setSendingId(null);
     }
   };
 
@@ -581,12 +601,30 @@ export function OfferBuilder() {
                     </>
                   )}
                 </button>
-                <a
-                  href={mailtoForOffer(created, created.stripePaymentLink)}
-                  className="flex items-center justify-center gap-1.5 rounded-lg border border-brand-500/40 bg-brand-500/10 py-2 text-xs font-semibold text-brand-300 transition hover:bg-brand-500/20"
+                <button
+                  onClick={() => handleSend(created)}
+                  disabled={sendingId !== null}
+                  className={cn(
+                    "flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-semibold transition disabled:opacity-60",
+                    sentId === created.id
+                      ? "border-glow-500/40 bg-glow-500/10 text-glow-400"
+                      : "border-brand-500/40 bg-brand-500/10 text-brand-300 hover:bg-brand-500/20",
+                  )}
                 >
-                  <Mail className="h-3.5 w-3.5" /> Email to client
-                </a>
+                  {sendingId === created.id ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending…
+                    </>
+                  ) : sentId === created.id ? (
+                    <>
+                      <Check className="h-3.5 w-3.5" /> Proposal emailed
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="h-3.5 w-3.5" /> Send proposal email
+                    </>
+                  )}
+                </button>
                 {created.billingMode === "one-time" ? (
                   created.stripePaymentLink ? (
                     <a
@@ -687,13 +725,20 @@ export function OfferBuilder() {
                       <Copy className="h-3.5 w-3.5" />
                     )}
                   </button>
-                  <a
-                    href={mailtoForOffer(o, o.stripePaymentLink)}
-                    title="Email to client"
-                    className="rounded-lg border border-white/10 p-2 text-mist transition hover:border-white/25 hover:text-white"
+                  <button
+                    onClick={() => handleSend(o)}
+                    disabled={sendingId !== null}
+                    title={sentId === o.id ? "Proposal emailed" : "Send proposal email"}
+                    className="rounded-lg border border-white/10 p-2 text-mist transition hover:border-brand-500/40 hover:text-brand-300"
                   >
-                    <Mail className="h-3.5 w-3.5" />
-                  </a>
+                    {sendingId === o.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : sentId === o.id ? (
+                      <Check className="h-3.5 w-3.5 text-glow-400" />
+                    ) : (
+                      <Mail className="h-3.5 w-3.5" />
+                    )}
+                  </button>
                   {o.billingMode === "one-time" && !o.stripePaymentLink && o.status !== "paid" && (
                     <button
                       onClick={() => handlePaymentLink(o)}

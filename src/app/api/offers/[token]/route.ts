@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { getOfferByToken } from "@/lib/portal";
 import { createOfferCheckoutSession, createOfferPaymentLink } from "@/lib/stripe";
+import { sendOfferEmail } from "@/lib/offer-email";
 import { SERVICE_MAP } from "@/data/services";
 
 export async function POST(
@@ -155,6 +156,49 @@ export async function POST(
         .update({ stripe_payment_link: url, status: "sent" })
         .eq("token", token);
       return NextResponse.json({ url });
+    }
+    case "send": {
+      // Sends the branded proposal email (custom HTML like the rest of the
+      // outreach). One-time offers get their Stripe payment link generated
+      // first so the email's CTA can take the client straight to checkout.
+      if (!offer.clientEmail) {
+        return NextResponse.json(
+          { error: "Add a client email before sending the proposal." },
+          { status: 400 },
+        );
+      }
+      let currentOffer = offer;
+      let paymentLink = currentOffer.stripePaymentLink;
+      if (currentOffer.billingMode === "one-time" && !paymentLink) {
+        const url = await createOfferPaymentLink({
+          token: currentOffer.token,
+          clientName: currentOffer.clientName,
+          serviceTitles: currentOffer.serviceTitles,
+          amount: currentOffer.offerPrice,
+        }).catch((err) => {
+          console.error("[offers] payment link failed", err);
+          return null;
+        });
+        if (url) paymentLink = url;
+      }
+      if (paymentLink !== currentOffer.stripePaymentLink) {
+        await admin
+          .from("offers")
+          .update({ stripe_payment_link: paymentLink })
+          .eq("token", token);
+        currentOffer = { ...currentOffer, stripePaymentLink: paymentLink };
+      }
+      const result = await sendOfferEmail(currentOffer);
+      await admin
+        .from("offers")
+        .update({ status: "sent" })
+        .eq("token", token);
+      return NextResponse.json({
+        ok: result.ok,
+        simulated: result.simulated,
+        error: result.error ?? null,
+        paymentLink: currentOffer.stripePaymentLink,
+      });
     }
     default:
       return NextResponse.json(
