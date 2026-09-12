@@ -391,6 +391,18 @@ export default function ProspectsAdmin() {
     void refresh();
   }
 
+  async function removeSelected() {
+    if (selected.size === 0) return;
+    const ids = Array.from(selected);
+    await fetch("/api/prospects", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    });
+    setSelected(new Set());
+    void refresh();
+  }
+
   function parseCSV(text: string): Array<Record<string, string>> {
     const lines = text.split(/\r?\n/).filter((l) => l.trim());
     if (!lines.length) return [];
@@ -675,14 +687,24 @@ export default function ProspectsAdmin() {
             </p>
           ) : (
             <div className="mt-3 space-y-2">
-              <div className="flex items-center gap-2 px-3">
-                <input
-                  type="checkbox"
-                  checked={selected.size === filtered.length && filtered.length > 0}
-                  onChange={toggleAll}
-                  className="accent-brand-600"
-                />
-                <span className="text-xs text-ink-500">Select all</span>
+              <div className="flex items-center justify-between px-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selected.size === filtered.length && filtered.length > 0}
+                    onChange={toggleAll}
+                    className="accent-brand-600"
+                  />
+                  <span className="text-xs text-ink-500">Select all</span>
+                </div>
+                {selected.size > 0 && (
+                  <button
+                    onClick={() => void removeSelected()}
+                    className="flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20"
+                  >
+                    <Trash2 size={13} /> Delete Selected ({selected.size})
+                  </button>
+                )}
               </div>
 
               {filtered.map((p) => (

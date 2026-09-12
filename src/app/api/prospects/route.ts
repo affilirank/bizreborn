@@ -30,12 +30,15 @@ export async function DELETE(req: Request) {
   if (!(await isAdminOrDemo())) {
     return NextResponse.json({ error: "Admin access required." }, { status: 401 });
   }
-  const { id } = await req.json();
-  if (!id) {
-    return NextResponse.json({ error: "id required" }, { status: 400 });
+  const body = await req.json().catch(() => ({}));
+  const ids: string[] = Array.isArray(body.ids) ? body.ids : body.id ? [body.id] : [];
+  if (ids.length === 0) {
+    return NextResponse.json({ error: "id or ids required" }, { status: 400 });
   }
-  const ok = await deleteProspect(id);
-  return NextResponse.json({ ok });
+  for (const id of ids) {
+    await deleteProspect(id);
+  }
+  return NextResponse.json({ ok: true });
 }
 
 export async function POST(req: Request) {
