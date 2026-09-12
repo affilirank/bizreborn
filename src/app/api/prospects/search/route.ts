@@ -133,39 +133,6 @@ export async function POST(req: Request) {
     console.error("[lead discovery] AI search failed:", err);
   }
 
-  if (businesses.length === 0) {
-    const defaultNames = [
-      `${city} Premier ${keyword}`,
-      `Coastal ${keyword} Experts`,
-      `Atlantic ${keyword} Group`,
-      `Elite ${keyword} Solutions`,
-      `Sunshine State ${keyword}`,
-      `Dependable ${keyword} Partners`,
-      `Apex ${keyword} Specialists`,
-      `Beacon ${keyword} Associates`,
-    ];
-    businesses = Array.from({ length: Math.min(count, 20) }).map((_, i) => {
-      const name = `${defaultNames[i % defaultNames.length]} ${i > 7 ? i : ""}`.trim();
-      const slug = name.toLowerCase().replace(/[^a-z0-9]/g, "");
-      const website = `https://www.${slug}fl.com`;
-      return {
-        qualifying_score: 70 + (i * 2),
-        missing_gbp_apple: false,
-        business_name: name,
-        city,
-        google_maps_link: mapsSearchUrl(name, city),
-        website,
-        email: `info@${slug}fl.com`,
-        phone: `772-555-${String(1000 + i).slice(1)}`,
-        instagram: `@${slug}`,
-        facebook: `${name.replace(/\s+/g, "")}FL`,
-        google_rating: Number((4.5 + (i % 4) * 0.1).toFixed(1)),
-        review_count: 45 + i * 18,
-        competitor_name: `${city} Market Leader`,
-        competitor_reviews: 220 + i * 20,
-      };
-    });
-  }
-
+  // Never fabricate leads. If nothing verified, return nothing.
   return NextResponse.json({ businesses });
 }
