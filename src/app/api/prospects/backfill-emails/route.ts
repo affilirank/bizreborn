@@ -1,0 +1,61 @@
+import { NextResponse } from "next/server";
+import { listProspects, updateProspect } from "@/lib/prospects";
+import { discoverEmailForBusiness } from "@/lib/services/scraper";
+import { isAdminOrDemo } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+const CONCURRENCY = 4;
+const DEADLINE_MS = 50000;
+
+export async function POST(req: Request) {
+  if (!(await isAdminOrDemo())) {
+    return NextResponse.json({ error: "Admin access required." }, { status: 401 });
+  }
+
+  let limit = 30;
+  try {
+    const body = await req.json();
+    if (body && Number.isFinite(body.limit)) {
+      limit = Math.min(40, Math.max(1, Math.floor(body.limit)));
+    }
+  } catch {
+    // no body — use default
+  }
+
+  const missing = (await listProspects()).filter((p) => !p.email || !p.email.trim());
+  const targets = missing.slice(0, limit);
+
+  const deadline = Date.now() + DEADLINE_MS;
+  let idx = 0;
+  let foundCount = 0;
+
+  async function worker() {
+    while (true) {
+      if (Date.now() > deadline) return;
+      const i = idx++;
+      if (i >= targets.length) return;
+      const p = targets[i];
+      const email = await discoverEmailForBusiness({
+        business_name: p.business_name,
+        city: p.city ?? "",
+        website: p.website,
+        google_maps_link: p.google_maps_link,
+      });
+      if (email) {
+        await updateProspect(p.id, { email });
+        foundCount++;
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
+
+  return NextResponse.json({
+    scanned: Math.min(idx, targets.length),
+    found: foundCount,
+    stillMissing: Math.max(0, targets.length - foundCount),
+    totalMissing: missing.length,
+  });
+}

@@ -113,6 +113,116 @@ async function deriveContactEmailFromDomain(domain: string): Promise<string | nu
 }
 
 /**
+ * Platform/directory domains that never host a business's own real inbox. Emails
+ * scoped to these are junk picked up from result chrome, not the business's contact.
+ */
+const SEARCH_BLOCKED_DOMAINS = new Set([
+  "facebook.com",
+  "instagram.com",
+  "linkedin.com",
+  "youtube.com",
+  "twitter.com",
+  "x.com",
+  "yelp.com",
+  "yellowpages.com",
+  "yp.com",
+  "bbb.org",
+  "tripadvisor.com",
+  "foursquare.com",
+  "trustpilot.com",
+  "manta.com",
+  "google.com",
+  "googleusercontent.com",
+  "gmail.google.com",
+  "bing.com",
+  "microsoft.com",
+  "whois.com",
+]);
+
+/** Fetches one search-engine HTML results page and returns any email addresses it shows. */
+async function fetchSearchEngineEmails(query: string): Promise<string[]> {
+  const engines = [
+    { name: "duckduckgo", url: `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}` },
+    { name: "bing", url: `https://www.bing.com/search?q=${encodeURIComponent(query)}` },
+  ];
+  const emails: string[] = [];
+  for (const engine of engines) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(engine.url, {
+        signal: controller.signal,
+        redirect: "follow",
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Accept: "text/html,application/xhtml+xml",
+        },
+      });
+      clearTimeout(timeoutId);
+      if (!res || !res.ok) continue;
+      const html = await res.text();
+      const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+      for (const raw of html.match(emailRegex) || []) {
+        if (/\.(png|jpe?g|svg|webp|gif)$/i.test(raw)) continue;
+        const norm = raw.split(" ")[0];
+        if (norm && norm.includes("@")) emails.push(norm);
+      }
+    } catch {
+      // engine blocked or hung — try the next one
+    }
+  }
+  return emails;
+}
+
+/**
+ * Searches public web results (Facebook pages, directory listings, etc.) for the
+ * business's published contact email. Time-bounded; returns the first MX-verified
+ * inbox, preferring one hosted on the business's own domain.
+ */
+async function searchWebForEmail(input: {
+  business_name: string;
+  city: string;
+  website?: string | null;
+}): Promise<string | null> {
+  let hostname: string | null = null;
+  try {
+    const url = toHttpUrl(input.website);
+    if (url) hostname = new URL(url).hostname.replace(/^www\./, "").toLowerCase() || null;
+  } catch {
+    // ignore
+  }
+
+  const base = `"${input.business_name}" ${input.city}`;
+  const queries = hostname
+    ? [`${base} email ${hostname}`, `${base} contact email`, `${base} email`]
+    : [`${base} contact email`, `${base} email`];
+
+  const deadline = Date.now() + 15000;
+  const candidates = new Map<string, boolean>();
+  for (const q of queries) {
+    if (Date.now() > deadline) break;
+    const found = await fetchSearchEngineEmails(q);
+    for (const raw of found) {
+      const email = normalizeEmail(raw);
+      if (!email || email.split("@")[0].length < 2) continue;
+      const domain = email.split("@")[1]?.toLowerCase() ?? "";
+      if (SEARCH_BLOCKED_DOMAINS.has(domain)) continue;
+      if (email.split("@")[1]?.length > 80) continue;
+      const onOwnDomain = hostname ? domain === hostname || domain.endsWith(`.${hostname}`) : false;
+      if (!candidates.has(email)) candidates.set(email, onOwnDomain);
+    }
+  }
+
+  // Own-domain emails first (highest confidence), everything else after.
+  const sorted = Array.from(candidates.entries()).sort((a, b) => Number(b[1]) - Number(a[1]));
+  for (const [email] of sorted) {
+    if (await canReceiveEmail(email)) return email;
+  }
+  return null;
+}
+
+/**
  * Explicit email discovery and enrichment step using direct website scraping and web search grounding.
  * Pass `{ skipAiGrounding: true }` for bulk calls to avoid one grounded AI lookup per business.
  */
@@ -200,6 +310,15 @@ export async function discoverEmailForBusiness(
   } catch (err) {
     console.warn("[email discovery] failed for", input.business_name, err);
   }
+
+  // 3. Last resort (bulk mode exits above): hunt public search-engine results
+  //    (Facebook, directory listings, PDFs, etc.) for the email.
+  const searched = await searchWebForEmail({
+    business_name: input.business_name,
+    city: input.city,
+    website: input.website,
+  });
+  if (searched) return searched;
 
   return null;
 }

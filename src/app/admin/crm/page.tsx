@@ -181,6 +181,7 @@ export default function CrmPage() {
   const [newLogDuration, setNewLogDuration] = useState("3m 42s");
   const [newLogAnswered, setNewLogAnswered] = useState("Answered");
   const [toast, setToast] = useState<string | null>(null);
+  const [findingEmails, setFindingEmails] = useState(false);
 
   const [taskFilter, setTaskFilter] = useState<"all" | "queued" | "in_progress" | "completed">("all");
   const [newTask, setNewTask] = useState<{
@@ -223,6 +224,30 @@ export default function CrmPage() {
     const t = setTimeout(() => setToast(null), 2500);
     return () => clearTimeout(t);
   }, [toast]);
+
+  const findMissingEmails = async () => {
+    setFindingEmails(true);
+    try {
+      const res = await fetch("/api/prospects/backfill-emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: 40 }),
+      });
+      const json = await res.json();
+      if (json.error) {
+        setToast(String(json.error));
+      } else if (json.scanned === 0) {
+        setToast("No leads are missing an email.");
+      } else {
+        setToast(`Email backfill: ${json.found} found, ${json.stillMissing} still missing.`);
+      }
+      void fetchData();
+    } catch {
+      setToast("Email backfill failed — try again.");
+    } finally {
+      setFindingEmails(false);
+    }
+  };
 
   const updateProspectTemp = async (id: string, temperature: string) => {
     try {
@@ -591,6 +616,15 @@ export default function CrmPage() {
                 />
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={findMissingEmails}
+                  disabled={findingEmails}
+                  title="Re-discover emails for leads showing 'No email' (scans their website and public web results)"
+                  className="flex items-center gap-2 rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-xs font-semibold text-white outline-none transition hover:border-brand-400/60 disabled:opacity-60"
+                >
+                  {findingEmails ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5 text-brand-400" />}
+                  {findingEmails ? "Finding emails…" : "Find Missing Emails"}
+                </button>
                 <span className="text-xs font-semibold text-fog flex items-center gap-1">
                   <Filter className="h-3.5 w-3.5" /> Status:
                 </span>
