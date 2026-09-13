@@ -88,10 +88,13 @@ export async function POST(req: Request) {
       unanswered_reviews,
       competitor_name,
       competitor_reviews,
-      status: row.status === "saved" ? "saved" : "ready",
+      status: row.status === "saved" ? "saved" : row.status === "pending" ? "pending" : "ready",
     };
 
-    // If status is saved, don't pre-render yet. If ready, compute audit + script + poster instantly!
+    // Inline audit + script + TTS + video render is only done for explicitly
+    // requested single/ready leads. Bulk uploads arrive as "pending" so the
+    // background queue renders them at bounded concurrency instead of blowing
+    // the 60s function limit inline.
     if (baseProspect.status === "ready") {
       try {
         const audit = buildBrandAudit(baseProspect as Prospect);

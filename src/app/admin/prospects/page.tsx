@@ -422,10 +422,14 @@ export default function ProspectsAdmin() {
   async function submitRows(rows: Array<Record<string, string>>) {
     setBusy(true);
     try {
+      // Uploads render in the background queue (status "pending"), not inline —
+      // 50-lead CSVs otherwise exceed the 60s function limit.
       const res = await fetch("/api/prospects/batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prospects: rows }),
+        body: JSON.stringify({
+          prospects: rows.map((r) => ({ ...r, status: r.status === "saved" ? "saved" : "pending" })),
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Upload failed");
@@ -446,22 +450,28 @@ export default function ProspectsAdmin() {
   }
 
   async function onFile(file: File) {
-    const text = await file.text();
-    const rows = parseCSV(text)
+    const text = await file.text().catch(() => "");
+    if (!text.trim()) {
+      setToast("Could not read that file");
+      return;
+    }
+    const rows = parseCSV(text.replace(/^\ufeff/, ""))
       .map((r) => ({
-        business_name: r.business_name || r.name || r.business || "",
-        city: r.city || "",
-        website: r.website || r.url || "",
-        google_maps_link: r.google_maps_link || r.google_maps_url || r.maps_link || "",
-        email: r.email || "",
-        phone: r.phone || "",
+        business_name: r.business_name || r.name || r.business || r.company || r.company_name || r.title || "",
+        city: r.city || r.location || r.locality || "",
+        website: r.website || r.url || r.website_url || r.site || "",
+        google_maps_link: r.google_maps_link || r.google_maps_url || r.maps_link || r.maps_url || "",
+        email: r.email || r.email_address || "",
+        phone: r.phone || r.phone_number || r.telephone || r.tel || "",
+        google_rating: r.google_rating || r.rating || r.average_rating || r.avg_rating || "",
+        review_count: r.review_count || r.reviews || r.reviews_count || r.total_reviews || r.google_reviews || "",
         instagram: r.instagram || r.ig || "",
         facebook: r.facebook || r.fb || "",
         tiktok: r.tiktok || "",
       }))
       .filter((r) => r.business_name);
     if (!rows.length) {
-      setToast("No valid rows. Expected columns: business_name, city, website, email, phone, instagram, facebook, tiktok");
+      setToast("No rows recognized. Expected a column like Business Name / Company / Name (also reads website, email, phone, city, rating, reviews)");
       return;
     }
     await submitRows(rows.slice(0, 50));
@@ -597,9 +607,9 @@ export default function ProspectsAdmin() {
             <Upload size={24} className="mx-auto text-brand-400" />
             <p className="mt-3 text-sm font-medium text-white">Drop CSV or click to upload</p>
             <p className="mt-1 text-xs text-ink-500">
-              business_name, city, website, email, phone, instagram, facebook, tiktok
+              Reads Business Name / Company, Website, Email, Phone, City, Rating, Reviews (and more)
             </p>
-            <p className="mt-1 text-[11px] text-ink-600">Audits + videos start automatically on upload.</p>
+            <p className="mt-1 text-[11px] text-ink-600">Audits + videos start automatically after upload (queued).</p>
           </div>
 
           <div className="rounded-xl border border-ink-800/60 bg-ink-900/40 p-5">
