@@ -31,7 +31,7 @@ function toHttpUrl(value: string | null | undefined): string | null {
 }
 
 /** Additional paths where small-business sites typically publish contact emails. */
-const CONTACT_PATHS = ["/contact", "/contact-us", "/about"];
+const CONTACT_PATHS = ["/contact", "/contact-us"];
 
 /**
  * Fetches a page (with a short timeout) and extracts any valid `mailto:` or regex email addresses.
@@ -43,7 +43,7 @@ async function fetchPageAndFindEmail(pageUrl: string): Promise<{ email: string |
   if (!url) return { email: null, reachable: false };
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
     const res = await fetch(url, {
       signal: controller.signal,
       headers: {

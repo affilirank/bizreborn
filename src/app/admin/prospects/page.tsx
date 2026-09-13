@@ -1395,20 +1395,37 @@ function DiscoveryModal({
     if (!keyword.trim() || !city.trim()) return;
     setSearching(true);
     setSearched(false);
+    const started = Date.now();
     try {
       const res = await fetch("/api/prospects/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ keyword: keyword.trim(), city: city.trim(), count: Number(count) || 30 }),
       });
-      const json = await res.json();
-      if (res.ok && Array.isArray(json.businesses)) {
-        setResults(json.businesses);
-        setSearched(true);
-        setSelected(new Set(json.businesses.map((_: DiscoveredLead, i: number) => i)));
-      } else {
-        alert(json.error || "Search failed");
+      let json: { businesses?: unknown[]; error?: string } | null = null;
+      try {
+        json = await res.json();
+      } catch {
+        // non-JSON response (e.g. serverless timeout from the platform)
       }
+      if (res.status === 401) {
+        alert(`Session expired or token rotated (HTTP 401). Refresh the page and log in again, then retry.`);
+        return;
+      }
+      if (res.ok && json && Array.isArray(json.businesses)) {
+        const list = json.businesses as DiscoveredLead[];
+        setResults(list);
+        setSearched(true);
+        setSelected(new Set(list.map((_, i) => i)));
+        if (list.length === 0) {
+          alert(`No verified businesses found for "${keyword}" in ${city} — try a more specific keyword or import a CSV.`);
+        }
+        return;
+      }
+      alert(json?.error || `Search failed (HTTP ${res.status}).`);
+    } catch (err) {
+      const msg = err instanceof Error && /timeout|abort|network|fetch/i.test(err.message) ? `Search request timed out after ${Math.round((Date.now() - started) / 1000)}s — try again.` : err instanceof Error ? err.message : String(err);
+      alert(msg);
     } finally {
       setSearching(false);
     }
