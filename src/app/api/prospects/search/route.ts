@@ -2,7 +2,8 @@ import { calculateQualifyingScore } from "@/lib/services/brand-audit";
 import { NextResponse } from "next/server";
 import { isAdminOrDemo } from "@/lib/supabase/server";
 import { callAi, parseAiJson } from "@/lib/ai-router";
-import { canReceiveEmail, normalizeEmail, toRealMapsLink } from "@/lib/services/email-validate";
+import { normalizeEmail, toRealMapsLink } from "@/lib/services/email-validate";
+import { discoverEmailForBusiness } from "@/lib/services/scraper";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -97,8 +98,22 @@ async function runSearchPass(
       const rCount = item.review_count != null && !isNaN(Number(item.review_count)) ? Number(item.review_count) : null;
       const mapsLink = toRealMapsLink(item.google_maps_link ?? item.maps_link, name, city);
       const website = toHttpUrl(item.website);
-      const email = normalizeEmail(item.email);
-      const verifiedEmail = email && isProbablyRealContactEmail(email) && (await canReceiveEmail(email)) ? email : "";
+      const aiEmail = normalizeEmail(item.email);
+      const initialEmail = aiEmail && isProbablyRealContactEmail(aiEmail) ? aiEmail : null;
+      // Enrich the email: keep the AI-provided one if it passes MX, otherwise scrape the
+      // real website (+ /contact pages) or derive an MX-verified info@/contact@/sales@
+      // from the reachable domain. Bulk mode — no per-business AI call.
+      const verifiedEmail =
+        (await discoverEmailForBusiness(
+          {
+            business_name: name,
+            city: String(item.city || city).trim(),
+            website: website || null,
+            google_maps_link: mapsLink || null,
+            initial_email: initialEmail,
+          },
+          { skipAiGrounding: true },
+        )) || "";
       const { score, missingGbpApple } = calculateQualifyingScore({
         google_rating: gRating,
         review_count: rCount,

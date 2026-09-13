@@ -101,14 +101,18 @@ async function deriveContactEmailFromDomain(domain: string): Promise<string | nu
 
 /**
  * Explicit email discovery and enrichment step using direct website scraping and web search grounding.
+ * Pass `{ skipAiGrounding: true }` for bulk calls to avoid one grounded AI lookup per business.
  */
-export async function discoverEmailForBusiness(input: {
-  business_name: string;
-  city: string;
-  website?: string | null;
-  google_maps_link?: string | null;
-  initial_email?: string | null;
-}): Promise<string | null> {
+export async function discoverEmailForBusiness(
+  input: {
+    business_name: string;
+    city: string;
+    website?: string | null;
+    google_maps_link?: string | null;
+    initial_email?: string | null;
+  },
+  opts?: { skipAiGrounding?: boolean },
+): Promise<string | null> {
   const normalizedInitial = normalizeEmail(input.initial_email);
   if (normalizedInitial && (await canReceiveEmail(normalizedInitial))) {
     return normalizedInitial;
@@ -154,6 +158,12 @@ export async function discoverEmailForBusiness(input: {
     input.google_maps_link ? `maps: ${input.google_maps_link}` : "",
     "contact email address info",
   ].filter(Boolean);
+
+  // Bulk enrichment: website scraping + domain derivation above is enough;
+  // skip the per-business AI lookup to stay within request budget.
+  if (opts?.skipAiGrounding === true) {
+    return null;
+  }
 
   try {
     const text = await callAi({
