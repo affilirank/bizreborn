@@ -33,7 +33,7 @@ function toHttpUrl(value: string | null | undefined): string | null {
 }
 
 /** Additional paths where small-business sites typically publish contact emails. */
-const CONTACT_PATHS = ["/contact", "/contact-us"];
+const CONTACT_PATHS = ["/contact", "/contact-us", "/about", "/about-us", "/privacy-policy", "/privacy"];
 
 /**
  * Fetches a page (with a short timeout) and extracts any valid `mailto:` or regex email addresses.
@@ -45,7 +45,7 @@ async function fetchPageAndFindEmail(pageUrl: string): Promise<{ email: string |
   if (!url) return { email: null, reachable: false };
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
     const res = await fetch(url, {
       signal: controller.signal,
       headers: {
@@ -68,15 +68,26 @@ async function fetchPageAndFindEmail(pageUrl: string): Promise<{ email: string |
       }
     }
 
-    // 2. Extract general email patterns in text
+    // 2. Extract general email patterns in text (also catches obfuscated
+    //    "name at domain dot com" patterns small businesses love to use)
     const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-    const found = html.match(emailRegex);
-    if (found) {
-      for (const raw of found) {
-        const email = normalizeEmail(raw);
-        if (email && !email.endsWith(".png") && !email.endsWith(".jpg") && !email.endsWith(".svg") && (await canReceiveEmail(email))) {
+    const found = (html.match(emailRegex) || []).filter((e) => !e.endsWith(".png") && !e.endsWith(".jpg") && !e.endsWith(".svg") && !e.endsWith(".jpeg") && !e.endsWith(".webp"));
+    const obfuscated = html
+      .replace(/<\/?[a-z][^>]*>/gi, " ")
+      .match(/([a-zA-Z0-9._%+-]+)\s*\[?at\]?\s*([a-zA-Z0-9.-]+)\s*\[?dot\]?\s*([a-zA-Z]{2,})/gi);
+    if (obfuscated) {
+      for (const token of obfuscated) {
+        const email = normalizeEmail(token.replace(/\s*\[?at\]?\s*/gi, "@").replace(/\s*\[?dot\]?\s*/gi, "."));
+        if (email && (await canReceiveEmail(email))) {
           return { email, reachable: true };
         }
+      }
+    }
+
+    for (const raw of found) {
+      const email = normalizeEmail(raw);
+      if (email && (await canReceiveEmail(email))) {
+        return { email, reachable: true };
       }
     }
     return { email: null, reachable: true };
@@ -133,8 +144,10 @@ export async function discoverEmailForBusiness(
       // keep homepage only
     }
 
+    const deadline = Date.now() + 22000;
     let reachableHost: string | null = null;
     for (const page of pages) {
+      if (Date.now() > deadline) break;
       const result = await fetchPageAndFindEmail(page);
       if (result.email) return result.email;
       if (result.reachable && !reachableHost) {
