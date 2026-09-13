@@ -21,6 +21,8 @@ export interface ScrapeInput {
   city: string;
   website?: string | null;
   google_maps_link?: string | null;
+  /** An email already on the prospect (e.g. from a CSV upload). Verified first; never clobbered by a scrape miss. */
+  existing_email?: string | null;
 }
 
 function toHttpUrl(value: string | null | undefined): string | null {
@@ -223,7 +225,7 @@ export async function scrapeReputation(input: ScrapeInput): Promise<ScrapeResult
           city: input.city,
           website: websiteUrl,
           google_maps_link: input.google_maps_link,
-          initial_email: parsed.email,
+          initial_email: input.existing_email || parsed.email,
         });
 
         return {

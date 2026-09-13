@@ -114,8 +114,16 @@ class BatchQueue {
           city: prospect.city ?? "",
           website: prospect.website,
           google_maps_link: prospect.google_maps_link,
+          existing_email: prospect.email,
         });
-        await updateProspect(id, { ...scraped });
+        await updateProspect(id, {
+          ...scraped,
+          email: scraped.email ?? prospect.email ?? null,
+          phone: scraped.phone ?? prospect.phone ?? null,
+          website: scraped.website ?? prospect.website ?? null,
+          instagram: scraped.instagram ?? prospect.instagram ?? null,
+          facebook: scraped.facebook ?? prospect.facebook ?? null,
+        });
       }
 
       // 2. Brand audit (website + socials + reputation) and ROI projection

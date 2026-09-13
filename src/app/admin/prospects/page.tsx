@@ -39,15 +39,15 @@ import { PREFILL_KEY, type OfferPrefill } from "@/lib/offer-prefill";
 import { LEADGEN } from "@/lib/config";
 import { mapsSearchUrl } from "@/lib/services/email-validate";
 
-type Tab = "all" | "saved" | "queued" | "audited" | "pitched" | "replied" | "booked" | "closed" | "failed" | "invalid";
+type Tab = "all" | "new" | "saved" | "ready" | "crm" | "failed";
 
 const statusBadge: Record<string, { label: string; cls: string }> = {
   saved: { label: "Saved", cls: "text-blue-400 border-blue-500/20 bg-blue-500/5" },
   queued: { label: "Queued", cls: "text-indigo-400 border-indigo-500/20 bg-indigo-500/5" },
   pending: { label: "Queued", cls: "text-indigo-400 border-indigo-500/20 bg-indigo-500/5" },
-  scraping: { label: "Audited", cls: "text-amber-400 border-amber-500/20 bg-amber-500/5" },
+  scraping: { label: "Auditing", cls: "text-amber-400 border-amber-500/20 bg-amber-500/5" },
   audited: { label: "Audited", cls: "text-amber-400 border-amber-500/20 bg-amber-500/5" },
-  rendering: { label: "Audited", cls: "text-amber-400 border-amber-500/20 bg-amber-500/5" },
+  rendering: { label: "Rendering", cls: "text-amber-400 border-amber-500/20 bg-amber-500/5" },
   ready: { label: "Ready", cls: "text-brand-400 border-brand-500/20 bg-brand-500/5" },
   pitched: { label: "Pitched", cls: "text-purple-400 border-purple-500/20 bg-purple-500/5" },
   replied: { label: "Replied", cls: "text-cyan-400 border-cyan-500/20 bg-cyan-500/5" },
@@ -324,24 +324,23 @@ export default function ProspectsAdmin() {
 
   const filtered = tab === "all"
     ? prospects
-    : tab === "queued"
-      ? prospects.filter((p) => p.status === "queued" || p.status === "pending")
-      : tab === "audited"
-        ? prospects.filter((p) => p.status === "audited" || p.status === "ready" || p.status === "scraping" || p.status === "rendering")
-        : prospects.filter((p) => p.status === tab);
+    : tab === "new"
+      ? prospects.filter((p) => ["queued", "pending", "scraping", "audited", "rendering"].includes(p.status ?? ""))
+      : tab === "saved"
+        ? prospects.filter((p) => p.status === "saved")
+        : tab === "ready"
+          ? prospects.filter((p) => p.status === "ready")
+          : tab === "crm"
+            ? prospects.filter((p) => ["pitched", "replied", "booked", "closed"].includes(p.status ?? ""))
+            : prospects.filter((p) => p.status === "failed" || p.status === "invalid");
 
   const counts = {
     all: prospects.length,
+    new: prospects.filter((p) => ["queued", "pending", "scraping", "audited", "rendering"].includes(p.status ?? "")).length,
     saved: prospects.filter((p) => p.status === "saved").length,
-    queued: prospects.filter((p) => p.status === "queued" || p.status === "pending").length,
-    audited: prospects.filter((p) => p.status === "audited" || p.status === "scraping" || p.status === "rendering").length,
     ready: prospects.filter((p) => p.status === "ready").length,
-    pitched: prospects.filter((p) => p.status === "pitched").length,
-    replied: prospects.filter((p) => p.status === "replied").length,
-    booked: prospects.filter((p) => p.status === "booked").length,
-    closed: prospects.filter((p) => p.status === "closed").length,
-    failed: prospects.filter((p) => p.status === "failed").length,
-    invalid: prospects.filter((p) => p.status === "invalid").length,
+    crm: prospects.filter((p) => ["pitched", "replied", "booked", "closed"].includes(p.status ?? "")).length,
+    failed: prospects.filter((p) => p.status === "failed" || p.status === "invalid").length,
   };
 
   function toggle(id: string) {
@@ -585,7 +584,7 @@ export default function ProspectsAdmin() {
     <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Total Uploaded" value={counts.all} icon={<Users size={16} />} color="text-brand-400" />
         <Stat label="Ready Pitches" value={counts.ready} icon={<Film size={16} />} color="text-glow-400" />
-        <Stat label="In Progress" value={counts.queued + counts.audited} icon={<Loader2 size={16} />} color="text-amber-400" />
+        <Stat label="In Progress" value={counts.new} icon={<Loader2 size={16} />} color="text-amber-400" />
         <Stat
           label="Projected pipeline / mo"
           value={prospects.reduce((s, p) => s + (p.roi_projection?.projected_monthly ?? 0), 0)}
@@ -696,10 +695,11 @@ export default function ProspectsAdmin() {
         {/* Table column */}
         <div className="lg:col-span-2">
           <div className="flex flex-wrap gap-1.5 border-b border-ink-800/60 pb-3">
-            {(["all", "saved", "pending", "scraping", "rendering", "ready", "failed", "invalid"] as Tab[]).map((t) => (
+            {(["all", "new", "saved", "ready", "crm", "failed"] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
+                title={t === "new" ? "Queued / auditing / rendering" : t === "crm" ? "Pitched, replied, booked, closed" : undefined}
                 className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition ${
                   tab === t ? "bg-brand-600 text-white" : "bg-ink-900/60 text-ink-400 hover:text-white"
                 }`}
