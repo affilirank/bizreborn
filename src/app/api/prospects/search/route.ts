@@ -41,7 +41,7 @@ function isProbablyRealContactEmail(email: string): boolean {
 }
 
 const SEARCH_SYSTEM_PROMPT =
-  "You are an expert local business lead generation assistant that only returns VERIFIED real business listings. Return ONLY a valid JSON object with a single root key businesses containing an array of real, locally-known business listings matching the requested keyword and city. Each object in the array must have keys: business_name (string), city (string), google_maps_link (string — the Google Maps/GBP URL for that exact business, or empty), website (string — the business's real website, or empty; NEVER construct a website from the business name), email (string — a real email found on the business's verified website/GBP listing, or empty; NEVER fabricate info@<name>fl.com-style addresses), phone (string, valid local format or empty), instagram (string handle or empty), facebook (string handle or empty), google_rating (number or null), review_count (number or null), competitor_name (string, name of the local market leader), competitor_reviews (number, higher than review_count). Provide only businesses you are confident really exist in that city — prefer fewer, real results over fabricated counts; you may return an empty businesses array if you cannot verify real matches. Raw JSON object only, no markdown code fences, no conversational filler.";
+  "You are an expert local business lead generation assistant that only returns VERIFIED real business listings. Return ONLY a valid JSON object with a single root key businesses containing an array of real, locally-known business listings matching the requested keyword and city. Each object in the array must have keys: business_name (string), city (string), google_maps_link (string — the Google Maps/GBP URL for that exact business, or empty), website (string — the business's real website, or empty; NEVER construct a website from the business name), email (string — a real email found on the business's verified website/GBP listing, or empty; NEVER fabricate info@<name>fl.com-style addresses), phone (string, valid local format or empty), instagram (string handle or empty), facebook (string handle or empty), google_rating (number or null), review_count (number or null), competitor_name (string, name of the local market leader), competitor_reviews (number, higher than review_count). Provide only businesses you are confident really exist in that city — prefer fewer, real results over fabricated counts; you may return an empty businesses array if you cannot verify real matches. If the exact city is small, include real businesses from the nearest metro/county area (same search area). Raw JSON object only, no markdown code fences, no conversational filler.";
 
 /** One grounded search pass. Returns already-filtered, email-verified businesses for the requested target count. */
 async function runSearchPass(
@@ -63,7 +63,7 @@ async function runSearchPass(
     jsonMode: true,
     maxTokens: 6000,
     useSearchGrounding: true,
-    timeoutMs: 38000,
+    timeoutMs: 18000,
   });
 
   if (!text) return [];
@@ -173,7 +173,8 @@ export async function POST(req: Request) {
   // Multi-pass: keep grounding until we reach the requested count or run out of
   // passes. Pass 1 finds the core listings; extra passes widen the net with
   // distinct real businesses. Never pads with fabricated entries.
-  const maxPasses = Math.min(3, Math.max(1, Math.ceil(count / 15)));
+  // Per-pass timeouts are short so sequential passes never exceed the 60s function budget.
+  const maxPasses = count >= 100 ? 3 : 2;
   for (let pass = 0; pass < maxPasses; pass++) {
     if (businesses.length >= count) break;
     const remaining = count - businesses.length;
@@ -182,6 +183,17 @@ export async function POST(req: Request) {
       businesses.push(...found);
     } catch (err) {
       console.error(`[lead discovery] search pass ${pass + 1} failed:`, err);
+    }
+  }
+
+  // One last retry of the plain query if everything came up empty — covers
+  // transient grounding/parse failures without padding fake businesses.
+  if (businesses.length === 0) {
+    try {
+      const found = await runSearchPass(keyword, city, count, 0, seen);
+      businesses.push(...found);
+    } catch (err) {
+      console.error("[lead discovery] final retry failed:", err);
     }
   }
 

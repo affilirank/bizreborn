@@ -410,7 +410,7 @@ export default function ProspectsAdmin() {
       (line.match(/("([^"]|"")*"|[^,]*)(,|$)/g) ?? [])
         .map((c) => c.replace(/,$/, "").trim().replace(/^"|"$/g, "").replace(/""/g, '"'))
         .slice(0, -1);
-    const header = split(lines[0]).map((h) => h.toLowerCase().replace(/\s+/g, "_"));
+    const header = split(lines[0]).map((h) => h.toLowerCase().replace(/[^a-z0-9]+/g, "_"));
     return lines.slice(1).map((line) => {
       const cells = split(line);
       const obj: Record<string, string> = {};
@@ -449,6 +449,28 @@ export default function ProspectsAdmin() {
     }
   }
 
+  function cleanCell(v: string): string {
+    const s = v.trim();
+    if (!s || s === "-" || /^(n\/a|na|null|unknown|-)$/i.test(s)) return "";
+    return s;
+  }
+
+  function toWebsiteInput(v: string): string {
+    const s = cleanCell(v);
+    if (!s) return "";
+    if (/^https?:\/\//i.test(s)) return s;
+    if (/^[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(\/.*)?$/i.test(s)) return `https://${s}`;
+    return "";
+  }
+
+  function toPhoneInput(v: string): string {
+    const s = cleanCell(v);
+    if (!s) return "";
+    // Spreadsheet exports often turn big phone numbers into scientific notation (7.7E+09) — junk, drop it.
+    if (/e[+-]\d+/i.test(s)) return "";
+    return s;
+  }
+
   async function onFile(file: File) {
     const text = await file.text().catch(() => "");
     if (!text.trim()) {
@@ -457,21 +479,21 @@ export default function ProspectsAdmin() {
     }
     const rows = parseCSV(text.replace(/^\ufeff/, ""))
       .map((r) => ({
-        business_name: r.business_name || r.name || r.business || r.company || r.company_name || r.title || "",
-        city: r.city || r.location || r.locality || "",
-        website: r.website || r.url || r.website_url || r.site || "",
-        google_maps_link: r.google_maps_link || r.google_maps_url || r.maps_link || r.maps_url || "",
-        email: r.email || r.email_address || "",
-        phone: r.phone || r.phone_number || r.telephone || r.tel || "",
-        google_rating: r.google_rating || r.rating || r.average_rating || r.avg_rating || "",
-        review_count: r.review_count || r.reviews || r.reviews_count || r.total_reviews || r.google_reviews || "",
-        instagram: r.instagram || r.ig || "",
-        facebook: r.facebook || r.fb || "",
-        tiktok: r.tiktok || "",
+        business_name: [r.business_name, r.name, r.business, r.company, r.company_name, r.title].map(cleanCell).find(Boolean) || "",
+        city: [r.city, r.location, r.locality].map(cleanCell).find(Boolean) || "",
+        website: ["website", "website_url", "url", "site", "web", "website_link", "website_domain", "domain"].map((k) => toWebsiteInput(r[k])).find(Boolean) || "",
+        google_maps_link: ["gbp_link", "gbp_url", "google_business_link", "google_business_profile", "google_business_url", "google_maps_link", "google_maps_url", "maps_link", "maps_url", "place_url"].map((k) => cleanCell(r[k])).find(Boolean) || "",
+        email: ["email", "email_address", "contact_email", "support_email", "mail"].map(cleanCell).find(Boolean) || "",
+        phone: ["phone", "phone_number", "phone_no", "phone_num", "phone_nu", "telephone", "tel", "cell", "mobile"].map(toPhoneInput).find(Boolean) || "",
+        google_rating: ["google_rating", "rating", "average_rating", "avg_rating", "star_rating"].map(cleanCell).find(Boolean) || "",
+        review_count: ["review_count", "reviews", "reviews_count", "total_reviews", "review_total", "rating_count", "google_reviews"].map(cleanCell).find(Boolean) || "",
+        instagram: ["instagram", "ig"].map(cleanCell).find(Boolean) || "",
+        facebook: ["facebook", "fb"].map(cleanCell).find(Boolean) || "",
+        tiktok: ["tiktok"].map(cleanCell).find(Boolean) || "",
       }))
       .filter((r) => r.business_name);
     if (!rows.length) {
-      setToast("No rows recognized. Expected a column like Business Name / Company / Name (also reads website, email, phone, city, rating, reviews)");
+      setToast("No rows recognized. Expected a column like Business Name / Company / Name (also reads GBP/Maps, website, email, phone, city, rating, reviews)");
       return;
     }
     await submitRows(rows.slice(0, 50));
@@ -933,6 +955,26 @@ function ProspectRow({
             )}
           </div>
 
+          {(p.website || p.email || p.phone) && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-400">
+              {p.website && (
+                <a href={p.website} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 hover:text-brand-400">
+                  <Link2 size={11} /> {p.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
+                </a>
+              )}
+              {p.email && (
+                <a href={`mailto:${p.email}`} onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 hover:text-brand-400">
+                  <Mail size={11} /> {p.email}
+                </a>
+              )}
+              {p.phone && (
+                <span className="inline-flex items-center gap-1">
+                  <Phone size={11} /> {p.phone}
+                </span>
+              )}
+            </div>
+          )}
+
           {p.audit_report?.pain_points?.[0] && (
             <p className="mt-2 truncate text-[11px] text-rose-300/80">
               Top flaw: {p.audit_report.pain_points[0].replace(/\s*\([^)]*service #\d+[^)]*\)/gi, "")}
@@ -1345,12 +1387,14 @@ function DiscoveryModal({
   const [count, setCount] = useState("30");
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<DiscoveredLead[]>([]);
+  const [searched, setSearched] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [importing, setImporting] = useState(false);
 
   const search = async () => {
     if (!keyword.trim() || !city.trim()) return;
     setSearching(true);
+    setSearched(false);
     try {
       const res = await fetch("/api/prospects/search", {
         method: "POST",
@@ -1360,6 +1404,7 @@ function DiscoveryModal({
       const json = await res.json();
       if (res.ok && Array.isArray(json.businesses)) {
         setResults(json.businesses);
+        setSearched(true);
         setSelected(new Set(json.businesses.map((_: DiscoveredLead, i: number) => i)));
       } else {
         alert(json.error || "Search failed");
@@ -1465,7 +1510,14 @@ function DiscoveryModal({
             </div>
           ) : results.length === 0 ? (
             <div className="py-20 text-center text-xs text-ink-500">
-              Enter a keyword and city above and click &ldquo;Search Businesses&rdquo; to discover leads.
+              {searched ? (
+                <>
+                  <p className="text-ink-400">No verified businesses found for &ldquo;{keyword}&rdquo; in {city}.</p>
+                  <p className="mt-2">Try a more specific keyword, a bigger metro area, or import a scraper CSV instead.</p>
+                </>
+              ) : (
+                <>Enter a keyword and city above and click &ldquo;Search Businesses&rdquo; to discover leads.</>
+              )}
             </div>
           ) : (
             <div>
