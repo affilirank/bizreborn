@@ -11,6 +11,29 @@ export function mapsSearchUrl(businessName: string, city?: string | null): strin
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
+/** True only for genuine Google Maps URLs — everything else (fabricated links) must fall back to a real search URL. */
+export function isRealGoogleMapsUrl(url: string): boolean {
+  const u = url.toLowerCase();
+  return (
+    u.includes("maps.app.goo.gl") ||
+    u.includes("google.com/maps") ||
+    u.includes("goo.gl/maps") ||
+    u.includes("cbir=") ||
+    u.includes("maps.googleapis.com")
+  );
+}
+
+/**
+ * Returns a clickable Google Maps URL for a lead. AI/user-provided links are kept
+ * only when they are genuine Google Maps URLs; otherwise a real Maps search URL
+ * for the business is built so the operator can always verify the listing.
+ */
+export function toRealMapsLink(value: unknown, businessName: string, city?: string | null): string {
+  const link = String(value ?? "").trim();
+  if (link && /^https?:\/\//i.test(link) && isRealGoogleMapsUrl(link)) return link;
+  return mapsSearchUrl(businessName, city);
+}
+
 /** Trims/lowercases an email and returns it only if it has a real structure. */
 export function normalizeEmail(value: unknown): string | null {
   if (value == null) return null;
@@ -53,9 +76,10 @@ export async function domainHasMx(domain: string): Promise<boolean> {
       return hosts;
     })();
     const hosts = await Promise.race([lookup, timeout]);
-    return Array.isArray(hosts) && hosts.some((h) => h.exchange && h.exchange.length > 1);
+    if (!Array.isArray(hosts)) return true; // DNS timed out — be permissive, don't drop a valid email
+    return hosts.some((h) => h.exchange && h.exchange.length > 1);
   } catch {
-    return false;
+    return true; // transient resolver error — never block a valid email on infra flakiness
   }
 }
 

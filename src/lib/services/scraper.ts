@@ -30,15 +30,20 @@ function toHttpUrl(value: string | null | undefined): string | null {
   return url;
 }
 
+/** Additional paths where small-business sites typically publish contact emails. */
+const CONTACT_PATHS = ["/contact", "/contact-us", "/about"];
+
 /**
- * Fetches website HTML (with a short timeout) and extracts any valid `mailto:` or regex email addresses.
+ * Fetches a page (with a short timeout) and extracts any valid `mailto:` or regex email addresses.
+ * `reachable` is true whenever the host answered at all (even 403/404), which proves the domain is
+ * real and can be used for a derived contact email.
  */
-async function scrapeEmailFromWebsiteUrl(websiteUrl: string): Promise<string | null> {
-  const url = toHttpUrl(websiteUrl);
-  if (!url) return null;
+async function fetchPageAndFindEmail(pageUrl: string): Promise<{ email: string | null; reachable: boolean }> {
+  const url = toHttpUrl(pageUrl);
+  if (!url) return { email: null, reachable: false };
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(url, {
       signal: controller.signal,
       headers: {
@@ -47,7 +52,8 @@ async function scrapeEmailFromWebsiteUrl(websiteUrl: string): Promise<string | n
       },
     });
     clearTimeout(timeoutId);
-    if (!res.ok) return null;
+    if (!res) return { email: null, reachable: false };
+    if (res.status === 404 || res.status >= 500) return { email: null, reachable: true };
     const html = await res.text();
 
     // 1. Extract mailto: links
@@ -56,7 +62,7 @@ async function scrapeEmailFromWebsiteUrl(websiteUrl: string): Promise<string | n
     while ((match = mailtoRegex.exec(html)) !== null) {
       const email = normalizeEmail(match[1]);
       if (email && (await canReceiveEmail(email))) {
-        return email;
+        return { email, reachable: true };
       }
     }
 
@@ -67,12 +73,28 @@ async function scrapeEmailFromWebsiteUrl(websiteUrl: string): Promise<string | n
       for (const raw of found) {
         const email = normalizeEmail(raw);
         if (email && !email.endsWith(".png") && !email.endsWith(".jpg") && !email.endsWith(".svg") && (await canReceiveEmail(email))) {
-          return email;
+          return { email, reachable: true };
         }
       }
     }
+    return { email: null, reachable: true };
   } catch {
-    // ignore fetch/timeout errors
+    // fetch/timeout errors mean the host did not answer — not a safe source to derive from
+    return { email: null, reachable: false };
+  }
+}
+
+/**
+ * Derives the standard contact inbox (`info@`, `contact@`, `sales@`) from a real, reachable domain.
+ * Only called once a live fetch proved the host exists — never constructed from a business name,
+ * so it cannot produce fabricated `<name>fl.com` addresses. MX-checked before returning.
+ */
+async function deriveContactEmailFromDomain(domain: string): Promise<string | null> {
+  const host = domain.toLowerCase().replace(/^www\./, "");
+  if (!host.includes(".")) return null;
+  for (const prefix of ["info", "contact", "sales"]) {
+    const email = `${prefix}@${host}`;
+    if (await canReceiveEmail(email)) return email;
   }
   return null;
 }
@@ -92,10 +114,37 @@ export async function discoverEmailForBusiness(input: {
     return normalizedInitial;
   }
 
-  // 1. Try scraping the official website directly if available
-  if (input.website) {
-    const scraped = await scrapeEmailFromWebsiteUrl(input.website);
-    if (scraped) return scraped;
+  // 1. Try scraping the official website (homepage, then common contact paths)
+  const websiteUrl = toHttpUrl(input.website);
+  if (websiteUrl) {
+    const pages = [websiteUrl];
+    try {
+      const base = new URL(websiteUrl);
+      for (const path of CONTACT_PATHS) {
+        pages.push(new URL(path, base).toString());
+      }
+    } catch {
+      // keep homepage only
+    }
+
+    let reachableHost: string | null = null;
+    for (const page of pages) {
+      const result = await fetchPageAndFindEmail(page);
+      if (result.email) return result.email;
+      if (result.reachable && !reachableHost) {
+        try {
+          reachableHost = new URL(websiteUrl).hostname;
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    // 2. Derive the standard contact inbox from a provably-reachable real domain
+    if (reachableHost) {
+      const derived = await deriveContactEmailFromDomain(reachableHost);
+      if (derived) return derived;
+    }
   }
 
   const queryParts = [

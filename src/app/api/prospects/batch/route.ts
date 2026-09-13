@@ -7,7 +7,7 @@ import { generatePitchScript } from "@/lib/services/script";
 import { generateVoiceover } from "@/lib/services/tts";
 import { renderPitchVideo } from "@/lib/services/renderer";
 import { welcomeCreatedProspects } from "@/lib/crm-actions";
-import { mapsSearchUrl, normalizeEmail } from "@/lib/services/email-validate";
+import { normalizeEmail, toRealMapsLink } from "@/lib/services/email-validate";
 import type { Prospect } from "@/lib/supabase-types";
 
 export const dynamic = "force-dynamic";
@@ -53,8 +53,7 @@ export async function POST(req: Request) {
     const phone = str(row.phone);
     // Every lead must be tied to a real, clickable Google Maps source so the
     // business can be verified directly (never a made-up website).
-    let google_maps_link = str(row.google_maps_link || row.google_maps_url || row.maps_link);
-    if (!google_maps_link) google_maps_link = mapsSearchUrl(name, city);
+    const google_maps_link = toRealMapsLink(row.google_maps_link || row.google_maps_url || row.maps_link, name, city);
 
     // Honor exact user-provided stats (e.g. Daniel Brown, LPT Realty), or null if not provided (no fake silent estimates).
     const google_rating = row.google_rating !== undefined && row.google_rating !== "" && !isNaN(Number(row.google_rating)) ? Number(row.google_rating) : null;
