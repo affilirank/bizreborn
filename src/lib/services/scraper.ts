@@ -234,7 +234,7 @@ export async function discoverEmailForBusiness(
     google_maps_link?: string | null;
     initial_email?: string | null;
   },
-  opts?: { skipAiGrounding?: boolean },
+  opts?: { skipAiGrounding?: boolean; webSearch?: boolean },
 ): Promise<string | null> {
   const normalizedInitial = normalizeEmail(input.initial_email);
   if (normalizedInitial && (await canReceiveEmail(normalizedInitial))) {
@@ -284,35 +284,36 @@ export async function discoverEmailForBusiness(
     "contact email address info",
   ].filter(Boolean);
 
-  // Bulk enrichment: website scraping + domain derivation above is enough;
-  // skip the per-business AI lookup to stay within request budget.
-  if (opts?.skipAiGrounding === true) {
+  // Bulk enrichment / fast-track: skip AI grounding unless explicitly requested or webSearch enabled
+  if (opts?.skipAiGrounding === true && opts?.webSearch !== true) {
     return null;
   }
 
-  try {
-    const text = await callAi({
-      prompt: `Target Business: ${queryParts.join(" ")}. Explicitly find the real, published public contact email address for this business from its official website, contact page, or verified business directories (e.g., Yelp, Google Maps, YellowPages, Facebook, BBB).`,
-      systemPrompt:
-        "You are an expert contact email discovery and verification agent. Given a business name, city, website, and maps link, query web search grounding and extract the real contact email address. Return ONLY a valid JSON object with a single key `email` (string, the real email address, or empty string if none found). STRICT RULES: NEVER fabricate, guess, or construct pattern-based emails (like info@business.com or contact@domain.com) unless explicitly verified as the real published contact email on their official site or directory. If no 100% verified real email is found, return empty string. Raw JSON object only, no markdown code fences, no conversational filler.",
-      jsonMode: true,
-      useSearchGrounding: true,
-      timeoutMs: 20000,
-    });
+  if (opts?.skipAiGrounding !== true) {
+    try {
+      const text = await callAi({
+        prompt: `Target Business: ${queryParts.join(" ")}. Explicitly find the real, published public contact email address for this business from its official website, contact page, or verified business directories (e.g., Yelp, Google Maps, YellowPages, Facebook, BBB).`,
+        systemPrompt:
+          "You are an expert contact email discovery and verification agent. Given a business name, city, website, and maps link, query web search grounding and extract the real contact email address. Return ONLY a valid JSON object with a single key `email` (string, the real email address, or empty string if none found). STRICT RULES: NEVER fabricate, guess, or construct pattern-based emails (like info@business.com or contact@domain.com) unless explicitly verified as the real published contact email on their official site or directory. If no 100% verified real email is found, return empty string. Raw JSON object only, no markdown code fences, no conversational filler.",
+        jsonMode: true,
+        useSearchGrounding: true,
+        timeoutMs: 20000,
+      });
 
-    if (text) {
-      const parsed = parseAiJson<{ email?: string | null }>(text);
-      const email = normalizeEmail(parsed?.email);
-      if (email && (await canReceiveEmail(email))) {
-        return email;
+      if (text) {
+        const parsed = parseAiJson<{ email?: string | null }>(text);
+        const email = normalizeEmail(parsed?.email);
+        if (email && (await canReceiveEmail(email))) {
+          return email;
+        }
       }
+    } catch (err) {
+      console.warn("[email discovery] failed for", input.business_name, err);
     }
-  } catch (err) {
-    console.warn("[email discovery] failed for", input.business_name, err);
   }
 
-  // 3. Last resort (bulk mode exits above): hunt public search-engine results
-  //    (Facebook, directory listings, PDFs, etc.) for the email.
+  // 3. Last resort: hunt public search-engine results (Facebook, directory
+  //    listings, PDFs, etc.) for the email.
   const searched = await searchWebForEmail({
     business_name: input.business_name,
     city: input.city,

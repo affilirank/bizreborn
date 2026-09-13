@@ -37,12 +37,15 @@ export async function POST(req: Request) {
       const i = idx++;
       if (i >= targets.length) return;
       const p = targets[i];
-      const email = await discoverEmailForBusiness({
-        business_name: p.business_name,
-        city: p.city ?? "",
-        website: p.website,
-        google_maps_link: p.google_maps_link,
-      });
+      const email = await discoverEmailForBusiness(
+        {
+          business_name: p.business_name,
+          city: p.city ?? "",
+          website: p.website,
+          google_maps_link: p.google_maps_link,
+        },
+        { skipAiGrounding: true, webSearch: true },
+      );
       if (email) {
         await updateProspect(p.id, { email });
         foundCount++;
