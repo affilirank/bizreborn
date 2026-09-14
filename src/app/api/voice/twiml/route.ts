@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getProspectById } from "@/lib/prospects";
-import { callAi } from "@/lib/ai-router";
-import { appendCallEntry, upsertCallRecord } from "@/lib/call-store";
+import { appendCallEntry, upsertCallRecord, getCallRecord } from "@/lib/call-store";
 
 export const dynamic = "force-dynamic";
 
@@ -81,40 +80,92 @@ async function handleVoiceWebhook(req: Request) {
     }
   }
 
-  let aiResponseText = "";
+  // Fetch previous conversation history to prevent repetition & looping
+  let existingEntries: Array<{ role: "ai" | "user" | "system"; text: string }> = [];
+  if (callSid) {
+    const rec = await getCallRecord(callSid);
+    if (rec && Array.isArray(rec.entries)) {
+      existingEntries = rec.entries;
+    }
+  }
 
-  const systemPrompt = `You are Sarah, an expert master AI sales closer for Biz Reborn Marketing (using ElevenLabs cloned voice ID EXAVITQu4vr4xnSDxMaL). You are on an outbound phone call with ${businessName}.
-CRITICAL RULE 1: NEVER mention service numbers (like "service #41" or "service #3") on the phone. Speak strictly about solutions, real-world results, features, and projected ROI in natural, confident, conversational human language.
-CRITICAL RULE 2: Use the deep knowledge base and brand audit data for this business:
+  const voiceId = process.env.ELEVENLABS_VOICE_ID || "EXAVITQu4vr4xnSDxMaL";
+
+  const systemPrompt = `You are Sarah, an expert master AI sales closer for Biz Reborn Marketing (using ElevenLabs cloned voice ID ${voiceId}). You are on an outbound live phone call with ${businessName}.
+CRITICAL RULE 1: NEVER repeat yourself or loop previous statements. Always advance the conversation naturally based on what was just said.
+CRITICAL RULE 2: NEVER mention service numbers (like "service #41") on the phone. Speak strictly about solutions, real-world results, features, and projected ROI in natural, confident, conversational human language.
+CRITICAL RULE 3: Use the brand audit data:
 - Rating: ${rating} stars, Reviews: ${review_count} (${unanswered} unanswered)
 - Competitor: ${competitorName} (${competitorReviews} reviews)
 - Brand Grade: ${grade}
 - Top Flaw: ${topFlaw}
 - Financial Impact: Leaking roughly ${lostMonthly}/mo to competitors. Fixing it yields +${extraLeads} leads/mo and ${projectedMonthly}/mo in new revenue.
 
-OBJECTION HANDLING PLAYBOOK:
+OBJECTION HANDLING:
 - "I'm busy / Send me an email": "Totally understand you're slammed. I just texted your 45-second video audit and proposal draft over to this number—take a look whenever you have 2 minutes. Sound fair?"
 - "How much does it cost?": "It pays for itself with just one new client. That's why we mapped out your custom audit and projected return."
 - "We already have an agency": "That’s awesome, glad you have someone! But are they tracking your geo-grid ranking outside your immediate zip code and capturing missed calls after hours?"
 - "Not interested": "No worries at all! Just keep an eye on your map rankings. If things change, you know where to find us. Have a great day!"
 
-Your tone is warm, energetic, straightforward, confident, and professional. Keep responses punchy (1-2 sentences maximum) so the conversation flows naturally on a phone call.`;
+Tone: warm, energetic, straightforward, confident, professional. Keep responses punchy (1-2 sentences maximum).`;
 
-  const prompt = speechResult
-    ? `The business owner said: "${speechResult}". Respond naturally as AI sales closer Sarah, addressing their objection or question using the knowledge base and ROI results (${lostMonthly}/mo leak, ${projectedMonthly}/mo potential), and pivoting to booking 10 minutes or checking their video audit link.`
-    : `You have just reached ${businessName} on the phone. Deliver a warm, energetic opening greeting: introduce yourself as Sarah from Biz Reborn Marketing, mention that you audited their brand (Grade ${grade}, ${rating} stars, ${review_count} reviews) and noticed they are leaking ${lostMonthly}/mo to ${competitorName}, and ask if they have 45 seconds to hear how to close the gap.`;
+  const openAiKey = process.env.OPENAI_API_KEY;
+  let aiResponseText = "";
 
-  const aiOutput = await callAi({
-    prompt,
-    systemPrompt,
-    maxTokens: 200,
-    thinkingLevel: "minimal",
-    timeoutMs: 8000,
-  });
+  if (openAiKey) {
+    try {
+      const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+        { role: "system", content: systemPrompt },
+      ];
 
-  if (aiOutput) {
-    aiResponseText = aiOutput;
-  } else {
+      // Append past conversation turns so the model has full context and never loops
+      for (const entry of existingEntries) {
+        if (entry.role === "user") {
+          messages.push({ role: "user", content: entry.text });
+        } else if (entry.role === "ai") {
+          messages.push({ role: "assistant", content: entry.text });
+        }
+      }
+
+      if (speechResult) {
+        messages.push({ role: "user", content: speechResult });
+      } else if (existingEntries.length === 0) {
+        messages.push({
+          role: "user",
+          content: `You have just reached ${businessName} on the phone. Deliver a warm, energetic opening greeting: introduce yourself as Sarah from Biz Reborn Marketing, mention that you audited their brand (Grade ${grade}, ${rating} stars, ${review_count} reviews) and noticed they are leaking ${lostMonthly}/mo to ${competitorName}, and ask if they have 45 seconds to hear how to close the gap.`,
+        });
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // Super fast 5s timeout
+
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openAiKey}`,
+        },
+        body: JSON.stringify({
+          model: process.env.CHAT_OPENAI_MODEL || "gpt-4o-mini",
+          messages,
+          temperature: 0.3,
+          max_tokens: 150,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      const json = await res.json();
+      const content = json?.choices?.[0]?.message?.content;
+      if (res.ok && content) {
+        aiResponseText = content.trim();
+      }
+    } catch (err) {
+      console.warn("[voice twiml] OpenAI error:", err);
+    }
+  }
+
+  // Fallback if OpenAI failed or key missing
+  if (!aiResponseText) {
     aiResponseText = speechResult
       ? `That makes total sense. We mapped out an exact plan to add ${extraLeads} leads and ${projectedMonthly} a month. Can we schedule 10 minutes this week?`
       : `Hi ${businessName}, this is Sarah from Biz Reborn. We audited your Google listing and noticed you're leaking roughly ${lostMonthly} a month to ${competitorName}. Do you have 45 seconds to chat about locking in your Top 3 spot?`;
