@@ -1,5 +1,7 @@
 import { runAudit } from "@/lib/audit";
-import { SERVICE_MAP } from "@/data/services";
+import { callAi, parseAiJson } from "@/lib/ai-router";
+import { ALL_SERVICES, SERVICE_MAP } from "@/data/services";
+import type { AuditReport } from "@/lib/types";
 import type {
   Prospect,
   ProspectAudit,
@@ -93,7 +95,125 @@ function reviewBucket(count: number | null | undefined) {
   return "many" as const;
 }
 
-export function buildBrandAudit(
+/**
+ * LIVE AI brand audit. Instead of the seeded mockup calculation in runAudit(),
+ * this asks the AI router (Gemini -> OpenAI fallback) to analyse the business's
+ * REAL public data (website, Google rating/reviews, competitor, socials) and
+ * return a genuinely-derived audit. Returns null on any failure so callers fall
+ * back to the deterministic mock engine — the audit is never blocked.
+ */
+export async function liveBrandAudit(
+  p: Pick<
+    Prospect,
+    "business_name" | "website" | "instagram" | "facebook" | "tiktok"
+    | "google_rating" | "review_count" | "unanswered_reviews"
+    | "competitor_name" | "competitor_reviews" | "city"
+  >,
+  missingGbp: boolean,
+): Promise<AuditReport | null> {
+  const rating = p.google_rating ?? 4.0;
+  const reviews = p.review_count ?? 0;
+  const unanswered = p.unanswered_reviews ?? 0;
+  const target = `${p.business_name}${p.city ? `, ${p.city}` : ""}`;
+
+  const catalog = JSON.stringify(
+    ALL_SERVICES.map((s) => ({ id: s.id, title: s.title, pillar: s.pillar })),
+  );
+
+  const prompt = [
+    `Business: ${target}`,
+    `Website: ${p.website?.trim() || "no website on record"}`,
+    `Google rating: ${rating}, reviews: ${reviews}, unanswered: ${unanswered}`,
+    `Competitor: ${p.competitor_name ?? "local market leader"} (${p.competitor_reviews ?? 0} reviews)`,
+    `Socials: IG=${p.instagram || "-"}, FB=${p.facebook || "-"}, TikTok=${p.tiktok || "-"}`,
+    `Missing Google Business Profile / Apple Maps: ${missingGbp ? "YES (fatal)" : "no"}`,
+    `Available Services Catalog (id, title): ${catalog}`,
+    "",
+    "You are a rigorous local SEO agency auditor. Assess this business's ACTUAL public footprint and return a JSON object with:",
+    "- healthScore (number 10-95)",
+    "- grade (string A, B, C, or D)",
+    "- breakdowns (array of 4 objects: key in ['localSeo','socialVelocity','conversion','reputation'], label, score (10-95), description, issues (array of strings))",
+    "- painPoints (array of 4-6 real, specific flaws for THIS business grounded in the data above)",
+    "- fixes (array of 3-6 specific fixes, each referencing a real service id from the catalog, e.g. \"Instant Missed-Call Text-Back Automation (service #41)\")",
+    "- comparedTo (array of 2 objects: label, count)",
+    "- keywordSearches (array of 3 objects: term, volume, difficulty)",
+    "Base every number on the provided real metrics. Do not inflate review counts or invent websites. Raw JSON only, no markdown fences.",
+  ].join("\n");
+
+  const text = await callAi({
+    prompt,
+    systemPrompt: "You are an expert agency auditor and local SEO specialist. Provide real, rigorous intelligence grounded in the supplied business data.",
+    jsonMode: true,
+    maxTokens: 4000,
+    timeoutMs: 20000,
+  });
+
+  if (!text) return null;
+
+  const parsed = parseAiJson<{
+    healthScore?: number;
+    grade?: string;
+    breakdowns?: Array<{ label?: string; score?: number; description?: string; issues?: unknown[] }>;
+    painPoints?: unknown[];
+    fixes?: unknown[];
+    comparedTo?: { label: string; count: number }[];
+    keywordSearches?: { term: string; volume: number; difficulty: number }[];
+  }>(text);
+  if (!parsed || typeof parsed.healthScore !== "number") return null;
+
+  // The model sometimes returns fixes/pain points as objects
+  // ({ serviceId, title, description }) instead of plain strings — flatten them.
+  const stringify = (v: unknown): string => {
+    if (typeof v === "string") return v.trim();
+    if (v && typeof v === "object") {
+      const o = v as Record<string, unknown>;
+      const title = typeof o.title === "string" ? o.title : "";
+      const desc = typeof o.description === "string" ? o.description : "";
+      const serviceId = typeof o.serviceId === "string" || typeof o.serviceId === "number" ? String(o.serviceId) : "";
+      const mapped = serviceId && SERVICE_MAP[Number(serviceId)] ? `${title} (service #${serviceId}).` : title || desc;
+      return (mapped || desc).trim();
+    }
+    return "";
+  };
+
+  return {
+    id: `AUD-${Date.now().toString(36).toUpperCase()}`,
+    createdAt: new Date().toISOString(),
+    url: p.website?.trim() || "",
+    businessName: p.business_name,
+    socials: { instagram: p.instagram ?? undefined, facebook: p.facebook ?? undefined, tiktok: p.tiktok ?? undefined },
+    healthScore: Math.round(Math.min(95, Math.max(10, parsed.healthScore))),
+    grade: ["A", "B", "C", "D"].includes(String(parsed.grade).trim().toUpperCase().charAt(0))
+      ? String(parsed.grade).trim().toUpperCase().charAt(0)
+      : "C",
+    breakdowns: [
+      "localSeo",
+      "socialVelocity",
+      "conversion",
+      "reputation",
+    ].map((key, i) => {
+      const b = (parsed.breakdowns || [])[i] || {};
+      return {
+        key: key as AuditReport["breakdowns"][number]["key"],
+        label: b.label || ["Local SEO Score", "Social Content Velocity", "Conversion Infrastructure", "Reputation Score"][i],
+        score: Math.round(Math.min(95, Math.max(10, Number(b.score) || 40))),
+        description: b.description || "",
+        issues: Array.isArray(b.issues) ? b.issues.map(String) : [],
+      };
+    }),
+    painPoints: Array.isArray(parsed.painPoints) ? parsed.painPoints.map(stringify).filter(Boolean) : [],
+    fixes: Array.isArray(parsed.fixes) ? parsed.fixes.map(stringify).filter(Boolean) : [],
+    comparedTo: Array.isArray(parsed.comparedTo) ? parsed.comparedTo : [
+      { label: "Local avg. competitor", count: 24 },
+      { label: "Top map-pack performer", count: 180 },
+    ],
+    keywordSearches: Array.isArray(parsed.keywordSearches) ? parsed.keywordSearches : [
+      { term: `${p.business_name} near me`, volume: 1200, difficulty: 30 },
+    ],
+  };
+}
+
+export async function buildBrandAudit(
   p: Pick<
     Prospect,
     | "business_name"
@@ -108,8 +228,9 @@ export function buildBrandAudit(
     | "competitor_reviews"
     | "google_maps_link"
     | "missing_gbp_apple"
+    | "city"
   >,
-): BrandAuditResult {
+): Promise<BrandAuditResult> {
   const { score: qualifying_score, missingGbpApple: missing_gbp_apple } = calculateQualifyingScore(p);
   const hasVerifiedStats = p.google_rating != null && p.review_count != null && !missing_gbp_apple;
   const rating = p.google_rating ?? 4.0;
@@ -126,17 +247,27 @@ export function buildBrandAudit(
   }
 
   const hasSocial = Boolean(p.instagram || p.facebook || p.tiktok);
-  const report = runAudit({
-    url: p.website?.trim() || `${p.business_name.toLowerCase().replace(/\s+/g, "")}.com`,
-    businessName: p.business_name,
-    gbp: p.google_rating != null ? "google-business-profile" : undefined,
-    instagram: p.instagram ?? undefined,
-    facebook: p.facebook ?? undefined,
-    tiktok: p.tiktok ?? undefined,
-    reviews: reviewBucket(reviews),
-    postingFreq: hasSocial ? "monthly" : "never",
-    leadSource: "google",
-  });
+
+  // LIVE AI brand audit first — grounded in the business's real public data.
+  // Falls back to the deterministic sealed engine if the AI is unavailable,
+  // so lead generation is never blocked.
+  let report: AuditReport;
+  const live = await liveBrandAudit(p, missing_gbp_apple);
+  if (live) {
+    report = live;
+  } else {
+    report = runAudit({
+      url: p.website?.trim() || `${p.business_name.toLowerCase().replace(/\s+/g, "")}.com`,
+      businessName: p.business_name,
+      gbp: p.google_rating != null ? "google-business-profile" : undefined,
+      instagram: p.instagram ?? undefined,
+      facebook: p.facebook ?? undefined,
+      tiktok: p.tiktok ?? undefined,
+      reviews: reviewBucket(reviews),
+      postingFreq: hasSocial ? "monthly" : "never",
+      leadSource: "google",
+    });
+  }
 
   const painPoints = [...report.painPoints];
   const fixes = [...report.fixes];

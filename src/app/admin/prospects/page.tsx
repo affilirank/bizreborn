@@ -304,6 +304,24 @@ export default function ProspectsAdmin() {
     };
   }, []);
 
+  // Auto-open the pitch page the moment a lead finishes its AI audit & video.
+  // Only triggers on a real completion transition (never on initial page load),
+  // and only once per lead so a batch of 50 doesn't spam 50 tabs — we open the
+  // most-recently-completed audit.
+  const openedReadyIdsRef = useRef<Set<string>>(new Set());
+  const everRanRef = useRef(false);
+  useEffect(() => {
+    if (!everRanRef.current) {
+      everRanRef.current = true;
+      return;
+    }
+    const ready = prospects.filter((p) => p.status === "ready" && p.slug && !openedReadyIdsRef.current.has(p.id));
+    if (ready.length === 0) return;
+    ready.forEach((p) => openedReadyIdsRef.current.add(p.id));
+    const latest = ready[ready.length - 1];
+    window.open(absPitch(latest), "_blank", "noopener,noreferrer");
+  }, [prospects]);
+
   // Live progress: poll while anything is in flight (works on serverless too).
   const inFlight = prospects.some((p) => p.status === "pending" || p.status === "scraping" || p.status === "rendering");
   const prevInFlightRef = useRef(false);

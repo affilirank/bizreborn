@@ -72,7 +72,7 @@ export async function PUT(
   // If stats changed or regenerate requested, re-run audit, script, voiceover, render
   if (body.regenerate || body.google_rating !== undefined || body.review_count !== undefined || body.competitor_name !== undefined) {
     try {
-      const audit = buildBrandAudit(updated);
+      const audit = await buildBrandAudit(updated);
       const script = await generatePitchScript({
         business_name: updated.business_name,
         city: updated.city,

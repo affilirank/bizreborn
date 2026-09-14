@@ -103,7 +103,7 @@ export async function POST(req: Request) {
       const base = processedRows[idx];
       const name = base.business_name;
       try {
-        const audit = buildBrandAudit(base as Prospect);
+        const audit = await buildBrandAudit(base as Prospect);
         const script = await generatePitchScript({
           business_name: name,
           city: base.city ?? "Local",

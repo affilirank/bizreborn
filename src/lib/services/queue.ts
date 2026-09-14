@@ -127,7 +127,7 @@ class BatchQueue {
       }
 
       // 2. Brand audit (website + socials + reputation) and ROI projection
-      const audit = buildBrandAudit({ ...prospect, ...scraped });
+      const audit = await buildBrandAudit({ ...prospect, ...scraped });
       await updateProspect(id, { ...audit });
 
       // 3. Pitch script: flaws + cost + projected return
