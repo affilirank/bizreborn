@@ -230,6 +230,9 @@ export async function welcomeProspect(p: Prospect): Promise<void> {
   await updateProspect(p.id, {
     campaign_stage: "pitch",
     campaign_last_run_at: new Date().toISOString(),
+    // Reset last_contacted_at so the 24h pacing gate for the pitch→drip_1
+    // transition passes exactly 1 hour after welcome (not 24h).
+    last_contacted_at: new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString(),
   });
 }
 
