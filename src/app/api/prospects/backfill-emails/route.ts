@@ -6,9 +6,9 @@ import { isAdminOrDemo } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const CONCURRENCY = 6;
+const CONCURRENCY = 4;
 const DEADLINE_MS = 50000;
-const PER_LEAD_TIMEOUT_MS = 12000;
+const PER_LEAD_TIMEOUT_MS = 30000;
 
 export async function POST(req: Request) {
   if (!(await isAdminOrDemo())) {
@@ -47,8 +47,9 @@ export async function POST(req: Request) {
               city: p.city ?? "",
               website: p.website,
               google_maps_link: p.google_maps_link,
+              initial_email: p.email,
             },
-            { skipAiGrounding: true, webSearch: true },
+            { webSearch: true },
           ),
           new Promise<null>((resolve) => setTimeout(() => resolve(null), PER_LEAD_TIMEOUT_MS)),
         ]);

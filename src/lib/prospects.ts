@@ -162,12 +162,12 @@ export async function listProspects(): Promise<Prospect[]> {
   for (const r of memoryStore.values()) merged.set(r.id, r);
   for (const r of dbRows) merged.set(r.id, r);
 
-  return Array.from(merged.values()).sort((a, b) => {
-    const scoreA = a.qualifying_score ?? 0;
-    const scoreB = b.qualifying_score ?? 0;
-    if (scoreA !== scoreB) return scoreB - scoreA;
-    return b.created_at.localeCompare(a.created_at);
-  });
+  // Newest first, always. Audits/renders set qualifying_score after insert,
+  // and a score-based sort would yank just-completed rows to the top and
+  // scramble the list out of discovery order.
+  return Array.from(merged.values()).sort((a, b) =>
+    (b.created_at ?? "").localeCompare(a.created_at ?? ""),
+  );
 }
 
 export async function getProspectById(id: string): Promise<Prospect | null> {
