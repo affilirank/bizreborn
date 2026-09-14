@@ -155,6 +155,17 @@ class BatchQueue {
       const rendered = await renderPitchVideo(next);
       await setProspectStatus(id, "ready", rendered);
 
+      // 6. Enroll in the campaign the moment the audit completes: welcome
+      // email goes out immediately, pitch fires 1h later. Idempotent —
+      // welcomeProspect skips leads that were already welcomed at import.
+      try {
+        const { welcomeProspect } = await import("@/lib/crm-actions");
+        const finalized = (await getProspectById(id))!;
+        await welcomeProspect(finalized);
+      } catch (err) {
+        console.warn("[queue] welcome email failed for", prospect.business_name, err);
+      }
+
       this.emit({ id, status: "ready" });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

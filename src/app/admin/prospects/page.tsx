@@ -399,6 +399,21 @@ export default function ProspectsAdmin() {
     void refresh();
   }
 
+  // One-click cleanup: drop every visible lead that has no email address —
+  // the campaign is email-driven, so non-emailable rows are dead weight.
+  async function removeNoEmail() {
+    const noEmail = filtered.filter((p) => !p.email).map((p) => p.id);
+    if (noEmail.length === 0) return;
+    await fetch("/api/prospects", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: noEmail }),
+    });
+    setToast(`${noEmail.length} no-email lead${noEmail.length === 1 ? "" : "s"} deleted`);
+    setSelected(new Set());
+    void refresh();
+  }
+
   function parseCSV(text: string): Array<Record<string, string>> {
     // Parse CSV handling quoted fields with newlines inside them
     const rows: string[][] = [];
@@ -757,14 +772,25 @@ export default function ProspectsAdmin() {
                   />
                   <span className="text-xs text-ink-500">Select all</span>
                 </div>
-                {selected.size > 0 && (
-                  <button
-                    onClick={() => void removeSelected()}
-                    className="flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20"
-                  >
-                    <Trash2 size={13} /> Delete Selected ({selected.size})
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {filtered.some((p) => !p.email) && (
+                    <button
+                      onClick={() => void removeNoEmail()}
+                      title="Delete every lead on this tab that has no email address"
+                      className="flex items-center gap-1.5 rounded-lg border border-ink-700 bg-ink-900/60 px-2.5 py-1 text-xs font-medium text-ink-400 transition hover:bg-ink-800 hover:text-white"
+                    >
+                      <Trash2 size={13} /> Delete No-Email ({filtered.filter((p) => !p.email).length})
+                    </button>
+                  )}
+                  {selected.size > 0 && (
+                    <button
+                      onClick={() => void removeSelected()}
+                      className="flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20"
+                    >
+                      <Trash2 size={13} /> Delete Selected ({selected.size})
+                    </button>
+                  )}
+                </div>
               </div>
 
               {filtered.map((p) => (
