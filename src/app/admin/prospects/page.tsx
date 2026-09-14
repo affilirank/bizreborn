@@ -1448,7 +1448,7 @@ function DiscoveryModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ keyword: keyword.trim(), city: city.trim(), count: Number(count) || 30 }),
       });
-      let json: { businesses?: unknown[]; error?: string; errors?: string[] } | null = null;
+      let json: { businesses?: unknown[]; error?: string; errors?: string[]; jobId?: string; pollMs?: number } | null = null;
       try {
         json = await res.json();
       } catch {
@@ -1467,6 +1467,34 @@ function DiscoveryModal({
           const detail = json.errors?.length ? `\n\nDetails: ${json.errors.join("; ")}` : "";
           alert(`No verified businesses found for "${keyword}" in ${city} — try a more specific keyword or import a CSV.${detail}`);
         }
+        return;
+      }
+      // Real scraped Google Maps data: poll the async scrape job until done.
+      // Leads are saved to the library (webhook or poll, whichever lands first)
+      // and a completion email is sent — no manual import step needed.
+      if (res.ok && json?.jobId) {
+        const pollMs = json.pollMs || 6000;
+        for (let attempt = 0; attempt < 70; attempt++) {
+          await new Promise((r) => setTimeout(r, pollMs));
+          try {
+            const poll = await fetch(`/api/prospects/search?jobId=${encodeURIComponent(json.jobId)}`);
+            const pdata = await poll.json().catch(() => null);
+            if (pdata?.status === "SUCCEEDED") {
+              const saved = pdata.saved ?? (Array.isArray(pdata.businesses) ? pdata.businesses.length : 0);
+              onImported();
+              onClose();
+              alert(`Maps scan complete: ${saved} new leads saved to your Library${pdata.emailed ? " — summary sent to your email" : ""}.`);
+              return;
+            }
+            if (pdata?.status === "FAILED") {
+              alert(pdata.error || "Google Maps scrape failed — falling back. Try again.");
+              return;
+            }
+          } catch {
+            // transient poll error — keep polling
+          }
+        }
+        alert("Maps scan is taking unusually long — you'll get an email the moment it completes.");
         return;
       }
       alert(json?.error || `Search failed (HTTP ${res.status}).`);
@@ -1570,7 +1598,8 @@ function DiscoveryModal({
           {searching ? (
             <div className="flex flex-col items-center justify-center py-20">
               <Loader2 size={28} className="animate-spin text-brand-400" />
-              <p className="mt-3 text-xs text-ink-400">Discovering real local businesses for {keyword} in {city}…</p>
+              <p className="mt-3 text-xs text-ink-400">Scanning Google Maps for {keyword} in {city}…</p>
+              <p className="mt-1 max-w-xs text-center text-[11px] text-ink-500">Takes 1-8 minutes. Leads land in your Library automatically and a summary email is sent when it&apos;s done — safe to close this.</p>
             </div>
           ) : results.length === 0 ? (
             <div className="py-20 text-center text-xs text-ink-500">

@@ -4,9 +4,18 @@ import { isAdminOrDemo } from "@/lib/supabase/server";
 import { callAi, parseAiJson } from "@/lib/ai-router";
 import { normalizeEmail, toRealMapsLink } from "@/lib/services/email-validate";
 import { discoverEmailForBusiness } from "@/lib/services/scraper";
+import {
+  apifyConfigured,
+  pollMapsScrape,
+  processMapsResults,
+  startMapsScrape,
+} from "@/lib/services/apify-maps";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
+/** In-memory run registry (single serverless instance; runs are short-lived). */
+const mapsJobs = new Map<string, { ref: { runId: string; datasetId: string | null }; startedAt: number; keyword: string; city: string }>();
 
 interface DiscoveredBusiness {
   qualifying_score: number;
@@ -171,6 +180,75 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
+
+  // Real scraped Google Maps data when an Apify token is configured. The run
+  // takes minutes, so start it and hand back a job id for the client to poll.
+  if (apifyConfigured()) {
+    try {
+      const ref = await startMapsScrape(keyword, city, count);
+      const jobId = `maps_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+      mapsJobs.set(jobId, { ref, startedAt: Date.now(), keyword, city });
+      return NextResponse.json({ jobId, pollMs: 6000 });
+    } catch (err) {
+      console.warn("[lead discovery] Apify start failed, falling back to AI:", err);
+    }
+  }
+
+  return aiSearch(keyword, city, count);
+}
+
+/** Poll an Apify maps job; returns the normalised businesses once finished. */
+export async function GET(req: Request) {
+  if (!(await isAdminOrDemo())) {
+    return NextResponse.json({ error: "Admin access required." }, { status: 401 });
+  }
+  const url = new URL(req.url);
+  const jobId = url.searchParams.get("jobId") || "";
+  const job = mapsJobs.get(jobId);
+  if (!job) {
+    return NextResponse.json({ error: "Unknown or expired job." }, { status: 404 });
+  }
+
+  // Expire stale jobs after 15 minutes.
+  if (Date.now() - job.startedAt > 15 * 60 * 1000) {
+    mapsJobs.delete(jobId);
+    return NextResponse.json({ status: "FAILED", error: "Scrape timed out." });
+  }
+
+  let state: string;
+  let datasetId: string | null;
+  try {
+    const poll = await pollMapsScrape(job.ref);
+    state = poll.state;
+    datasetId = poll.datasetId;
+  } catch (err) {
+    console.warn("[lead discovery] Apify poll failed:", err);
+    state = "UNKNOWN";
+    datasetId = job.ref.datasetId;
+  }
+
+  if (state === "RUNNING" || state === "UNKNOWN") {
+    return NextResponse.json({ status: state });
+  }
+  if (state === "FAILED") {
+    mapsJobs.delete(jobId);
+    return NextResponse.json({ status: "FAILED", error: "Maps scrape failed." });
+  }
+
+  mapsJobs.delete(jobId);
+  try {
+    // Same processing as the completion webhook: save fresh leads to the
+    // library + email the admin. Dedupe in the DB makes double-processing
+    // (webhook + open-tab poll) harmless.
+    const result = await processMapsResults(datasetId!, job.keyword, job.city);
+    return NextResponse.json({ status: "SUCCEEDED", saved: result.saved, businesses: result.businesses, emailed: result.emailed });
+  } catch (err) {
+    console.warn("[lead discovery] Apify dataset fetch failed:", err);
+    return NextResponse.json({ status: "FAILED", error: "Could not fetch scrape results." });
+  }
+}
+
+async function aiSearch(keyword: string, city: string, count: number) {
 
   const businesses: DiscoveredBusiness[] = [];
   const seen = new Set<string>();
