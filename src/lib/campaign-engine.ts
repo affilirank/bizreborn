@@ -35,9 +35,20 @@ export async function advanceProspectCampaign(
 
   if (!force && prospect.last_contacted_at) {
     const elapsed = Date.now() - new Date(prospect.last_contacted_at).getTime();
-    const minHours = process.env.NODE_ENV === "development" ? 30 * 1000 : 20 * 60 * 60 * 1000;
-    if (elapsed < minHours) {
-      return { ok: true, stage, message: "Step too soon (pacing interval active)." };
+    // 1 hour after welcome, then 24 hours between every other step.
+    const isWelcomeStep = stage === "welcome";
+    const minMs =
+      process.env.NODE_ENV === "development"
+        ? 30 * 1000 // 30 seconds in dev
+        : isWelcomeStep
+          ? 1 * 60 * 60 * 1000 // 1 hour after welcome
+          : 24 * 60 * 60 * 1000; // 24 hours for drip / 100-day
+    if (elapsed < minMs) {
+      return {
+        ok: true,
+        stage,
+        message: `Step too soon (pacing: ${isWelcomeStep ? "1h after welcome" : "24h between steps"}, ${Math.round((minMs - elapsed) / 60000)}m left).`,
+      };
     }
   }
 
