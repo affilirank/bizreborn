@@ -42,6 +42,7 @@ export async function POST(req: Request) {
   };
 
   const processedRows: Array<Partial<Prospect> & { business_name: string }> = [];
+  const readyIndices: number[] = [];
 
   for (const row of rows) {
     const name = String(row.business_name || row.name || row.business || "").trim();
@@ -51,11 +52,8 @@ export async function POST(req: Request) {
     const website = str(row.website || row.url);
     const email = normalizeEmail(row.email);
     const phone = str(row.phone);
-    // Every lead must be tied to a real, clickable Google Maps source so the
-    // business can be verified directly (never a made-up website).
     const google_maps_link = toRealMapsLink(row.google_maps_link || row.google_maps_url || row.maps_link, name, city);
 
-    // Honor exact user-provided stats (e.g. Daniel Brown, LPT Realty), or null if not provided (no fake silent estimates).
     const google_rating = row.google_rating !== undefined && row.google_rating !== "" && !isNaN(Number(row.google_rating)) ? Number(row.google_rating) : null;
     const review_count = row.review_count !== undefined && row.review_count !== "" && !isNaN(Number(row.review_count)) ? Number(row.review_count) : null;
     const unanswered_reviews = row.unanswered_reviews !== undefined && row.unanswered_reviews !== "" && !isNaN(Number(row.unanswered_reviews)) ? Number(row.unanswered_reviews) : null;
@@ -91,40 +89,40 @@ export async function POST(req: Request) {
       status: row.status === "saved" ? "saved" : row.status === "ready" ? "ready" : "pending",
     };
 
-    // Inline audit + script + TTS + video render is only done for explicitly
-    // requested single/ready leads. Bulk uploads arrive as "pending" so the
-    // background queue renders them at bounded concurrency instead of blowing
-    // the 60s function limit inline.
-    if (baseProspect.status === "ready") {
+    const idx = processedRows.length;
+    processedRows.push(baseProspect);
+    if (baseProspect.status === "ready") readyIndices.push(idx);
+  }
+
+  // Parallelize inline renders for "ready" leads (3 at a time to avoid
+  // blowing the 60s function budget).
+  const CONCURRENT_RENDERS = 3;
+  for (let i = 0; i < readyIndices.length; i += CONCURRENT_RENDERS) {
+    const chunk = readyIndices.slice(i, i + CONCURRENT_RENDERS);
+    await Promise.all(chunk.map(async (idx) => {
+      const base = processedRows[idx];
+      const name = base.business_name;
       try {
-        const audit = buildBrandAudit(baseProspect as Prospect);
+        const audit = buildBrandAudit(base as Prospect);
         const script = await generatePitchScript({
           business_name: name,
-          city,
-          google_rating,
-          review_count,
-          unanswered_reviews,
-          competitor_name,
-          competitor_reviews,
+          city: base.city ?? "Local",
+          google_rating: base.google_rating,
+          review_count: base.review_count,
+          unanswered_reviews: base.unanswered_reviews,
+          competitor_name: base.competitor_name,
+          competitor_reviews: base.competitor_reviews,
           audit: audit.audit_report,
           roi: audit.roi_projection,
         });
         const { voiceover_url } = await generateVoiceover(script, name);
-        const tempProspect = { ...baseProspect, ...audit, pitch_script: script, voiceover_url } as Prospect;
+        const tempProspect = { ...base, ...audit, pitch_script: script, voiceover_url } as Prospect;
         const rendered = await renderPitchVideo(tempProspect);
-
-        Object.assign(baseProspect, {
-          ...audit,
-          pitch_script: script,
-          voiceover_url,
-          ...rendered,
-        });
+        Object.assign(base, { ...audit, pitch_script: script, voiceover_url, ...rendered });
       } catch (err) {
-        console.warn("[batch] instant render failed, saving as ready anyway:", err);
+        console.warn("[batch] instant render failed for", name, ":", err);
       }
-    }
-
-    processedRows.push(baseProspect);
+    }));
   }
 
   if (processedRows.length === 0) {

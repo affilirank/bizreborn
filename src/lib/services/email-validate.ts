@@ -77,7 +77,7 @@ export async function domainHasMx(domain: string): Promise<boolean> {
     })();
     const hosts = await Promise.race([lookup, timeout]);
     if (!Array.isArray(hosts)) return true; // DNS timed out — be permissive, don't drop a valid email
-    return hosts.some((h) => h.exchange && h.exchange.length > 1);
+    return hosts.some((h) => h.exchange && h.exchange.length > 0);
   } catch {
     return true; // transient resolver error — never block a valid email on infra flakiness
   }

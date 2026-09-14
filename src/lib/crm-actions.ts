@@ -91,7 +91,10 @@ function makeUid(seed: string): string {
 function injectTrackingPixel(html: string, uid: string): string {
   const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
   const pixel = `<img src="${base}/api/tracking/open/${encodeURIComponent(uid)}" width="1" height="1" alt="" style="display:none;width:1px;height:1px;border:0;" />`;
-  return html.replace("</body>", `${pixel}</body>`);
+  if (html.includes("</body>")) {
+    return html.replace("</body>", `${pixel}</body>`);
+  }
+  return html + pixel;
 }
 
 /**
@@ -227,12 +230,11 @@ export async function welcomeProspect(p: Prospect): Promise<void> {
   // Auto-advance to the next pipeline stage so the pitch email can fire
   // on the next campaign run (or via cron). This is idempotent because
   // welcomeProspect is already guarded by the "alreadyWelcomed" check above.
+  // Do NOT backdate last_contacted_at — the pacing gate uses the real send
+  // time from applyContactLog, which is already correct.
   await updateProspect(p.id, {
     campaign_stage: "pitch",
     campaign_last_run_at: new Date().toISOString(),
-    // Reset last_contacted_at so the 24h pacing gate for the pitch→drip_1
-    // transition passes exactly 1 hour after welcome (not 24h).
-    last_contacted_at: new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString(),
   });
 }
 

@@ -93,26 +93,32 @@ function emailPlain(p: Prospect) {
     .join("\n");
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 function emailHtml(p: Prospect) {
   const url = absPitch(p);
   const roi = p.roi_projection;
   const grade = p.audit_report?.grade ?? "C";
+  const bName = escapeHtml(p.business_name);
+  const compName = escapeHtml(p.competitor_name ?? "your top competitor");
   const thumb =
     p.thumbnail_url && /^https?:/i.test(p.thumbnail_url)
-      ? `<a href="${url}"><img src="${p.thumbnail_url}" alt="${p.business_name} growth audit" width="360" style="max-width:100%;border-radius:14px;display:block;margin:0 auto 18px auto;" /></a>`
+      ? `<a href="${url}"><img src="${p.thumbnail_url}" alt="${bName} growth audit" width="360" style="max-width:100%;border-radius:14px;display:block;margin:0 auto 18px auto;" /></a>`
       : `<a href="${url}" style="text-decoration:none;display:block;margin:0 auto 18px auto;max-width:360px;background:#0B0F17;border-radius:16px;padding:22px;color:#fff;font-family:Arial,Helvetica,sans-serif;">
   <div style="font-size:11px;letter-spacing:2px;color:#a5b4fc;">BIZ REBORN · GROWTH AUDIT</div>
-  <div style="font-size:22px;font-weight:800;margin-top:6px;">${p.business_name}</div>
+  <div style="font-size:22px;font-weight:800;margin-top:6px;">${bName}</div>
   <div style="margin-top:14px;font-size:40px;font-weight:900;">${p.google_rating ?? "—"} <span style="font-size:14px;color:#fbbf24;">★ ${fmtNumber(p.review_count)} reviews</span></div>
-  <div style="margin-top:10px;display:inline-block;background:rgba(248,113,113,.15);color:#fca5a5;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;">Brand grade ${grade}</div>
+  <div style="margin-top:10px;display:inline-block;background:rgba(248,113,113,.15);color:#fca5a5;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;">Brand grade ${escapeHtml(grade)}</div>
   <div style="margin-top:18px;text-align:center;"><span style="display:inline-block;background:#fff;color:#0B0F17;border-radius:999px;padding:10px 18px;font-weight:800;font-size:14px;">▶ Watch your 45-second audit</span></div>
 </a>`;
   return [
     `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111;">`,
     thumb,
-    `<p>Hi ${p.business_name} —</p>`,
-    `<p>We ran a full audit on your brand — website, socials and Google reputation — and it came back a <strong>${grade}</strong>.</p>`,
-    `<p>Your Google listing sits at <strong>${p.google_rating ?? "—"} stars</strong> with <strong>${fmtNumber(p.review_count)} reviews</strong> (${fmtNumber(p.unanswered_reviews)} unanswered), while ${p.competitor_name ?? "your top competitor"} has <strong>${fmtNumber(p.competitor_reviews)}</strong> — and they're taking the calls that should be yours.</p>`,
+    `<p>Hi ${bName} —</p>`,
+    `<p>We ran a full audit on your brand — website, socials and Google reputation — and it came back a <strong>${escapeHtml(grade)}</strong>.</p>`,
+    `<p>Your Google listing sits at <strong>${p.google_rating ?? "—"} stars</strong> with <strong>${fmtNumber(p.review_count)} reviews</strong> (${fmtNumber(p.unanswered_reviews)} unanswered), while ${compName} has <strong>${fmtNumber(p.competitor_reviews)}</strong> — and they're taking the calls that should be yours.</p>`,
     roi
       ? `<p>That gap is leaking roughly <strong>${money(roi.lost_monthly)}/month</strong>. Fixing it projects to <strong>+${roi.leads_per_month} leads</strong> and <strong>${money(roi.projected_monthly)}/month</strong> in new revenue.</p>`
       : "",
@@ -403,17 +409,40 @@ export default function ProspectsAdmin() {
   }
 
   function parseCSV(text: string): Array<Record<string, string>> {
-    const lines = text.split(/\r?\n/).filter((l) => l.trim());
-    if (!lines.length) return [];
-    const split = (line: string) =>
-      (line.match(/("([^"]|"")*"|[^,]*)(,|$)/g) ?? [])
-        .map((c) => c.replace(/,$/, "").trim().replace(/^"|"$/g, "").replace(/""/g, '"'))
-        .slice(0, -1);
-    const header = split(lines[0]).map((h) => h.toLowerCase().replace(/[^a-z0-9]+/g, "_"));
-    return lines.slice(1).map((line) => {
-      const cells = split(line);
+    // Parse CSV handling quoted fields with newlines inside them
+    const rows: string[][] = [];
+    let current: string[] = [];
+    let field = "";
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (text[i + 1] === '"') { field += '"'; i++; }
+          else inQuotes = false;
+        } else {
+          field += ch;
+        }
+      } else {
+        if (ch === '"') { inQuotes = true; }
+        else if (ch === ',') { current.push(field); field = ""; }
+        else if (ch === '\r' || ch === '\n') {
+          if (ch === '\r' && text[i + 1] === '\n') i++;
+          current.push(field); field = "";
+          if (current.length > 1 || current[0] !== "") rows.push(current);
+          current = [];
+        } else {
+          field += ch;
+        }
+      }
+    }
+    current.push(field);
+    if (current.length > 1 || current[0] !== "") rows.push(current);
+    if (rows.length < 2) return [];
+    const header = rows[0].map((h) => h.toLowerCase().trim().replace(/[^a-z0-9]+/g, "_"));
+    return rows.slice(1).map((cells) => {
       const obj: Record<string, string> = {};
-      header.forEach((h, i) => (obj[h] = cells[i] || ""));
+      header.forEach((h, i) => (obj[h] = (cells[i] || "").trim()));
       return obj;
     });
   }
@@ -1133,7 +1162,7 @@ function PreviewModal({
             <MiniStat label="Deficit" value={`-${fmtNumber((p.competitor_reviews ?? 0) - (p.review_count ?? 0))}`} />
           </div>
 
-          {p.audit_report && p.audit_report.pain_points.length > 0 && (
+          {p.audit_report && (p.audit_report.pain_points?.length ?? 0) > 0 && (
             <div className="mt-4">
               <p className="text-xs font-semibold text-rose-300">Flaws in the video</p>
               <ul className="mt-1 space-y-1 text-[11px] text-ink-300">

@@ -26,19 +26,23 @@ export async function GET() {
   });
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function DELETE(req: Request) {
   if (!(await isAdminOrDemo())) {
     return NextResponse.json({ error: "Admin access required." }, { status: 401 });
   }
   const body = await req.json().catch(() => ({}));
-  const ids: string[] = Array.isArray(body.ids) ? body.ids : body.id ? [body.id] : [];
+  const rawIds: string[] = Array.isArray(body.ids) ? body.ids : body.id ? [body.id] : [];
+  const ids = rawIds.filter((id) => typeof id === "string" && UUID_RE.test(id));
   if (ids.length === 0) {
-    return NextResponse.json({ error: "id or ids required" }, { status: 400 });
+    return NextResponse.json({ error: "valid UUID id or ids required" }, { status: 400 });
   }
+  let deleted = 0;
   for (const id of ids) {
-    await deleteProspect(id);
+    if (await deleteProspect(id)) deleted++;
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, deleted });
 }
 
 export async function POST(req: Request) {

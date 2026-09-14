@@ -86,7 +86,10 @@ function newId(): string {
   } catch {
     // fall through to local fallback
   }
-  return `00000000-0000-4000-8000-${String(memorySeq).padStart(12, "0")}`;
+  // Fallback: generate a valid UUID v4 format using Math.random
+  const hex = () => Math.floor(Math.random() * 16).toString(16);
+  const s = (n: number) => Array.from({ length: n }, hex).join("");
+  return `${s(8)}-${s(4)}-4${s(3)}-${["8","9","a","b"][Math.floor(Math.random()*4)]}${s(3)}-${s(12)}`;
 }
 
 function memoryUpsertRows(rows: Prospect[]): Prospect[] {
@@ -254,7 +257,7 @@ function pickSync(row: object): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(row)) {
     if (SYNC_COLUMNS.has(k)) out[k] = v;
-    else if (v !== undefined && v !== null) console.warn(`[prospects] dropping unsynced column ${k}`);
+    else if (v !== undefined && v !== null) console.debug(`[prospects] dropping unsynced column ${k}`);
   }
   return out;
 }
@@ -307,6 +310,8 @@ export async function updateProspect(
       memoryStore.set(id, row);
       return row;
     }
+    // DB failed — return null so caller knows the update didn't persist
+    return null;
   }
   return updated;
 }
@@ -325,6 +330,7 @@ export async function deleteProspect(id: string): Promise<boolean> {
   if (sb && !tableMissing) {
     const { error } = await sb.from("prospects").delete().eq("id", id);
     if (!noteError(error)) return true;
+    return false;
   }
   return true;
 }

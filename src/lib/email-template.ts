@@ -7,6 +7,10 @@ export const OUTREACH_SIGNER = {
   title: "Lead Growth Specialist",
 };
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 const PLACEHOLDER_RE = /\[([^\]\n]{1,40})\]/gi;
 
 const STANDARD_REPLACEMENTS: Record<string, string> = {
@@ -92,8 +96,12 @@ export function renderProfessionalEmailHtml(props: EmailTemplateProps): string {
   const agencyEmail = LEADGEN.email;
   const agencyPhone = SITE.phone;
 
-  // Format body paragraphs into clean HTML paragraphs
-  const formattedBody = body
+  // Format body paragraphs into clean HTML paragraphs (escape to prevent XSS)
+  const safeBody = escapeHtml(body);
+  const safeSubject = escapeHtml(subject);
+  const safeBizName = escapeHtml(prospect?.business_name || "Local Business");
+  const safeCity = escapeHtml(prospect?.city || "Local Market");
+  const formattedBody = safeBody
     .split(/\n\n+/)
     .map((p) => `<p style="margin:0 0 16px 0;line-height:1.6;color:#334155;">${p.replace(/\n/g, "<br>")}</p>`)
     .join("");
@@ -103,7 +111,7 @@ export function renderProfessionalEmailHtml(props: EmailTemplateProps): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${subject}</title>
+  <title>${safeSubject}</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f8fafc;font-family:Arial,Helvetica,sans-serif;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f8fafc;padding:32px 0;">
@@ -137,10 +145,10 @@ export function renderProfessionalEmailHtml(props: EmailTemplateProps): string {
           <tr>
             <td style="padding:40px 36px 24px 36px;">
               <p style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#6366F1;font-weight:700;margin:0 0 12px 0;">
-                Prepared for ${prospect?.business_name || "Local Business"} (${prospect?.city || "Local Market"})
+                Prepared for ${safeBizName} (${safeCity})
               </p>
               <h1 style="font-size:22px;font-weight:800;color:#0f172a;margin:0 0 20px 0;line-height:1.3;">
-                ${subject}
+                ${safeSubject}
               </h1>
 
               <div style="font-size:15px;color:#334155;">
@@ -170,7 +178,7 @@ export function renderProfessionalEmailHtml(props: EmailTemplateProps): string {
                 Direct: <a href="mailto:${agencyEmail}" style="color:#6366F1;text-decoration:none;">${agencyEmail}</a> · Phone: ${agencyPhone}
               </p>
               <p style="margin:0;font-size:11px;color:#94a3b8;">
-                You are receiving this because we prepared a complimentary local growth audit for ${prospect?.business_name || "your business"}. <a href="${base}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a>
+                You are receiving this because we prepared a complimentary local growth audit for ${safeBizName}. <a href="${base}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a>
               </p>
             </td>
           </tr>

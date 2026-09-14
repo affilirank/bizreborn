@@ -14,7 +14,7 @@ interface DiscoveredBusiness {
   business_name: string;
   city: string;
   google_maps_link: string;
-  website: string;
+  website: string | null;
   email: string;
   phone: string;
   instagram: string;
@@ -25,14 +25,14 @@ interface DiscoveredBusiness {
   competitor_reviews: number | null;
 }
 
-function toHttpUrl(value: unknown): string {
+function toHttpUrl(value: unknown): string | null {
   const url = String(value ?? "").trim();
-  if (!url || !/^https?:\/\//i.test(url)) return "";
+  if (!url || !/^https?:\/\//i.test(url)) return null;
   return url;
 }
 
 /** Address patterns a real small-business site will never use as its public contact inbox. */
-const BLOCKED_LOCAL_PART = ["webmaster", "hostmaster", "postmaster", "abuse", "noreply", "no-reply", "unsubscribe", "bounce", "admin@localhost"];
+const BLOCKED_LOCAL_PART = ["webmaster", "hostmaster", "postmaster", "abuse", "noreply", "no-reply", "unsubscribe", "bounce", "admin"];
 
 function isProbablyRealContactEmail(email: string): boolean {
   const local = email.split("@")[0].toLowerCase();

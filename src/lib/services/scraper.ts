@@ -1,6 +1,22 @@
 import { callAi, parseAiJson } from "@/lib/ai-router";
 import { canReceiveEmail, normalizeEmail } from "@/lib/services/email-validate";
 
+/** Block SSRF: private IPs, metadata endpoints, localhost. */
+function isSafeUrl(urlStr: string): boolean {
+  try {
+    const u = new URL(urlStr);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+    const host = u.hostname;
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]") return false;
+    if (host === "169.254.169.254" || host.endsWith(".169.254.169.254")) return false;
+    if (/^10\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host) || /^192\.168\./.test(host)) return false;
+    if (host.endsWith(".internal") || host.endsWith(".local")) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export interface ScrapeResult {
   google_rating: number | null;
   review_count: number | null;
@@ -43,6 +59,7 @@ const CONTACT_PATHS = ["/contact", "/contact-us", "/about", "/about-us", "/priva
 async function fetchPageAndFindEmail(pageUrl: string): Promise<{ email: string | null; reachable: boolean }> {
   const url = toHttpUrl(pageUrl);
   if (!url) return { email: null, reachable: false };
+  if (!isSafeUrl(url)) return { email: null, reachable: false };
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3500);
@@ -72,11 +89,13 @@ async function fetchPageAndFindEmail(pageUrl: string): Promise<{ email: string |
     // 2. Obfuscated "name [at] domain [dot] com"
     const obfuscated = html
       .replace(/<\/?[a-z][^>]*>/gi, " ")
-      .match(/([a-zA-Z0-9._%+-]+)\s*\[?at\]?\s*([a-zA-Z0-9.-]+)\s*\[?dot\]?\s*([a-zA-Z]{2,})/gi);
-    if (obfuscated) {
-      for (const token of obfuscated) {
-        const email = normalizeEmail(token.replace(/\s*\[?at\]?\s*/gi, "@").replace(/\s*\[?dot\]?\s*/gi, "."));
-        if (email && email.includes("@")) candidates.push(email);
+      .matchAll(/([a-zA-Z0-9._%+-]+)\s*\[?at\]?\s*([a-zA-Z0-9.-]+)\s*\[?dot\]?\s*([a-zA-Z]{2,})/gi);
+    for (const m of obfuscated) {
+      const local = m[1]?.toLowerCase();
+      const domain = m[2]?.toLowerCase();
+      const tld = m[3]?.toLowerCase();
+      if (local && domain && tld && local.length >= 2) {
+        candidates.push(`${local}@${domain}.${tld}`);
       }
     }
 
@@ -145,13 +164,14 @@ const SEARCH_BLOCKED_DOMAINS = new Set([
 ]);
 
 /** Fetches one search-engine HTML results page and returns any email addresses it shows. */
-async function fetchSearchEngineEmails(query: string): Promise<string[]> {
+async function fetchSearchEngineEmails(query: string, deadline?: number): Promise<string[]> {
   const engines = [
     { name: "duckduckgo", url: `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}` },
     { name: "bing", url: `https://www.bing.com/search?q=${encodeURIComponent(query)}` },
   ];
   const emails: string[] = [];
   for (const engine of engines) {
+    if (deadline && Date.now() > deadline) break;
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
@@ -229,7 +249,7 @@ async function searchWebForEmail(input: {
   const candidates = new Map<string, boolean>();
   for (const q of queries) {
     if (Date.now() > deadline) break;
-    const found = await fetchSearchEngineEmails(q);
+    const found = await fetchSearchEngineEmails(q, deadline);
     for (const raw of found) {
       const email = normalizeEmail(raw);
       if (!email || email.split("@")[0].length < 2) continue;
