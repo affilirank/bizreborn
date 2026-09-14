@@ -1,5 +1,5 @@
 /**
- * Smart AI Router: tries Google Gemini (gemini-2.0-flash) directly with search grounding and a robust timeout,
+ * Smart AI Router: tries Google Gemini (gemini-3.6-flash) directly with search grounding and a robust timeout,
  * and automatically falls back instantly to OpenAI (gpt-4o-mini) when rate-limited or unavailable.
  *
  * Search grounding degrades gracefully: if the grounding call is rejected (no
@@ -128,7 +128,7 @@ ${opts.prompt}`
 export async function callAi(req: AiRequest): Promise<string | null> {
   const geminiKey = process.env.GEMINI_API_KEY;
   const openAiKey = process.env.OPENAI_API_KEY;
-  const geminiModel = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+  const geminiModel = process.env.GEMINI_MODEL || "gemini-3.6-flash";
   const openAiModel = process.env.CHAT_OPENAI_MODEL || "gpt-4o-mini";
   const maxTokens = req.maxTokens || 2000;
   const timeoutMs = req.timeoutMs || 15000;

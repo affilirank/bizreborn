@@ -39,7 +39,7 @@ import { PREFILL_KEY, type OfferPrefill } from "@/lib/offer-prefill";
 import { LEADGEN } from "@/lib/config";
 import { mapsSearchUrl } from "@/lib/services/email-validate";
 
-type Tab = "all" | "new" | "saved" | "ready" | "crm" | "failed";
+type Tab = "new" | "saved" | "failed";
 
 const statusBadge: Record<string, { label: string; cls: string }> = {
   saved: { label: "Saved", cls: "text-blue-400 border-blue-500/20 bg-blue-500/5" },
@@ -175,7 +175,7 @@ export default function ProspectsAdmin() {
   const [setupSql, setSetupSql] = useState<string | null>(null);
   const [showSql, setShowSql] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>("all");
+  const [tab, setTab] = useState<Tab>("new");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -328,24 +328,15 @@ export default function ProspectsAdmin() {
     return () => clearTimeout(id);
   }, [toast]);
 
-  const filtered = tab === "all"
-    ? prospects
-    : tab === "new"
-      ? prospects.filter((p) => ["queued", "pending", "scraping", "audited", "rendering"].includes(p.status ?? ""))
-      : tab === "saved"
-        ? prospects.filter((p) => p.status === "saved")
-        : tab === "ready"
-          ? prospects.filter((p) => p.status === "ready")
-          : tab === "crm"
-            ? prospects.filter((p) => ["pitched", "replied", "booked", "closed"].includes(p.status ?? ""))
-            : prospects.filter((p) => p.status === "failed" || p.status === "invalid");
+  const filtered = tab === "new"
+    ? prospects.filter((p) => ["queued", "pending", "scraping", "audited", "rendering"].includes(p.status ?? ""))
+    : tab === "saved"
+      ? prospects.filter((p) => p.status === "saved")
+      : prospects.filter((p) => p.status === "failed" || p.status === "invalid");
 
   const counts = {
-    all: prospects.length,
     new: prospects.filter((p) => ["queued", "pending", "scraping", "audited", "rendering"].includes(p.status ?? "")).length,
     saved: prospects.filter((p) => p.status === "saved").length,
-    ready: prospects.filter((p) => p.status === "ready").length,
-    crm: prospects.filter((p) => ["pitched", "replied", "booked", "closed"].includes(p.status ?? "")).length,
     failed: prospects.filter((p) => p.status === "failed" || p.status === "invalid").length,
   };
 
@@ -555,7 +546,7 @@ export default function ProspectsAdmin() {
           </Link>
           <h1 className="font-sora text-2xl font-bold text-white sm:text-3xl">Lead Discovery &amp; Pitches</h1>
           <p className="mt-1 text-sm text-ink-400">
-            Optimized strictly for finding leads (Keyword Lead Discovery search, CSV upload, manual add) and saving/generating video audits. All closing tools, CRM tracking, and fulfillment live in <Link href="/admin/crm" className="text-brand-400 underline font-semibold">/admin/crm</Link>.
+            Optimized strictly for finding fresh leads (Keyword Lead Discovery search, CSV upload, manual add) and watching them audit/render live. Once a lead is <code>ready</code> or enters the sales pipeline, it moves to <Link href="/admin/crm" className="text-brand-400 underline font-semibold">/admin/crm</Link> — this page stays focused on new discovery only.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -606,13 +597,14 @@ export default function ProspectsAdmin() {
             <div className="mt-4 rounded-xl border border-brand-500/20 bg-brand-500/5 p-3 text-xs text-brand-300">
         <p className="font-semibold">💡 Lead Status Flow Notice:</p>
         <p className="mt-0.5 text-brand-200/80">
-          When queued businesses finish auditing and rendering, their status updates from <code>pending</code> / <code>scraping</code> to <code>ready</code>. If viewing specific tabs, check the &ldquo;All&rdquo; or &ldquo;Ready&rdquo; tab to view completed leads. A notification toast will also alert you when batches finish.
+          This page only shows fresh discovery activity: leads that are queued, auditing, rendering, saved, or failed.
+          Once a lead is <code>ready</code> (audit + video done) or moved into the sales pipeline (<code>pitched</code> / <code>replied</code> / <code>booked</code> / <code>closed</code>), it lives in <Link href="/admin/crm" className="text-brand-300 underline font-semibold">Agency CRM</Link> — not here. Completions still notify you with a toast.
         </p>
       </div>
 
     <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Total Uploaded" value={counts.all} icon={<Users size={16} />} color="text-brand-400" />
-        <Stat label="Ready Pitches" value={counts.ready} icon={<Film size={16} />} color="text-glow-400" />
+        <Stat label="New Leads" value={counts.new} icon={<Users size={16} />} color="text-brand-400" />
+        <Stat label="Saved to Library" value={counts.saved} icon={<Database size={16} />} color="text-ink-400" />
         <Stat label="In Progress" value={counts.new} icon={<Loader2 size={16} />} color="text-amber-400" />
         <Stat
           label="Projected pipeline / mo"
@@ -723,12 +715,12 @@ export default function ProspectsAdmin() {
 
         {/* Table column */}
         <div className="lg:col-span-2">
-          <div className="flex flex-wrap gap-1.5 border-b border-ink-800/60 pb-3">
-            {(["all", "new", "saved", "ready", "crm", "failed"] as Tab[]).map((t) => (
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-ink-800/60 pb-3">
+            {(["new", "saved", "failed"] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                title={t === "new" ? "Queued / auditing / rendering" : t === "crm" ? "Pitched, replied, booked, closed" : undefined}
+                title={t === "new" ? "Queued / auditing / rendering" : t === "saved" ? "Saved to library, not generated yet" : "Failed + invalid leads"}
                 className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition ${
                   tab === t ? "bg-brand-600 text-white" : "bg-ink-900/60 text-ink-400 hover:text-white"
                 }`}
@@ -736,6 +728,13 @@ export default function ProspectsAdmin() {
                 {t} <span className="opacity-70">({counts[t]})</span>
               </button>
             ))}
+            <Link
+              href="/admin/crm"
+              title="Pitched, replied, booked, closed, and ready leads all live here"
+              className="ml-auto flex items-center gap-1.5 rounded-full border border-ink-700 bg-ink-900/60 px-3 py-1 text-xs font-medium text-ink-400 transition hover:text-brand-300"
+            >
+              <Users size={12} /> Ready + Pitched + CRM ({prospects.length - counts.new - counts.saved - counts.failed}) →
+            </Link>
           </div>
 
           {loading ? (
@@ -744,7 +743,7 @@ export default function ProspectsAdmin() {
             </div>
           ) : filtered.length === 0 ? (
             <p className="py-20 text-center text-sm text-ink-500">
-              {prospects.length === 0 ? "No leads yet — drop a CSV or add one manually to start." : "No prospects in this state."}
+              {prospects.length === 0 ? "No leads yet — drop a CSV or add one manually to start." : "No fresh leads in this state. Check Agency CRM for pitched/ready leads."}
             </p>
           ) : (
             <div className="mt-3 space-y-2">
