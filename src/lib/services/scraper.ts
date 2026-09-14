@@ -149,7 +149,7 @@ async function fetchSearchEngineEmails(query: string): Promise<string[]> {
   for (const engine of engines) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
       const res = await fetch(engine.url, {
         signal: controller.signal,
         redirect: "follow",
@@ -198,7 +198,7 @@ async function searchWebForEmail(input: {
     ? [`${base} email ${hostname}`, `${base} contact email`, `${base} email`]
     : [`${base} contact email`, `${base} email`];
 
-  const deadline = Date.now() + 15000;
+  const deadline = Date.now() + 8000;
   const candidates = new Map<string, boolean>();
   for (const q of queries) {
     if (Date.now() > deadline) break;

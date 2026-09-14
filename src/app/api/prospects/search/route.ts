@@ -112,7 +112,7 @@ async function runSearchPass(
             google_maps_link: mapsLink || null,
             initial_email: initialEmail,
           },
-          { skipAiGrounding: true },
+          { skipAiGrounding: true, webSearch: true },
         )) || "";
       const { score, missingGbpApple } = calculateQualifyingScore({
         google_rating: gRating,
