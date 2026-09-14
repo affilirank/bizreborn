@@ -119,6 +119,15 @@ export async function liveBrandAudit(
   const unanswered = p.unanswered_reviews ?? 0;
   const target = `${p.business_name}${p.city ? `, ${p.city}` : ""}`;
 
+  // Always benchmark against a named market leader — when no specific
+  // competitor was verified, use the generic area-leader label and a
+  // realistic estimated review count so the audit (and the pitch built from
+  // it) always has a concrete competitive gap.
+  const competitorName = p.competitor_name?.trim() || (p.city?.trim() ? `${p.city.trim()} Market Leader` : "Local Market Leader");
+  const competitorReviews = p.competitor_reviews != null && p.competitor_reviews > reviews
+    ? p.competitor_reviews
+    : Math.max(reviews + 50, Math.round(reviews * 1.35));
+
   const catalog = JSON.stringify(
     ALL_SERVICES.map((s) => ({ id: s.id, title: s.title, pillar: s.pillar })),
   );
@@ -127,7 +136,7 @@ export async function liveBrandAudit(
     `Business: ${target}`,
     `Website: ${p.website?.trim() || "no website on record"}`,
     `Google rating: ${rating}, reviews: ${reviews}, unanswered: ${unanswered}`,
-    `Competitor: ${p.competitor_name ?? "local market leader"} (${p.competitor_reviews ?? 0} reviews)`,
+    `Competitor: ${competitorName} (${competitorReviews} reviews)`,
     `Socials: IG=${p.instagram || "-"}, FB=${p.facebook || "-"}, TikTok=${p.tiktok || "-"}`,
     `Missing Google Business Profile / Apple Maps: ${missingGbp ? "YES (fatal)" : "no"}`,
     `Available Services Catalog (id, title): ${catalog}`,

@@ -17,6 +17,7 @@ export const maxDuration = 60;
 const AuditSchema = z.object({
   url: z.string().or(z.string().min(2)),
   businessName: z.string().max(120).optional().default(""),
+  city: z.string().max(120).optional().default(""),
   gbp: z.string().max(120).optional().default(""),
   instagram: z.string().max(120).optional().default(""),
   facebook: z.string().max(120).optional().default(""),
@@ -62,6 +63,7 @@ export async function POST(req: Request) {
       if (existing) {
         prospect = await updateProspect(existing.id, {
           business_name: businessName,
+          city: input.city || existing.city,
           website: normalizedUrl,
           phone: input.contact?.phone?.trim() || existing.phone,
           instagram: input.instagram || existing.instagram,
@@ -72,6 +74,7 @@ export async function POST(req: Request) {
         const [inserted] = await insertProspects([
           {
             business_name: businessName,
+            city: input.city || null,
             website: normalizedUrl,
             email,
             phone: input.contact?.phone?.trim() || null,
@@ -95,7 +98,7 @@ export async function POST(req: Request) {
         if (prospect.google_rating == null || prospect.review_count == null) {
           scraped = await scrapeReputation({
             business_name: businessName,
-            city: prospect.city ?? "",
+            city: input.city || prospect.city || "",
             website: normalizedUrl,
             google_maps_link: prospect.google_maps_link,
             existing_email: email,

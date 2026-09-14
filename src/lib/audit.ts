@@ -7,6 +7,7 @@ import { clamp, seededRandom } from "@/lib/utils";
 export interface AuditInput {
   url: string;
   businessName: string;
+  city?: string;
   gbp?: string;
   instagram?: string;
   facebook?: string;
@@ -279,6 +280,7 @@ function suffixWord() {
 }
 
 function cityFrom(input: AuditInput) {
+  if (input.city?.trim()) return input.city.trim();
   const m = input.url.match(/(?:\.|\/)([a-z-]{3,12})(?:\.|com|net|org)/i);
   return m ? m[1] : "your city";
 }

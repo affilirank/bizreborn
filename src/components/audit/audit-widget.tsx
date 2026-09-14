@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   Globe,
   Store,
+  MapPin,
   ArrowRight,
   CheckCircle2,
   AlertTriangle,
@@ -51,6 +52,7 @@ export function AuditWidget() {
   const [input, setInput] = React.useState<AuditInput>({
     url: "",
     businessName: "",
+    city: "",
     gbp: "",
     instagram: "",
     facebook: "",
@@ -322,6 +324,19 @@ export function AuditWidget() {
                   value={input.businessName}
                   onChange={(e) => setInput({ ...input, businessName: e.target.value })}
                   placeholder="e.g. Ace Plumbing & Heating"
+                  className={inputCls}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-fog">
+                  <MapPin className="h-3.5 w-3.5 text-brand-300" /> City / Market *
+                </label>
+                <input
+                  required
+                  value={input.city ?? ""}
+                  onChange={(e) => setInput({ ...input, city: e.target.value })}
+                  placeholder="e.g. Miami, FL"
                   className={inputCls}
                 />
               </div>
