@@ -22,6 +22,9 @@ export interface BrandAuditResult {
   recommended_services: number[];
   qualifying_score: number;
   missing_gbp_apple: boolean;
+  /** The complete live AI report (incl. comparedTo/keywordSearches) when the
+   *  AI engine produced it — undefined when the sealed fallback engine ran. */
+  full_report?: AuditReport;
 }
 
 const DEFAULT_ACV = 500;
@@ -330,6 +333,7 @@ export async function buildBrandAudit(
     recommended_services,
     qualifying_score,
     missing_gbp_apple,
+    ...(live ? { full_report: live } : {}),
   };
 }
 

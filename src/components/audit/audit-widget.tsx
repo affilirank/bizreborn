@@ -112,23 +112,25 @@ export function AuditWidget() {
       body: JSON.stringify({
         ...input,
         url: normalizedUrl,
+        contact: {
+          name: lead.name,
+          email: lead.email,
+          phone: lead.phone,
+        },
       }),
     })
       .then(async (res) => {
         if (!res.ok) throw new Error("API audit failed");
         const data = await res.json();
-        return data.report as AuditReport;
+        return data as { report: AuditReport; pitchUrl?: string | null };
       })
       .catch(() => {
-        return runAudit({
-          ...input,
-          url: normalizedUrl,
-        });
+        return { report: runAudit({ ...input, url: normalizedUrl }), pitchUrl: null };
       });
 
     const [result] = await Promise.all([apiPromise, animationPromise]);
 
-    void createAudit(result, {
+    void createAudit(result.report, {
       contact: {
         name: lead.name,
         phone: lead.phone,
@@ -137,7 +139,14 @@ export function AuditWidget() {
       form: input,
     }).catch(() => {});
 
-    setReport(result);
+    // The audit created a real lead-pitch prospect: load its pitch page, which
+    // plays the narrated video explaining the results and the offer.
+    if (result.pitchUrl) {
+      window.location.href = result.pitchUrl;
+      return;
+    }
+
+    setReport(result.report);
     setPhase("report");
     requestAnimationFrame(() => {
       document
