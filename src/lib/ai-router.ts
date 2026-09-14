@@ -114,8 +114,11 @@ ${opts.prompt}`
     if (res.ok && text) {
       return text.trim();
     }
+    // Log the actual error so we can diagnose why Gemini is failing
+    console.warn("[gemini] failed:", res.status, JSON.stringify(json?.error || json).slice(0, 300));
     return null;
-  } catch {
+  } catch (err) {
+    console.warn("[gemini] exception:", err instanceof Error ? err.message : String(err));
     return null;
   } finally {
     clearTimeout(timeoutId);
@@ -211,8 +214,9 @@ export async function callAi(req: AiRequest): Promise<string | null> {
       if (res.ok && text) {
         return text.trim();
       }
-    } catch {
-      // fallback
+      console.warn("[openai] failed:", res.status, JSON.stringify(json?.error || json).slice(0, 300));
+    } catch (err) {
+      console.warn("[openai] exception:", err instanceof Error ? err.message : String(err));
     }
   }
 

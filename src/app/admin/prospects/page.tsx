@@ -1402,7 +1402,7 @@ function DiscoveryModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ keyword: keyword.trim(), city: city.trim(), count: Number(count) || 30 }),
       });
-      let json: { businesses?: unknown[]; error?: string } | null = null;
+      let json: { businesses?: unknown[]; error?: string; errors?: string[] } | null = null;
       try {
         json = await res.json();
       } catch {
@@ -1418,7 +1418,8 @@ function DiscoveryModal({
         setSearched(true);
         setSelected(new Set(list.map((_, i) => i)));
         if (list.length === 0) {
-          alert(`No verified businesses found for "${keyword}" in ${city} — try a more specific keyword or import a CSV.`);
+          const detail = json.errors?.length ? `\n\nDetails: ${json.errors.join("; ")}` : "";
+          alert(`No verified businesses found for "${keyword}" in ${city} — try a more specific keyword or import a CSV.${detail}`);
         }
         return;
       }

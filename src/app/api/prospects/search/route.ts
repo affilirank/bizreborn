@@ -169,6 +169,7 @@ export async function POST(req: Request) {
 
   const businesses: DiscoveredBusiness[] = [];
   const seen = new Set<string>();
+  const errors: string[] = [];
 
   // Multi-pass: keep grounding until we reach the requested count or run out of
   // passes. Pass 1 finds the core listings; extra passes widen the net with
@@ -180,8 +181,11 @@ export async function POST(req: Request) {
     const remaining = count - businesses.length;
     try {
       const found = await runSearchPass(keyword, city, remaining, pass, seen);
+      if (found.length === 0) errors.push(`pass ${pass + 1}: 0 results`);
       businesses.push(...found);
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`pass ${pass + 1}: ${msg}`);
       console.error(`[lead discovery] search pass ${pass + 1} failed:`, err);
     }
   }
@@ -191,8 +195,11 @@ export async function POST(req: Request) {
   if (businesses.length === 0) {
     try {
       const found = await runSearchPass(keyword, city, count, 0, seen);
+      if (found.length === 0) errors.push("final retry: 0 results");
       businesses.push(...found);
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`final retry: ${msg}`);
       console.error("[lead discovery] final retry failed:", err);
     }
   }
@@ -200,5 +207,5 @@ export async function POST(req: Request) {
   businesses.sort((a, b) => b.qualifying_score - a.qualifying_score);
 
   // Never fabricate leads. If nothing verified, return nothing.
-  return NextResponse.json({ businesses });
+  return NextResponse.json({ businesses, errors: businesses.length === 0 ? errors : undefined });
 }
