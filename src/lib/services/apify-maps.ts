@@ -165,10 +165,13 @@ export function isAdminWebhookKey(req: Request, url: URL): boolean {
 }
 
 /**
- * Turn a finished run's dataset into saved leads: normalise, skip duplicates
- * already in the pipeline, insert as "saved" (library) rows, and email the
- * admin a completion summary. Both the webhook and the client poll path go
- * through here — the DB dedupe makes double-processing harmless.
+ * Turn a finished run's dataset into saved leads. COMBINED pipeline: Apify
+ * provides the real place data (rating, reviews, unanswered, competitor,
+ * website emails), then our own email discovery backfills the rest (website
+ * scrape + MX-verified info@/contact@/sales@ derivations). Only leads that
+ * end up with a deliverable email are saved — the campaign is email-driven.
+ * Both the webhook and the client poll path go through here — the DB dedupe
+ * makes double-processing harmless.
  */
 export async function processMapsResults(
   datasetId: string,
@@ -176,14 +179,51 @@ export async function processMapsResults(
   city: string,
 ): Promise<{ saved: number; businesses: MapsBusiness[]; emailed: boolean }> {
   const { insertProspects, listProspects } = await import("@/lib/prospects");
+  const { discoverEmailForBusiness } = await import("@/lib/services/scraper");
 
   const businesses = await fetchMapsResults(datasetId);
+
+  // Email backfill for places where Apify's website enrichment found nothing:
+  // 5 workers × 10s per-lead timeout keeps even a 50-lead batch inside the
+  // 60s serverless budget.
+  const needEmail = businesses.filter((b) => !b.email && b.website);
+  if (needEmail.length > 0) {
+    const PER_LEAD_TIMEOUT_MS = 10000;
+    const queue = [...needEmail];
+    const worker = async () => {
+      while (queue.length > 0) {
+        const b = queue.shift()!;
+        try {
+          const discovered = await Promise.race([
+            discoverEmailForBusiness(
+              {
+                business_name: b.business_name,
+                city: b.city || city,
+                website: b.website,
+                google_maps_link: b.google_maps_link || null,
+              },
+              { skipAiGrounding: true, webSearch: false },
+            ),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), PER_LEAD_TIMEOUT_MS)),
+          ]);
+          if (discovered) b.email = discovered;
+        } catch {
+          // leave email empty — lead is dropped below
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: 5 }, () => worker()));
+  }
+
+  // Keep only leads with a deliverable email — the campaign engine is
+  // email-driven and the operator asked to produce email-ready leads only.
+  const emailReady = businesses.filter((b) => b.email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(b.email));
 
   const existing = await listProspects();
   const existingKeys = new Set(
     existing.map((p) => `${(p.business_name || "").toLowerCase()}|${(p.city || "").toLowerCase()}`),
   );
-  const fresh = businesses.filter(
+  const fresh = emailReady.filter(
     (b) => !existingKeys.has(`${b.business_name.toLowerCase()}|${b.city.toLowerCase()}`),
   );
 
@@ -193,7 +233,7 @@ export async function processMapsResults(
         business_name: b.business_name,
         city: b.city || city || null,
         website: b.website,
-        email: b.email || null,
+        email: b.email,
         phone: b.phone || null,
         google_maps_link: b.google_maps_link || null,
         instagram: b.instagram || null,
@@ -201,6 +241,8 @@ export async function processMapsResults(
         google_rating: b.google_rating,
         review_count: b.review_count,
         unanswered_reviews: b.unanswered_reviews,
+        competitor_name: b.competitor_name,
+        competitor_reviews: b.competitor_reviews,
         qualifying_score: b.qualifying_score,
         missing_gbp_apple: b.missing_gbp_apple,
         status: "saved" as const,
@@ -208,10 +250,15 @@ export async function processMapsResults(
     );
   }
 
-  const withEmail = fresh.filter((b) => b.email).length;
-  const emailed = await emailScanSummary(keyword, city, fresh.length, withEmail, businesses.length);
+  const emailed = await emailScanSummary(
+    keyword,
+    city,
+    fresh.length,
+    fresh.length,
+    businesses.length,
+  );
 
-  return { saved: fresh.length, businesses, emailed };
+  return { saved: fresh.length, businesses: emailReady, emailed };
 }
 
 /** Email the admin a scan-completion summary (best-effort, never throws). */
