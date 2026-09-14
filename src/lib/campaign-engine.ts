@@ -112,6 +112,11 @@ export async function advanceProspectCampaign(
       return matchB - matchA;
     });
 
+    if (sorted.length === 0) {
+      await updateProspect(prospect.id, { campaign_stage: "completed", campaign_last_run_at: new Date().toISOString() });
+      return { ok: true, stage: "completed", message: "No published blog posts available — skipping newsletter sequence." };
+    }
+
     const article = sorted[(dayNum - 1) % sorted.length] || sorted[0];
 
     subject = `[Day ${dayNum} of 100 Authority Newsletter] ${article.title}`;

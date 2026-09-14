@@ -63,7 +63,7 @@ async function runSearchPass(
     jsonMode: true,
     maxTokens: 6000,
     useSearchGrounding: true,
-    timeoutMs: 16000,
+    timeoutMs: 8000,
   });
 
   if (!text) return [];

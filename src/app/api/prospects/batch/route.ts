@@ -88,7 +88,7 @@ export async function POST(req: Request) {
       unanswered_reviews,
       competitor_name,
       competitor_reviews,
-      status: row.status === "saved" ? "saved" : row.status === "pending" ? "pending" : "ready",
+      status: row.status === "saved" ? "saved" : row.status === "ready" ? "ready" : "pending",
     };
 
     // Inline audit + script + TTS + video render is only done for explicitly

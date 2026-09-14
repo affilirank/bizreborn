@@ -58,41 +58,47 @@ async function fetchPageAndFindEmail(pageUrl: string): Promise<{ email: string |
     if (res.status === 404 || res.status >= 500) return { email: null, reachable: true };
     const html = await res.text();
 
-    // 1. Extract mailto: links
+    // Collect all candidate emails, then check MX in parallel (not sequentially).
+    const candidates: string[] = [];
+
+    // 1. mailto: links (highest trust)
     const mailtoRegex = /href=["']mailto:([^"'?#]+)["']/gi;
     let match;
     while ((match = mailtoRegex.exec(html)) !== null) {
       const email = normalizeEmail(match[1]);
-      if (email && (await canReceiveEmail(email))) {
-        return { email, reachable: true };
-      }
+      if (email) candidates.push(email);
     }
 
-    // 2. Extract general email patterns in text (also catches obfuscated
-    //    "name at domain dot com" patterns small businesses love to use)
-    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-    const found = (html.match(emailRegex) || []).filter((e) => !e.endsWith(".png") && !e.endsWith(".jpg") && !e.endsWith(".svg") && !e.endsWith(".jpeg") && !e.endsWith(".webp"));
+    // 2. Obfuscated "name [at] domain [dot] com"
     const obfuscated = html
       .replace(/<\/?[a-z][^>]*>/gi, " ")
       .match(/([a-zA-Z0-9._%+-]+)\s*\[?at\]?\s*([a-zA-Z0-9.-]+)\s*\[?dot\]?\s*([a-zA-Z]{2,})/gi);
     if (obfuscated) {
       for (const token of obfuscated) {
         const email = normalizeEmail(token.replace(/\s*\[?at\]?\s*/gi, "@").replace(/\s*\[?dot\]?\s*/gi, "."));
-        if (email && (await canReceiveEmail(email))) {
-          return { email, reachable: true };
-        }
+        if (email && email.includes("@")) candidates.push(email);
       }
     }
 
-    for (const raw of found) {
-      const email = normalizeEmail(raw);
-      if (email && (await canReceiveEmail(email))) {
-        return { email, reachable: true };
-      }
+    // 3. General email patterns
+    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+    for (const raw of html.match(emailRegex) || []) {
+      if (/\.(png|jpe?g|svg|webp|gif)$/i.test(raw)) continue;
+      const email = normalizeEmail(raw.split(" ")[0]);
+      if (email && email.includes("@")) candidates.push(email);
     }
+
+    // Deduplicate and check MX in parallel (max 5 candidates to bound time)
+    const unique = [...new Set(candidates)].slice(0, 5);
+    const results = await Promise.all(unique.map(async (email) => {
+      const ok = await canReceiveEmail(email);
+      return ok ? email : null;
+    }));
+    const valid = results.find(Boolean);
+    if (valid) return { email: valid, reachable: true };
+
     return { email: null, reachable: true };
   } catch {
-    // fetch/timeout errors mean the host did not answer — not a safe source to derive from
     return { email: null, reachable: false };
   }
 }
@@ -275,7 +281,7 @@ export async function discoverEmailForBusiness(
       // keep homepage only
     }
 
-    const deadline = Date.now() + 22000;
+    const deadline = Date.now() + 15000;
     let reachableHost: string | null = null;
     for (const page of pages) {
       if (Date.now() > deadline) break;

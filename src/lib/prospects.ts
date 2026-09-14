@@ -246,6 +246,8 @@ const SYNC_COLUMNS = new Set([
   "communication_logs",
   "last_contacted_at",
   "temperature",
+  "campaign_stage",
+  "campaign_last_run_at",
 ]);
 
 function pickSync(row: object): Record<string, unknown> {

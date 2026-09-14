@@ -6,19 +6,20 @@ import { isAdminOrDemo } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const CONCURRENCY = 4;
+const CONCURRENCY = 6;
 const DEADLINE_MS = 50000;
+const PER_LEAD_TIMEOUT_MS = 12000;
 
 export async function POST(req: Request) {
   if (!(await isAdminOrDemo())) {
     return NextResponse.json({ error: "Admin access required." }, { status: 401 });
   }
 
-  let limit = 30;
+  let limit = 40;
   try {
     const body = await req.json();
     if (body && Number.isFinite(body.limit)) {
-      limit = Math.min(40, Math.max(1, Math.floor(body.limit)));
+      limit = Math.min(60, Math.max(1, Math.floor(body.limit)));
     }
   } catch {
     // no body — use default
@@ -39,15 +40,18 @@ export async function POST(req: Request) {
       if (i >= targets.length) return;
       const p = targets[i];
       try {
-        const email = await discoverEmailForBusiness(
-          {
-            business_name: p.business_name,
-            city: p.city ?? "",
-            website: p.website,
-            google_maps_link: p.google_maps_link,
-          },
-          { skipAiGrounding: true, webSearch: true },
-        );
+        const email = await Promise.race([
+          discoverEmailForBusiness(
+            {
+              business_name: p.business_name,
+              city: p.city ?? "",
+              website: p.website,
+              google_maps_link: p.google_maps_link,
+            },
+            { skipAiGrounding: true, webSearch: true },
+          ),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), PER_LEAD_TIMEOUT_MS)),
+        ]);
         if (email) {
           await updateProspect(p.id, { email });
           foundCount++;
@@ -67,6 +71,6 @@ export async function POST(req: Request) {
     found: foundCount,
     stillMissing: Math.max(0, targets.length - foundCount),
     totalMissing: missing.length,
-    errors: errors.slice(0, 5), // Show first 5 errors in response
+    errors: errors.slice(0, 5),
   });
 }
