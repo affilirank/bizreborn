@@ -1,11 +1,12 @@
 /**
- * Apify Google Maps Extractor integration (free tier: $5 platform credit per
- * month ≈ 1,000 places).
- *
- * Real scraped Google Maps data — verified websites, phones, ratings, review
- * counts, and (via the scrapeContacts enrichment) real business emails scraped
- * from each business's own website. This replaces AI-guessed listings on the
- * admin lead-discovery path and eliminates most email-discovery failures.
+ * Apify Google Maps Scraper integration (free tier: $5 platform credit per
+ * month). Uses the FULL `compass/crawler-google-places` actor (602k users),
+ * which — unlike the lighter Extractor — also scrapes recent reviews with
+ * owner-response data (→ real unanswered-review counts) and the
+ * "People also search" panel (→ real local competitors with review counts).
+ * Verified website emails come via the scrapeContacts enrichment. This
+ * replaces AI-guessed listings on the admin lead-discovery path and
+ * eliminates most email-discovery failures.
  *
  * Runs take 1-8 minutes, far beyond the 60s serverless budget, so this module
  * is async-job shaped: startMapsScrape() starts the run and returns its id;
@@ -13,7 +14,7 @@
  * once the run succeeds.
  */
 
-const ACTOR_ID = "compass~google-maps-extractor";
+const ACTOR_ID = "compass~crawler-google-places";
 const API_BASE = "https://api.apify.com/v2";
 
 export interface ApifyPlace {
@@ -37,6 +38,10 @@ export interface ApifyPlace {
   tiktoks?: string[];
   linkedIns?: string[];
   twitters?: string[];
+  // Recent reviews (maxReviews window) with owner-response data
+  reviews?: Array<{ responseFromOwnerText?: string | null; stars?: number | null }>;
+  // "People also search" panel — real local competitors with review counts
+  peopleAlsoSearch?: Array<{ title?: string; reviewsCount?: number; totalScore?: number }>;
 }
 
 export interface MapsBusiness {
@@ -52,6 +57,7 @@ export interface MapsBusiness {
   facebook: string;
   google_rating: number | null;
   review_count: number | null;
+  unanswered_reviews: number | null;
   competitor_name: string | null;
   competitor_reviews: number | null;
 }
@@ -84,11 +90,16 @@ export async function startMapsScrape(
     maxCrawledPlacesPerSearch: Math.min(200, Math.max(5, count)),
     language: "en",
     skipClosedPlaces: false,
-    // Detail page enables reviewsCount; the qualifying score and audit both
-    // depend on real review data.
+    // Detail page enables reviewsCount, reviewsDistribution and peopleAlsoSearch;
+    // the qualifying score, audit and competitor benchmark all depend on them.
     scrapePlaceDetailPage: true,
     // Real emails + socials scraped from each business's website.
     scrapeContacts: true,
+    // Recent reviews with owner-response data → real unanswered-review counts.
+    // Capped to keep credit burn low (~15 reviews/place, newest first).
+    maxReviews: 15,
+    reviewsSort: "newest",
+    reviewsStartDate: "6 months",
   };
 
   const res = await fetch(`${API_BASE}/acts/${ACTOR_ID}/runs?token=${encodeURIComponent(token)}`, {
@@ -189,6 +200,7 @@ export async function processMapsResults(
         facebook: b.facebook || null,
         google_rating: b.google_rating,
         review_count: b.review_count,
+        unanswered_reviews: b.unanswered_reviews,
         qualifying_score: b.qualifying_score,
         missing_gbp_apple: b.missing_gbp_apple,
         status: "saved" as const,
@@ -297,6 +309,27 @@ export async function fetchMapsResults(datasetId: string): Promise<MapsBusiness[
     const facebook = (item.facebooks || [])[0] || "";
     const mapsLink = item.url && /^https:\/\/(www\.)?google\.com\/maps/i.test(item.url) ? item.url : "";
 
+    // Real unanswered-review count from the recent-review sample (owner never
+    // responded). Falls back to null when no reviews were scraped.
+    const reviews = Array.isArray(item.reviews) ? item.reviews : [];
+    const unanswered =
+      reviews.length > 0
+        ? reviews.filter((r) => !r.responseFromOwnerText || !String(r.responseFromOwnerText).trim()).length
+        : null;
+
+    // Real competitor from the "People also search" panel: the local
+    // alternative with the most reviews (must exceed this place's reviews to
+    // represent an actual threat).
+    const alsoSearch = (item.peopleAlsoSearch || []).filter((p) => p.title && p.reviewsCount != null);
+    const threat = alsoSearch.length > 0
+      ? alsoSearch.reduce((a, b) => ((b.reviewsCount ?? 0) > (a.reviewsCount ?? 0) ? b : a))
+      : null;
+    const totalReviews = item.reviewsCount != null ? Number(item.reviewsCount) : null;
+    const competitor =
+      threat && (threat.reviewsCount ?? 0) > (totalReviews ?? 0)
+        ? { name: String(threat.title).trim(), reviews: Number(threat.reviewsCount) }
+        : null;
+
     out.push({
       qualifying_score: 0, // recomputed below
       missing_gbp_apple: false,
@@ -309,10 +342,10 @@ export async function fetchMapsResults(datasetId: string): Promise<MapsBusiness[
       instagram,
       facebook,
       google_rating: item.totalScore != null && !isNaN(Number(item.totalScore)) ? Number(item.totalScore) : null,
-      review_count: item.reviewsCount != null && !isNaN(Number(item.reviewsCount)) ? Number(item.reviewsCount) : null,
-      // buildBrandAudit derives the market-leader benchmark when absent.
-      competitor_name: null,
-      competitor_reviews: null,
+      review_count: totalReviews,
+      unanswered_reviews: unanswered,
+      competitor_name: competitor?.name ?? null,
+      competitor_reviews: competitor?.reviews ?? null,
     });
   }
 
@@ -322,7 +355,7 @@ export async function fetchMapsResults(datasetId: string): Promise<MapsBusiness[
     const { score, missingGbpApple } = calculateQualifyingScore({
       google_rating: b.google_rating,
       review_count: b.review_count,
-      unanswered_reviews: null,
+      unanswered_reviews: b.unanswered_reviews,
       google_maps_link: b.google_maps_link || null,
       website: b.website,
       missing_gbp_apple: false,
