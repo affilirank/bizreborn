@@ -284,12 +284,10 @@ export async function discoverEmailForBusiness(
     "contact email address info",
   ].filter(Boolean);
 
-  // Bulk enrichment / fast-track: skip AI grounding unless explicitly requested or webSearch enabled
-  if (opts?.skipAiGrounding === true && opts?.webSearch !== true) {
-    return null;
-  }
+  const useAi = opts?.skipAiGrounding !== true;
+  const useSearch = useAi || opts?.webSearch === true;
 
-  if (opts?.skipAiGrounding !== true) {
+  if (useAi) {
     try {
       const text = await callAi({
         prompt: `Target Business: ${queryParts.join(" ")}. Explicitly find the real, published public contact email address for this business from its official website, contact page, or verified business directories (e.g., Yelp, Google Maps, YellowPages, Facebook, BBB).`,
@@ -312,14 +310,14 @@ export async function discoverEmailForBusiness(
     }
   }
 
-  // 3. Last resort: hunt public search-engine results (Facebook, directory
-  //    listings, PDFs, etc.) for the email.
-  const searched = await searchWebForEmail({
-    business_name: input.business_name,
-    city: input.city,
-    website: input.website,
-  });
-  if (searched) return searched;
+  if (useSearch) {
+    const searched = await searchWebForEmail({
+      business_name: input.business_name,
+      city: input.city,
+      website: input.website,
+    });
+    if (searched) return searched;
+  }
 
   return null;
 }

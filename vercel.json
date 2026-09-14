@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/prospects/campaign/run",
+      "schedule": "0 * * * *"
+    }
+  ]
+}

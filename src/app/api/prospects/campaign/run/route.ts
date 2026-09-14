@@ -6,10 +6,26 @@ import { getProspectById } from "@/lib/prospects";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+/** Cron auth: Vercel sends Authorization: Bearer <CRON_SECRET>. */
+function isCronAuth(req: Request): boolean {
+  const auth = req.headers.get("authorization");
+  const secret = process.env.CRON_SECRET;
+  return !!secret && auth === `Bearer ${secret}`;
+}
+
 /**
- * Automated campaign dispatcher API.
- * Runs campaign advancement across all active leads (Welcome -> Pitch -> 3-Part Drip -> 100-Day Blog Newsletter sequence).
+ * Cron-triggered campaign dispatcher (Vercel Cron).
+ * Runs campaign advancement across all active leads.
  */
+export async function GET(req: Request) {
+  if (!isCronAuth(req)) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  const stats = await runAllProspectCampaigns(false);
+  return NextResponse.json({ success: true, ...stats });
+}
+
 export async function POST(req: Request) {
   if (!(await isAdminOrDemo())) {
     return NextResponse.json({ error: "Admin access required." }, { status: 401 });
