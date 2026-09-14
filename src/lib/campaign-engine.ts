@@ -35,19 +35,23 @@ export async function advanceProspectCampaign(
 
   if (!force && prospect.last_contacted_at) {
     const elapsed = Date.now() - new Date(prospect.last_contacted_at).getTime();
-    // 1 hour after welcome, then 24 hours between every other step.
-    const isWelcomeStep = stage === "welcome";
+    // The pitch is the only step that follows the welcome by 1 hour; every
+    // other step waits 24 hours (drip 1-3 and the 100-day newsletter).
+    // The welcome itself is sent at prospect creation (welcomeProspect), which
+    // already advances the stage to "pitch", so the 1h window must key on the
+    // pitch stage — not "welcome", which only exists on the rare first cron pass.
+    const isPitchStep = stage === "pitch";
     const minMs =
       process.env.NODE_ENV === "development"
         ? 30 * 1000 // 30 seconds in dev
-        : isWelcomeStep
+        : isPitchStep
           ? 1 * 60 * 60 * 1000 // 1 hour after welcome
           : 24 * 60 * 60 * 1000; // 24 hours for drip / 100-day
     if (elapsed < minMs) {
       return {
         ok: true,
         stage,
-        message: `Step too soon (pacing: ${isWelcomeStep ? "1h after welcome" : "24h between steps"}, ${Math.round((minMs - elapsed) / 60000)}m left).`,
+        message: `Step too soon (pacing: ${isPitchStep ? "1h after welcome" : "24h between steps"}, ${Math.round((minMs - elapsed) / 60000)}m left).`,
       };
     }
   }
