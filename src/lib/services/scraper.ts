@@ -133,7 +133,6 @@ const SEARCH_BLOCKED_DOMAINS = new Set([
   "manta.com",
   "google.com",
   "googleusercontent.com",
-  "gmail.google.com",
   "bing.com",
   "microsoft.com",
   "whois.com",
@@ -149,7 +148,7 @@ async function fetchSearchEngineEmails(query: string): Promise<string[]> {
   for (const engine of engines) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
       const res = await fetch(engine.url, {
         signal: controller.signal,
         redirect: "follow",
@@ -162,11 +161,24 @@ async function fetchSearchEngineEmails(query: string): Promise<string[]> {
       clearTimeout(timeoutId);
       if (!res || !res.ok) continue;
       const html = await res.text();
+      // Standard email pattern
       const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
       for (const raw of html.match(emailRegex) || []) {
         if (/\.(png|jpe?g|svg|webp|gif)$/i.test(raw)) continue;
         const norm = raw.split(" ")[0];
         if (norm && norm.includes("@")) emails.push(norm);
+      }
+      // Deobfuscate "name [at] domain [dot] com" patterns
+      const obfuscated = html
+        .replace(/<\/?[a-z][^>]*>/gi, " ")
+        .match(/([a-zA-Z0-9._%+-]+)\s*\[?at\]?\s*([a-zA-Z0-9.-]+)\s*\[?dot\]?\s*([a-zA-Z]{2,})/gi);
+      if (obfuscated) {
+        for (const token of obfuscated) {
+          const email = normalizeEmail(token.replace(/\s*\[?at\]?\s*/gi, "@").replace(/\s*\[?dot\]?\s*/gi, "."));
+          if (email && email.includes("@") && !email.endsWith(".png") && !email.endsWith(".jpg")) {
+            emails.push(email);
+          }
+        }
       }
     } catch {
       // engine blocked or hung — try the next one
@@ -195,8 +207,17 @@ async function searchWebForEmail(input: {
 
   const base = `"${input.business_name}" ${input.city}`;
   const queries = hostname
-    ? [`${base} email ${hostname}`, `${base} contact email`, `${base} email`]
-    : [`${base} contact email`, `${base} email`];
+    ? [
+        `${base} email ${hostname}`,
+        `${base} contact email`,
+        `${base} email address`,
+        `${base} appointment`,
+      ]
+    : [
+        `${base} contact email`,
+        `${base} email address`,
+        `${base} appointment`,
+      ];
 
   const deadline = Date.now() + 8000;
   const candidates = new Map<string, boolean>();

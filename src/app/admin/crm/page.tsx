@@ -239,7 +239,11 @@ export default function CrmPage() {
       } else if (json.scanned === 0) {
         setToast("No leads are missing an email.");
       } else {
-        setToast(`Email backfill: ${json.found} found, ${json.stillMissing} still missing.`);
+        let msg = `Email backfill: ${json.found} found, ${json.stillMissing} still missing.`;
+        if (json.errors && json.errors.length > 0) {
+          msg += ` Errors: ${json.errors.slice(0, 3).join("; ")}`;
+        }
+        setToast(msg);
       }
       void fetchData();
     } catch {

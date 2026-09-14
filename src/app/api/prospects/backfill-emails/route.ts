@@ -26,6 +26,7 @@ export async function POST(req: Request) {
 
   const missing = (await listProspects()).filter((p) => !p.email || !p.email.trim());
   const targets = missing.slice(0, limit);
+  const errors: string[] = [];
 
   const deadline = Date.now() + DEADLINE_MS;
   let idx = 0;
@@ -37,18 +38,24 @@ export async function POST(req: Request) {
       const i = idx++;
       if (i >= targets.length) return;
       const p = targets[i];
-      const email = await discoverEmailForBusiness(
-        {
-          business_name: p.business_name,
-          city: p.city ?? "",
-          website: p.website,
-          google_maps_link: p.google_maps_link,
-        },
-        { skipAiGrounding: true, webSearch: true },
-      );
-      if (email) {
-        await updateProspect(p.id, { email });
-        foundCount++;
+      try {
+        const email = await discoverEmailForBusiness(
+          {
+            business_name: p.business_name,
+            city: p.city ?? "",
+            website: p.website,
+            google_maps_link: p.google_maps_link,
+          },
+          { skipAiGrounding: true, webSearch: true },
+        );
+        if (email) {
+          await updateProspect(p.id, { email });
+          foundCount++;
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push(`${p.business_name}: ${msg}`);
+        console.error("[backfill] error for", p.business_name, err);
       }
     }
   }
@@ -60,5 +67,6 @@ export async function POST(req: Request) {
     found: foundCount,
     stillMissing: Math.max(0, targets.length - foundCount),
     totalMissing: missing.length,
+    errors: errors.slice(0, 5), // Show first 5 errors in response
   });
 }
