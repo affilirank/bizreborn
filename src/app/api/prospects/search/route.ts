@@ -57,13 +57,18 @@ async function runSearchPass(
         `${keyword} businesses in or very near ${city}, including smaller local operators you have not already listed.`
       : "";
 
+  // Grounding is skipped: the googleSearch tool 503s persistently for this
+  // model/key combo, wasting ~8 s per pass on a guaranteed failure before the
+  // non-grounded fallback kicks in.  Non-grounded Gemini 3.6 already returns
+  // real businesses, and discoverEmailForBusiness validates them via its own
+  // DuckDuckGo/Bing web search.
   const text = await callAi({
     prompt: `Keyword: ${keyword}, City: ${city}, Count: ${targetCount}.${varietyAddon}`,
     systemPrompt: SEARCH_SYSTEM_PROMPT,
     jsonMode: true,
     maxTokens: 6000,
-    useSearchGrounding: true,
-    timeoutMs: 8000,
+    useSearchGrounding: false,
+    timeoutMs: 12000,
   });
 
   if (!text) return [];
