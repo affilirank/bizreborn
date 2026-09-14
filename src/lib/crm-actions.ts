@@ -223,6 +223,14 @@ export async function welcomeProspect(p: Prospect): Promise<void> {
     stepLabel: "Welcome · Free Audit Incoming",
     trigger: "welcome",
   });
+
+  // Auto-advance to the next pipeline stage so the pitch email can fire
+  // on the next campaign run (or via cron). This is idempotent because
+  // welcomeProspect is already guarded by the "alreadyWelcomed" check above.
+  await updateProspect(p.id, {
+    campaign_stage: "pitch",
+    campaign_last_run_at: new Date().toISOString(),
+  });
 }
 
 /**
