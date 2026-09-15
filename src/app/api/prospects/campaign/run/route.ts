@@ -41,6 +41,25 @@ export async function GET(req: Request) {
     });
   }
 
+  // TEMPORARY repair: ?forceAdvance=1 advances every welcomed-but-stuck lead
+  // to pitch, reporting per-lead write errors so failures are visible.
+  if (new URL(req.url).searchParams.get("forceAdvance")) {
+    const { listProspects, updateProspect } = await import("@/lib/prospects");
+    const prospects = await listProspects();
+    const stuck = prospects.filter(
+      (p) => p.email && (p.campaign_stage ?? "") === "" && (p.communication_logs ?? []).some((l) => l.meta?.kind === "welcome"),
+    );
+    const results: Array<{ email: string; ok: boolean; err?: string }> = [];
+    for (const p of stuck) {
+      const res = await updateProspect(p.id, {
+        campaign_stage: "pitch",
+        campaign_last_run_at: new Date().toISOString(),
+      });
+      results.push({ email: p.email, ok: !!res, err: res ? undefined : "updateProspect returned null (DB write failed)" });
+    }
+    return NextResponse.json({ stuckCount: stuck.length, results: results.slice(0, 60) });
+  }
+
   const stats = await runAllProspectCampaigns(false);
   return NextResponse.json({ success: true, ...stats });
 }
