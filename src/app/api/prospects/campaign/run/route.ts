@@ -55,7 +55,7 @@ export async function GET(req: Request) {
         campaign_stage: "pitch",
         campaign_last_run_at: new Date().toISOString(),
       });
-      results.push({ email: p.email, ok: !!res, err: res ? undefined : "updateProspect returned null (DB write failed)" });
+      results.push({ email: p.email ?? "(none)", ok: !!res, err: res ? undefined : "updateProspect returned null (DB write failed)" });
     }
     return NextResponse.json({ stuckCount: stuck.length, results: results.slice(0, 60) });
   }
