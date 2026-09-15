@@ -61,7 +61,18 @@ export async function GET(req: Request) {
   }
 
   const stats = await runAllProspectCampaigns(false);
-  return NextResponse.json({ success: true, ...stats });
+
+  // Safety net: import any Maps scans that completed without being processed
+  // (tab closed, poll missed). Idempotent — dedupe + processed-marker.
+  let maps: { processed: Array<{ runId: string; saved: number; keyword: string; city: string }>; skipped: number } | null = null;
+  try {
+    const { reconcileRecentRuns } = await import("@/lib/services/apify-maps");
+    maps = await reconcileRecentRuns();
+  } catch (err) {
+    console.warn("[campaign] maps reconciliation failed:", err);
+  }
+
+  return NextResponse.json({ success: true, ...stats, maps });
 }
 
 export async function POST(req: Request) {

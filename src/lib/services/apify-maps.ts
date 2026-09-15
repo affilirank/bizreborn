@@ -114,48 +114,84 @@ export async function startMapsScrape(
 
   const runRef: ApifyRunRef = { runId: json.data.id as string, datasetId: (json.data.defaultDatasetId as string) || null };
 
-  // Page-independent completion: register a run webhook so the app receives the
-  // results the moment the scrape finishes — the admin gets an email with the
-  // summary and the leads land in the library even with the tab closed.
-  try {
-    await registerRunWebhook(runRef.runId, keyword, city);
-  } catch (err) {
-    console.warn("[apify] webhook registration failed (poll path still works):", err);
-  }
-
   return runRef;
 }
 
-/** Register a RUN.SUCCEEDED webhook for a specific run (per-run, auto-expires). */
-async function registerRunWebhook(runId: string, keyword: string, city: string): Promise<void> {
+/**
+ * SAFETY NET: import every recent completed Maps scan that nobody processed
+ * (admin closed the tab before the poll, webhook didn't fire, etc.).
+ *
+ * Runs from the last 24h are listed, their INPUT (keyword/city) is read from
+ * the run's own key-value store, and results go through processMapsResults —
+ * DB dedupe makes reprocessing harmless. A PROCESSED marker is written into
+ * the run's key-value store so finished runs are only fetched once.
+ *
+ * Called from the hourly campaign cron — zero extra infrastructure.
+ */
+export async function reconcileRecentRuns(): Promise<{
+  processed: Array<{ runId: string; saved: number; keyword: string; city: string }>;
+  skipped: number;
+}> {
   const token = apifyToken();
-  if (!token) throw new Error("APIFY_TOKEN not configured");
+  if (!token) return { processed: [], skipped: 0 };
 
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
-  const secret = process.env.CRON_SECRET || "";
-  if (!secret) return; // nothing to authenticate the callback with
+  const startedAfter = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const res = await fetch(
+    `${API_BASE}/acts/${ACTOR_ID}/runs?token=${encodeURIComponent(token)}&limit=10&startedAfter=${startedAfter}&status=SUCCEEDED`,
+  );
+  const json = await res.json().catch(() => ({}));
+  const runs: Array<{ id: string; defaultDatasetId: string; defaultKeyValueStoreId: string }> =
+    json?.data?.items ?? [];
 
-  const payloadUrl = `${base}/api/prospects/search/webhook?key=${encodeURIComponent(secret)}` +
-    `&keyword=${encodeURIComponent(keyword)}&city=${encodeURIComponent(city)}`;
+  const processed: Array<{ runId: string; saved: number; keyword: string; city: string }> = [];
+  let skipped = 0;
 
-  await fetch(`${API_BASE}/webhooks`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({
-      data: {
-        event: "RUN.SUCCEEDED",
-        runId,
-        payloadUrl,
-        // One-shot: expire an hour after expected completion.
-        expireAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
-      },
-    }),
-  }).then(async (res) => {
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      throw new Error(`webhook register HTTP ${res.status}: ${body.slice(0, 150)}`);
+  for (const run of runs.slice(0, 5)) {
+    const kvsId = run.defaultKeyValueStoreId;
+    if (!kvsId || !run.defaultDatasetId) continue;
+
+    // Already imported? (marker written after the first successful import)
+    try {
+      const marker = await fetch(
+        `${API_BASE}/key-value-stores/${kvsId}/records/PROCESSED_BY_BIZREBORN?token=${encodeURIComponent(token)}`,
+      );
+      if (marker.ok) {
+        skipped++;
+        continue;
+      }
+    } catch {
+      // marker check failure → reprocess (safe, deduped)
     }
-  });
+
+    let keyword = "local businesses";
+    let city = "";
+    try {
+      const inputRes = await fetch(
+        `${API_BASE}/key-value-stores/${kvsId}/records/INPUT?token=${encodeURIComponent(token)}`,
+      );
+      if (inputRes.ok) {
+        const input = await inputRes.json();
+        keyword = (input?.searchStringsArray ?? [])[0] || keyword;
+        city = String(input?.locationQuery ?? "");
+      }
+    } catch {
+      // fall back to generic labels
+    }
+
+    try {
+      const result = await processMapsResults(run.defaultDatasetId, keyword, city);
+      processed.push({ runId: run.id, saved: result.saved, keyword, city });
+      await fetch(`${API_BASE}/key-value-stores/${kvsId}/records/PROCESSED_BY_BIZREBORN?token=${encodeURIComponent(token)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ processedAt: new Date().toISOString(), saved: result.saved }),
+      }).catch(() => {});
+    } catch (err) {
+      console.warn("[apify] reconcile failed for run", run.id, err);
+    }
+  }
+
+  return { processed, skipped };
 }
 
 /** Webhook auth: the payload URL carries the CRON_SECRET as ?key=. */
