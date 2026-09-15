@@ -154,6 +154,15 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
   if (smtpHost && smtpUser && smtpPass) {
     try {
       const nodemailer = (await import("nodemailer")).default;
+      // Gmail only permits sending from the authenticated account or a
+      // verified alias — default the From to the SMTP user unless an explicit
+      // SMTP_FROM override is set.
+      const isGmail = /gmail|googlemail/i.test(smtpHost);
+      const fromAddr = process.env.SMTP_FROM || (isGmail ? smtpUser : fromEmail);
+      const senderMatch = fromAddr.match(/^(.*?)\s*<(.+)>$/) || [];
+      const displayFrom = fromAddr.includes("<")
+        ? fromAddr
+        : `"${senderMatch[1] || "Biz Reborn Marketing"}" <${senderMatch[2] || fromAddr}>`;
       const transport = nodemailer.createTransport({
         host: smtpHost,
         port: Number(process.env.SMTP_PORT || 587),
@@ -161,7 +170,7 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
         auth: { user: smtpUser, pass: smtpPass },
       });
       const sent = await transport.sendMail({
-        from: fromEmail.includes("<") ? fromEmail : `"Biz Reborn Marketing" <${smtpUser}>`,
+        from: displayFrom,
         to: prospect.email,
         subject: cleanSubject,
         html: htmlWithPixel,
