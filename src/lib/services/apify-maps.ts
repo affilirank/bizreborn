@@ -146,7 +146,9 @@ export async function reconcileRecentRuns(): Promise<{
   const processed: Array<{ runId: string; saved: number; keyword: string; city: string }> = [];
   let skipped = 0;
 
-  for (const run of runs.slice(0, 5)) {
+  // Max 2 runs per pass — the campaign cron runs hourly, so a backlog clears
+  // quickly while every pass stays safely inside the 60s function budget.
+  for (const run of runs.slice(0, 2)) {
     const kvsId = run.defaultKeyValueStoreId;
     if (!kvsId || !run.defaultDatasetId) continue;
 
@@ -220,11 +222,11 @@ export async function processMapsResults(
   const businesses = await fetchMapsResults(datasetId);
 
   // Email backfill for places where Apify's website enrichment found nothing:
-  // 5 workers × 10s per-lead timeout keeps even a 50-lead batch inside the
+  // 8 workers × 6s per-lead timeout keeps even a 50-lead batch well inside the
   // 60s serverless budget.
   const needEmail = businesses.filter((b) => !b.email && b.website);
   if (needEmail.length > 0) {
-    const PER_LEAD_TIMEOUT_MS = 10000;
+    const PER_LEAD_TIMEOUT_MS = 6000;
     const queue = [...needEmail];
     const worker = async () => {
       while (queue.length > 0) {
@@ -248,7 +250,7 @@ export async function processMapsResults(
         }
       }
     };
-    await Promise.all(Array.from({ length: 5 }, () => worker()));
+    await Promise.all(Array.from({ length: 8 }, () => worker()));
   }
 
   // Keep only leads with a deliverable email — the campaign engine is
