@@ -133,8 +133,10 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
   const htmlWithPixel = injectTrackingPixel(cleanHtml, trackingUid);
 
   const resendKey = process.env.RESEND_API_KEY;
-  const brevoKey = process.env.BREVO_API_KEY;
+  const mjPublicKey = process.env.MJ_API_KEY_PUBLIC;
+  const mjPrivateKey = process.env.MJ_API_KEY_PRIVATE;
   const brevoSmtpKey = process.env.BREVO_SMTP_KEY;
+  const brevoKey = process.env.BREVO_API_KEY;
   const fromEmail = process.env.EMAIL_FROM || `Biz Reborn Marketing <hello@bizreborn.com>`;
   // Every prospect reply should land in the operator's real inbox, not a
   // brand-only From address that may have no mailbox behind it.
@@ -144,9 +146,41 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
   let simulated = false;
   let error: string | undefined;
 
-  // Brevo SMTP relay first (300/day, no IP restriction — the Brevo API blocks
-  // serverless IPs). Falls back to the Brevo API, then Resend.
-  if (brevoSmtpKey) {
+  // Mailjet first when configured (200/day free, no IP restrictions).
+  if (mjPublicKey && mjPrivateKey) {
+    try {
+      const senderMatch = fromEmail.match(/^(.*?)\s*<(.+)>$/) || [];
+      const senderEmail = senderMatch[2] || fromEmail;
+      const senderName = senderMatch[1] || "Biz Reborn Marketing";
+      const auth = Buffer.from(`${mjPublicKey}:${mjPrivateKey}`).toString("base64");
+      const res = await fetch("https://api.mailjet.com/v3.1/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Basic ${auth}`,
+        },
+        body: JSON.stringify({
+          Messages: [
+            {
+              From: { Email: senderEmail, Name: senderName },
+              To: [{ Email: prospect.email }],
+              Subject: cleanSubject,
+              HTMLPart: htmlWithPixel,
+            },
+          ],
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const msg = data?.Messages?.[0];
+      if (res.ok && msg?.Status === "ok") {
+        messageId = msg?.MessageID ? String(msg.MessageID) : undefined;
+      } else {
+        error = data?.ErrorMessage || data?.Messages?.[0]?.Errors?.[0]?.ErrorMessage || `Mailjet failed (HTTP ${res.status}).`;
+      }
+    } catch (err) {
+      error = err instanceof Error ? err.message : "Mailjet exception";
+    }
+  } else if (brevoSmtpKey) {
     try {
       const nodemailer = (await import("nodemailer")).default;
       const senderMatch = fromEmail.match(/^(.*?)\s*<(.+)>$/) || [];
@@ -245,7 +279,7 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
       ? "simulated (no email provider key)"
       : error
         ? `send ERROR: ${error}`
-        : `sent via ${brevoSmtpKey ? "Brevo SMTP" : brevoKey ? "Brevo" : "Resend"}${messageId ? ` #${messageId.slice(0, 12)}` : ""}`,
+        : `sent via ${mjPublicKey ? "Mailjet" : brevoSmtpKey ? "Brevo SMTP" : brevoKey ? "Brevo" : "Resend"}${messageId ? ` #${messageId.slice(0, 12)}` : ""}`,
   ].join(" ");
 
   const updated = await applyContactLog(
@@ -368,15 +402,17 @@ export function recordSendToday(): void {
 }
 
 /** Budget for automated campaign steps — sized to the active provider's free
- *  tier (Brevo 300/day via SMTP or API, Resend 100/day), minus headroom. */
+ *  tier (Mailjet 200/day, Brevo 300/day, Resend 100/day), minus headroom. */
 export function campaignDailyBudget(): number {
   if (process.env.DAILY_EMAIL_BUDGET) return Number(process.env.DAILY_EMAIL_BUDGET);
+  if (process.env.MJ_API_KEY_PUBLIC) return 180;
   return process.env.BREVO_SMTP_KEY || process.env.BREVO_API_KEY ? 270 : 80;
 }
 
 /** Cap for visitor/user-triggered welcome sends (keeps final slots free). */
 export function welcomeDailyCap(): number {
   if (process.env.DAILY_EMAIL_BUDGET) return Number(process.env.DAILY_EMAIL_BUDGET) + 15;
+  if (process.env.MJ_API_KEY_PUBLIC) return 195;
   return process.env.BREVO_SMTP_KEY || process.env.BREVO_API_KEY ? 290 : 95;
 }
 
