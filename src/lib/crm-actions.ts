@@ -133,6 +133,7 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
   const htmlWithPixel = injectTrackingPixel(cleanHtml, trackingUid);
 
   const resendKey = process.env.RESEND_API_KEY;
+  const brevoKey = process.env.BREVO_API_KEY;
   const fromEmail = process.env.EMAIL_FROM || `Biz Reborn Marketing <hello@bizreborn.com>`;
   // Every prospect reply should land in the operator's real inbox, not a
   // brand-only From address that may have no mailbox behind it.
@@ -142,7 +143,36 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
   let simulated = false;
   let error: string | undefined;
 
-  if (resendKey) {
+  // Brevo first when configured (free tier: 300/day vs Resend's 100/day).
+  if (brevoKey) {
+    try {
+      const senderMatch = fromEmail.match(/^(.*?)\s*<(.+)>$/) || [];
+      const senderEmail = senderMatch[2] || fromEmail;
+      const senderName = senderMatch[1] || "Biz Reborn Marketing";
+      const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "api-key": brevoKey,
+        },
+        body: JSON.stringify({
+          sender: { name: senderName, email: senderEmail },
+          to: [{ email: prospect.email }],
+          subject: cleanSubject,
+          htmlContent: htmlWithPixel,
+          replyTo: { email: replyTo },
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        messageId = data?.messageId || undefined;
+      } else {
+        error = data?.message ?? `Brevo failed to deliver email (HTTP ${res.status}).`;
+      }
+    } catch (err) {
+      error = err instanceof Error ? err.message : "Brevo exception";
+    }
+  } else if (resendKey) {
     try {
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -186,10 +216,10 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
     stepLabel ? `${stepLabel} · ` : "",
     `"${cleanSubject}"`,
     simulated
-      ? "simulated (RESEND_API_KEY missing)"
+      ? "simulated (no email provider key)"
       : error
         ? `send ERROR: ${error}`
-        : `sent via Resend${messageId ? ` #${messageId.slice(0, 12)}` : ""}`,
+        : `sent via ${brevoKey ? "Brevo" : "Resend"}${messageId ? ` #${messageId.slice(0, 12)}` : ""}`,
   ].join(" ");
 
   const updated = await applyContactLog(
@@ -216,10 +246,10 @@ export async function welcomeProspect(p: Prospect): Promise<void> {
   if (alreadyWelcomed) return;
 
   // Reserve the last slots of the daily limit for human-triggered/visitor
-  // sends; the campaign budget (80) stops well before this.
+  // sends; the campaign budget stops well before this.
   const sentToday = await emailsSentToday();
-  if (sentToday >= 95) {
-    console.warn(`[welcome] daily send limit nearly reached (${sentToday}/100) — skipping welcome for ${p.business_name}`);
+  if (sentToday >= welcomeDailyCap()) {
+    console.warn(`[welcome] daily send cap reached (${sentToday}) — skipping welcome for ${p.business_name}`);
     return;
   }
 
@@ -311,9 +341,17 @@ export function recordSendToday(): void {
   }
 }
 
-/** Budget for automated campaign steps (leaves headroom for manual sends). */
+/** Budget for automated campaign steps — sized to the active provider's free
+ *  tier (Brevo 300/day, Resend 100/day), minus headroom. */
 export function campaignDailyBudget(): number {
-  return Number(process.env.DAILY_EMAIL_BUDGET || 80);
+  if (process.env.DAILY_EMAIL_BUDGET) return Number(process.env.DAILY_EMAIL_BUDGET);
+  return process.env.BREVO_API_KEY ? 270 : 80;
+}
+
+/** Cap for visitor/user-triggered welcome sends (keeps final slots free). */
+export function welcomeDailyCap(): number {
+  if (process.env.DAILY_EMAIL_BUDGET) return Number(process.env.DAILY_EMAIL_BUDGET) + 15;
+  return process.env.BREVO_API_KEY ? 290 : 95;
 }
 
 /**
