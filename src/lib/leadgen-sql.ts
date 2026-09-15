@@ -49,6 +49,8 @@ alter table public.prospects add column if not exists recommended_services integ
 alter table public.prospects add column if not exists google_maps_link text;
 alter table public.prospects add column if not exists qualifying_score integer;
 alter table public.prospects add column if not exists missing_gbp_apple boolean;
+alter table public.prospects add column if not exists campaign_stage text;
+alter table public.prospects add column if not exists campaign_last_run_at timestamptz;
 
 create index if not exists prospects_status_idx on public.prospects (status);
 create index if not exists prospects_slug_idx on public.prospects (slug);

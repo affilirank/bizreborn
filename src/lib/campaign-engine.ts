@@ -64,6 +64,19 @@ export async function advanceProspectCampaign(
   let stepLabel = "";
 
   if (stage === "welcome" || !stage) {
+    // Idempotency: if a welcome email was already delivered (e.g. sent at
+    // lead creation by welcomeProspect) just advance the stage — never
+    // re-send. Without this, leads whose stage was lost re-welcome forever.
+    const alreadyWelcomed = (prospect.communication_logs ?? []).some(
+      (l) => l.meta?.kind === "welcome",
+    );
+    if (alreadyWelcomed) {
+      await updateProspect(prospect.id, {
+        campaign_stage: "pitch",
+        campaign_last_run_at: new Date().toISOString(),
+      });
+      return { ok: true, stage: "pitch", message: "Welcome already sent — advanced to pitch." };
+    }
     const competitor = prospect.competitor_name ?? "the local market leader";
     subject = `Great news, ${prospect.business_name} — your free audit is on the way! 🎉`;
     body = `Hi ${prospect.business_name} team,\n\nWelcome to Biz Reborn! We just added ${prospect.business_name} to our audit queue — your FREE local growth audit is being compiled right now.\n\nIt covers your Google map-pack standing vs ${competitor}, your review scorecard, unanswered-review leaks, and the exact fixes to lock in your Top 3 spot.\n\nYour audit link lands right back in this inbox within the next hour. Keep an eye out — it includes a 45-second video walkthrough built just for ${prospect.business_name}.\n\nNo strings, no cost. If your listings are already perfect, you'll know in 60 seconds.`;
