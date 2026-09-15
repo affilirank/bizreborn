@@ -33,8 +33,10 @@ export async function GET(req: Request) {
         status: p.status,
         stage: p.campaign_stage,
         last_contacted_at: p.last_contacted_at,
+        updated_at: p.updated_at,
         logs: (p.communication_logs ?? []).length,
         welcomeLogs: (p.communication_logs ?? []).filter((l) => l.meta?.kind === "welcome").length,
+        lastLogAt: (p.communication_logs ?? [])[0]?.meta?.sent_at ?? (p.communication_logs ?? [])[0]?.date ?? null,
       })),
     });
   }
