@@ -1,7 +1,7 @@
 import "server-only";
 import type { Prospect } from "@/lib/supabase-types";
 import { updateProspect, getProspectById } from "@/lib/prospects";
-import { deliverEmail } from "@/lib/crm-actions";
+import { deliverEmail, emailsSentToday, campaignDailyBudget } from "@/lib/crm-actions";
 import { renderProfessionalEmailHtml } from "@/lib/email-template";
 import { fetchPublishedPosts } from "@/lib/blog-db";
 import { canReceiveEmail } from "@/lib/services/email-validate";
@@ -54,6 +54,18 @@ export async function advanceProspectCampaign(
         message: `Step too soon (pacing: ${isPitchStep ? "1h after welcome" : "24h between steps"}, ${Math.round((minMs - elapsed) / 60000)}m left).`,
       };
     }
+  }
+
+  // Daily send budget (Resend free tier = 100/day). When exhausted, pause the
+  // lead at its CURRENT stage — the next day's run retries the same step.
+  const budget = campaignDailyBudget();
+  const sentToday = await emailsSentToday();
+  if (sentToday >= budget) {
+    return {
+      ok: true,
+      stage,
+      message: `Daily email budget reached (${sentToday}/${budget}) — ${stepLabelOrStage(stage)} resumes tomorrow.`,
+    };
   }
 
   let nextStage = stage;
@@ -174,6 +186,14 @@ export async function advanceProspectCampaign(
     message: res.error || `Successfully sent campaign step: ${stepLabel}`,
     prospect: updated,
   };
+}
+
+/** Human-readable label for budget-skip messages. */
+function stepLabelOrStage(stage: string): string {
+  if (stage === "pitch") return "pitch";
+  if (stage.startsWith("drip_")) return `drip step ${stage.replace("drip_", "")}`;
+  if (stage.startsWith("blog_")) return `newsletter day ${stage.replace("blog_", "")}`;
+  return stage || "welcome";
 }
 
 export async function runAllProspectCampaigns(force = false): Promise<{

@@ -198,6 +198,8 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
     error ? null : (trigger ?? null),
   );
 
+  if (!error && !simulated) recordSendToday();
+
   return { ok: !error, simulated, messageId, trackingUid, error, prospect: updated };
 }
 
@@ -212,6 +214,14 @@ export async function welcomeProspect(p: Prospect): Promise<void> {
     (l) => logMeta(l).kind === "welcome",
   );
   if (alreadyWelcomed) return;
+
+  // Reserve the last slots of the daily limit for human-triggered/visitor
+  // sends; the campaign budget (80) stops well before this.
+  const sentToday = await emailsSentToday();
+  if (sentToday >= 95) {
+    console.warn(`[welcome] daily send limit nearly reached (${sentToday}/100) — skipping welcome for ${p.business_name}`);
+    return;
+  }
 
   const subject = `Great news, ${p.business_name} — your free audit is on the way! 🎉`;
   const competitor = p.competitor_name ?? "the local market leader";
@@ -260,6 +270,51 @@ export function makeContactLog(opts: {
 }
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+/**
+ * Daily send accounting (Resend free tier = 100 emails/day).
+ *
+ * Counts real "sent" email events from prospect communication logs for the
+ * current UTC day, cached per instance for the duration of a batch. Each
+ * serverless instance counts independently — the budget is set well below the
+ * hard limit to absorb that skew.
+ */
+const DAILY_SEND_CACHE: { date: string; count: number } = { date: "", count: 0 };
+
+export async function emailsSentToday(): Promise<number> {
+  const today = new Date().toISOString().slice(0, 10);
+  if (DAILY_SEND_CACHE.date === today) return DAILY_SEND_CACHE.count;
+
+  const { listProspects } = await import("@/lib/prospects");
+  const prospects = await listProspects();
+  let count = 0;
+  for (const p of prospects) {
+    for (const l of p.communication_logs ?? []) {
+      const sentAt = l.meta?.sent_at;
+      if (l.meta?.status === "sent" && typeof sentAt === "string" && sentAt.slice(0, 10) === today) {
+        count++;
+      }
+    }
+  }
+  DAILY_SEND_CACHE.date = today;
+  DAILY_SEND_CACHE.count = count;
+  return count;
+}
+
+/** Count a just-sent email toward today's budget. */
+export function recordSendToday(): void {
+  const today = new Date().toISOString().slice(0, 10);
+  if (DAILY_SEND_CACHE.date === today) DAILY_SEND_CACHE.count++;
+  else {
+    DAILY_SEND_CACHE.date = today;
+    DAILY_SEND_CACHE.count = 1;
+  }
+}
+
+/** Budget for automated campaign steps (leaves headroom for manual sends). */
+export function campaignDailyBudget(): number {
+  return Number(process.env.DAILY_EMAIL_BUDGET || 80);
+}
 
 /**
  * Fires the instant welcome email for every newly-created lead that has a
