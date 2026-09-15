@@ -133,6 +133,9 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
   const htmlWithPixel = injectTrackingPixel(cleanHtml, trackingUid);
 
   const resendKey = process.env.RESEND_API_KEY;
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
   const mjPublicKey = process.env.MJ_API_KEY_PUBLIC;
   const mjPrivateKey = process.env.MJ_API_KEY_PRIVATE;
   const brevoSmtpKey = process.env.BREVO_SMTP_KEY;
@@ -146,8 +149,29 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
   let simulated = false;
   let error: string | undefined;
 
-  // Mailjet first when configured (200/day free, no IP restrictions).
-  if (mjPublicKey && mjPrivateKey) {
+  // Generic SMTP first (Gmail app password ~500/day, Workspace ~2,000/day —
+  // the cold-email standard; Google tolerates B2B outreach ESPs don't).
+  if (smtpHost && smtpUser && smtpPass) {
+    try {
+      const nodemailer = (await import("nodemailer")).default;
+      const transport = nodemailer.createTransport({
+        host: smtpHost,
+        port: Number(process.env.SMTP_PORT || 587),
+        secure: Number(process.env.SMTP_PORT || 587) === 465,
+        auth: { user: smtpUser, pass: smtpPass },
+      });
+      const sent = await transport.sendMail({
+        from: fromEmail.includes("<") ? fromEmail : `"Biz Reborn Marketing" <${smtpUser}>`,
+        to: prospect.email,
+        subject: cleanSubject,
+        html: htmlWithPixel,
+        replyTo,
+      });
+      messageId = sent?.messageId || undefined;
+    } catch (err) {
+      error = err instanceof Error ? err.message : "SMTP exception";
+    }
+  } else if (mjPublicKey && mjPrivateKey) {
     try {
       const senderMatch = fromEmail.match(/^(.*?)\s*<(.+)>$/) || [];
       const senderEmail = senderMatch[2] || fromEmail;
@@ -279,7 +303,7 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
       ? "simulated (no email provider key)"
       : error
         ? `send ERROR: ${error}`
-        : `sent via ${mjPublicKey ? "Mailjet" : brevoSmtpKey ? "Brevo SMTP" : brevoKey ? "Brevo" : "Resend"}${messageId ? ` #${messageId.slice(0, 12)}` : ""}`,
+        : `sent via ${smtpHost ? "SMTP" : mjPublicKey ? "Mailjet" : brevoSmtpKey ? "Brevo SMTP" : brevoKey ? "Brevo" : "Resend"}${messageId ? ` #${messageId.slice(0, 12)}` : ""}`,
   ].join(" ");
 
   const updated = await applyContactLog(
@@ -401,10 +425,12 @@ export function recordSendToday(): void {
   }
 }
 
-/** Budget for automated campaign steps — sized to the active provider's free
- *  tier (Mailjet 200/day, Brevo 300/day, Resend 100/day), minus headroom. */
+/** Budget for automated campaign steps — sized to the active provider's daily
+ *  tolerance (Gmail SMTP ~500/day, Mailjet 200/day, Brevo 300/day, Resend
+ *  100/day), minus headroom. */
 export function campaignDailyBudget(): number {
   if (process.env.DAILY_EMAIL_BUDGET) return Number(process.env.DAILY_EMAIL_BUDGET);
+  if (process.env.SMTP_HOST) return 450;
   if (process.env.MJ_API_KEY_PUBLIC) return 180;
   return process.env.BREVO_SMTP_KEY || process.env.BREVO_API_KEY ? 270 : 80;
 }
@@ -412,6 +438,7 @@ export function campaignDailyBudget(): number {
 /** Cap for visitor/user-triggered welcome sends (keeps final slots free). */
 export function welcomeDailyCap(): number {
   if (process.env.DAILY_EMAIL_BUDGET) return Number(process.env.DAILY_EMAIL_BUDGET) + 15;
+  if (process.env.SMTP_HOST) return 480;
   if (process.env.MJ_API_KEY_PUBLIC) return 195;
   return process.env.BREVO_SMTP_KEY || process.env.BREVO_API_KEY ? 290 : 95;
 }
