@@ -22,6 +22,23 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
+  // TEMPORARY diagnostic: ?debug=1 dumps per-lead campaign state (no sends).
+  if (new URL(req.url).searchParams.get("debug")) {
+    const { listProspects } = await import("@/lib/prospects");
+    const prospects = await listProspects();
+    return NextResponse.json({
+      count: prospects.length,
+      leads: prospects.slice(0, 300).map((p) => ({
+        email: p.email,
+        status: p.status,
+        stage: p.campaign_stage,
+        last_contacted_at: p.last_contacted_at,
+        logs: (p.communication_logs ?? []).length,
+        welcomeLogs: (p.communication_logs ?? []).filter((l) => l.meta?.kind === "welcome").length,
+      })),
+    });
+  }
+
   const stats = await runAllProspectCampaigns(false);
   return NextResponse.json({ success: true, ...stats });
 }
