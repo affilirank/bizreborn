@@ -16,6 +16,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [password, setPassword] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
+  const [signedUp, setSignedUp] = React.useState(false);
   const isLogin = mode === "login";
 
   const submit = async (e: React.FormEvent) => {
@@ -32,11 +33,19 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           const { error } = await supabase.auth.signUp({
             email,
             password,
-            options: { emailRedirectTo: "/dashboard" },
+            // Supabase requires an absolute URL — a relative path makes the
+            // confirmation link land on the Supabase domain (404).
+            options: {
+              emailRedirectTo: `${window.location.origin}/dashboard`,
+            },
           });
           if (error) throw error;
+          setSignedUp(true);
+          return;
         }
-        router.push("/dashboard");
+        // Honor ?next= from the auth proxy (e.g. ?next=/admin after a bounce).
+        const next = new URLSearchParams(window.location.search).get("next");
+        router.push(next && next.startsWith("/") ? next : "/dashboard");
         router.refresh();
       } else {
         // Demo mode
@@ -64,6 +73,27 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     router.push("/dashboard");
     router.refresh();
   };
+
+  if (signedUp) {
+    return (
+      <div className="relative flex min-h-screen items-center justify-center px-4 py-20">
+        <div className="card-obsidian relative w-full max-w-md rounded-3xl p-8 text-center">
+          <Mail className="mx-auto h-10 w-10 text-brand-400" />
+          <h1 className="mt-4 font-display text-2xl font-bold text-white">Check your inbox</h1>
+          <p className="mt-2 text-sm text-fog">
+            We sent a confirmation link to <span className="font-semibold text-white">{email}</span>.
+            Click it, then sign in here.
+          </p>
+          <button
+            onClick={() => { setSignedUp(false); setEmail(""); setPassword(""); }}
+            className="mt-6 text-xs font-semibold text-brand-300 hover:text-white"
+          >
+            Back to sign in
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex min-h-screen items-center justify-center px-4 py-20">
