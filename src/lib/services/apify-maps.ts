@@ -75,6 +75,96 @@ interface ApifyRunRef {
   datasetId: string | null;
 }
 
+/**
+ * Fast single-place lookup for the audit pipeline: one search string, one
+ * place, detail page for real competitors + unanswered reviews, no contacts
+ * (email discovery is handled separately by the caller). Resolves within the
+ * caller's time budget — single-place runs typically finish in 15-30s. Returns
+ * null (and aborts the run) when the budget is exhausted so credits aren't
+ * burned on a result nobody will wait for.
+ */
+export async function lookupPlaceLive(
+  name: string,
+  city: string,
+  budgetMs = 35000,
+): Promise<ApifyPlace | null> {
+  const token = apifyToken();
+  if (!token) return null;
+  try {
+    const input = {
+      searchStringsArray: [`${name} ${city}`.trim()],
+      locationQuery: city || undefined,
+      maxCrawledPlacesPerSearch: 1,
+      language: "en",
+      skipClosedPlaces: false,
+      scrapePlaceDetailPage: true,
+      scrapeContacts: false,
+      maxReviews: 15,
+      reviewsSort: "newest",
+    };
+    const res = await fetch(`${API_BASE}/acts/${ACTOR_ID}/runs?token=${encodeURIComponent(token)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const json = await res.json().catch(() => ({}));
+    const runId: string | undefined = json?.data?.id;
+    if (!res.ok || !runId) return null;
+
+    const started = Date.now();
+    while (Date.now() - started < budgetMs) {
+      await new Promise((r) => setTimeout(r, 3000));
+      const st = await fetch(`${API_BASE}/acts/${ACTOR_ID}/runs/${encodeURIComponent(runId)}?token=${encodeURIComponent(token)}`);
+      const stJson = await st.json().catch(() => ({}));
+      const status = stJson?.data?.status as string | undefined;
+      if (status === "SUCCEEDED") {
+        const ds = (stJson?.data?.defaultDatasetId as string) || "";
+        if (!ds) return null;
+        const items = await fetch(`https://api.apify.com/v2/datasets/${ds}/items?token=${encodeURIComponent(token)}`);
+        const rows = await items.json().catch(() => []);
+        const places = Array.isArray(rows) ? (rows as ApifyPlace[]) : [];
+        return pickBestPlace(places, name, city);
+      }
+      if (status === "FAILED" || status === "ABORTED" || status === "TIMED-OUT") return null;
+    }
+
+    // Budget exhausted — abort so the run doesn't burn the free credit.
+    void fetch(`${API_BASE}/acts/runs/${runId}/abort?token=${encodeURIComponent(token)}`, {
+      method: "POST",
+    }).catch(() => {});
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Best-matching place for a business name (exact > substring), city-boosted.
+ *  Requires at least one shared name token (>=3 chars) so a wrong business
+ *  never silently substitutes for the target — null means "not found, fall
+ *  back". */
+function pickBestPlace(places: ApifyPlace[], name: string, city: string): ApifyPlace | null {
+  if (places.length === 0) return null;
+  const tokens = (s?: string) =>
+    (s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").split(" ").filter((t) => t.length >= 3);
+  const target = new Set(tokens(name));
+  const cityN = (city || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  let best: ApifyPlace | null = null;
+  let bestScore = 0;
+  for (const p of places) {
+    if (p.permanentlyClosed || p.temporarilyClosed) continue;
+    const pn = tokens(p.title);
+    const overlap = pn.filter((t) => target.has(t)).length;
+    if (overlap === 0) continue;
+    let score = overlap;
+    if (cityN && (p.city || p.address || "").toLowerCase().includes(cityN)) score += 1;
+    if (score > bestScore) {
+      bestScore = score;
+      best = p;
+    }
+  }
+  return best;
+}
+
 /** Start an async Apify run. Returns immediately with the run reference. */
 export async function startMapsScrape(
   keyword: string,
