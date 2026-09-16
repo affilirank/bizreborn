@@ -30,6 +30,7 @@ import {
   PhoneCall,
   Volume2,
   MapPin,
+  Eye,
 } from "lucide-react";
 import type { Prospect } from "@/lib/supabase-types";
 import type { ProspectStoreStatus } from "@/lib/prospects";
@@ -71,6 +72,44 @@ function absPitch(p: Prospect) {
 function emailSubject(p: Prospect) {
   return `Your Growth Audit: ${p.business_name} \u00d7 Biz Reborn Marketing`;
 }
+
+// Per-lead campaign email status derived from communication logs.
+// Returns null when no automated email has been sent yet.
+function campaignEmailStatus(p: Prospect): {
+  stage: string;
+  kind: string;
+  sent: boolean;
+  opened: boolean;
+  opens: number;
+  openedAt: string | null;
+} | null {
+  const logs = p.communication_logs ?? [];
+  const automation = [
+    ...["welcome", "pitch", "drip_1", "drip_2", "drip_3"].map(
+      (k) => logs.find((l) => (l.meta?.kind ?? "") === k),
+    ),
+  ].filter(Boolean) as typeof logs;
+  const last = automation[automation.length - 1];
+  if (!last) return null;
+  const m = last.meta ?? {};
+  return {
+    stage: (p.campaign_stage ?? m.kind ?? "welcome") as string,
+    kind: (m.kind ?? "email") as string,
+    sent: m.status === "sent" || m.status === "bounced",
+    opened: Boolean(m.opened) || Number(m.opens ?? 0) > 0,
+    opens: Number(m.opens ?? 0),
+    openedAt: (m.opened_at ?? m.last_opened_at ?? null) as string | null,
+  };
+}
+
+const CAMPAIGN_STAGE_LABEL: Record<string, string> = {
+  welcome: "Welcome",
+  pitch: "Pitch",
+  drip_1: "Drip 1",
+  drip_2: "Drip 2",
+  drip_3: "Drip 3",
+  done: "Done",
+};
 
 function emailPlain(p: Prospect) {
   const url = absPitch(p);
@@ -1034,6 +1073,37 @@ function ProspectRow({
               Top flaw: {p.audit_report.pain_points[0].replace(/\s*\([^)]*service #\d+[^)]*\)/gi, "")}
             </p>
           )}
+
+          {(() => {
+            const cs = campaignEmailStatus(p);
+            if (!cs) return null;
+            return (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 rounded-full border border-ink-700 bg-ink-800/50 px-2 py-0.5 text-[10px] font-semibold text-ink-200">
+                  <Mail size={10} className="text-brand-400" />
+                  {CAMPAIGN_STAGE_LABEL[cs.stage] ?? cs.stage}
+                </span>
+                {cs.sent ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-glow-500/30 bg-glow-500/10 px-2 py-0.5 text-[10px] font-medium text-glow-400">
+                    ✓ sent
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-ink-700 bg-ink-850/60 px-2 py-0.5 text-[10px] font-medium text-ink-400">
+                    pending
+                  </span>
+                )}
+                {cs.opened ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                    <Eye size={10} /> {cs.opens}× {cs.openedAt ? new Date(cs.openedAt).toLocaleDateString() : ""}
+                  </span>
+                ) : cs.sent ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-ink-700 bg-ink-850/60 px-2 py-0.5 text-[10px] font-medium text-ink-400">
+                    not opened yet
+                  </span>
+                ) : null}
+              </div>
+            );
+          })()}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-medium capitalize ${badge.cls}`}>
