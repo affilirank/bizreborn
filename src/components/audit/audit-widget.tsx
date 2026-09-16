@@ -336,9 +336,13 @@ export function AuditWidget() {
                   required
                   value={input.city ?? ""}
                   onChange={(e) => setInput({ ...input, city: e.target.value })}
-                  placeholder="e.g. Miami, FL"
+                  placeholder="e.g. Spring Hill, FL — include the state"
                   className={inputCls}
                 />
+                <p className="mt-1 text-[11px] text-mute">
+                  Many cities share a name — adding the state (e.g. "Springfield, IL") makes
+                  sure we audit the right city&apos;s Google listings.
+                </p>
               </div>
 
               <div>

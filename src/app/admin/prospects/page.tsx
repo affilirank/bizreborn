@@ -712,7 +712,7 @@ export default function ProspectsAdmin() {
             <p className="text-sm font-semibold text-white">Add a business manually</p>
             <div className="mt-3 space-y-2">
               <Input value={manual.business_name} onChange={(v) => setManual({ ...manual, business_name: v })} placeholder="Business name *" />
-              <Input value={manual.city} onChange={(v) => setManual({ ...manual, city: v })} placeholder="City" />
+              <Input value={manual.city} onChange={(v) => setManual({ ...manual, city: v })} placeholder="City, ST (e.g. Spring Hill, FL)" />
               <Input value={manual.website} onChange={(v) => setManual({ ...manual, website: v })} placeholder="Website" />
               <Input value={manual.google_maps_link} onChange={(v) => setManual({ ...manual, google_maps_link: v })} placeholder="Google Maps / GBP Link" />
               <Input value={manual.email} onChange={(v) => setManual({ ...manual, email: v })} placeholder="Email (for proposal)" />
@@ -1437,7 +1437,7 @@ function EditModal({
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
             <label className="text-[11px] text-ink-400">Business Name</label>
-            <Input value={form.business_name} onChange={(v) => setForm({ ...form, business_name: v })}placeholder="City" />
+            <Input value={form.business_name} onChange={(v) => setForm({ ...form, business_name: v })} placeholder="Business name" />
           </div>
           <div>
             <label className="text-[11px] text-ink-400">Google Rating (e.g. 5.0)</label>
@@ -1654,7 +1654,7 @@ function DiscoveryModal({
           </div>
           <div>
             <label className="text-[11px] text-ink-400">City / Location</label>
-            <Input value={city} onChange={setCity} placeholder="e.g. Miami, FL" />
+            <Input value={city} onChange={setCity} placeholder="e.g. Spring Hill, FL — include the state" />
           </div>
           <div>
             <label className="text-[11px] text-ink-400">Max Count</label>
