@@ -93,30 +93,31 @@ export async function POST(req: Request) {
 
     if (prospect) {
       try {
-        // 2. Real reputation metrics (skipped when the visitor's data is already verified).
-        let scraped: Awaited<ReturnType<typeof scrapeReputation>> | null = null;
-        if (prospect.google_rating == null || prospect.review_count == null) {
-          scraped = await scrapeReputation({
-            business_name: businessName,
-            city: input.city || prospect.city || "",
-            website: normalizedUrl,
-            google_maps_link: prospect.google_maps_link,
-            existing_email: email,
-          });
-          prospect =
-            (await updateProspect(prospect.id, {
-              google_rating: scraped.google_rating,
-              review_count: scraped.review_count,
-              unanswered_reviews: scraped.unanswered_reviews,
-              competitor_name: scraped.competitor_name,
-              competitor_reviews: scraped.competitor_reviews,
-              email: scraped.email ?? prospect.email,
-              phone: scraped.phone ?? prospect.phone,
-              website: scraped.website ?? prospect.website,
-              instagram: scraped.instagram ?? prospect.instagram,
-              facebook: scraped.facebook ?? prospect.facebook,
-            })) ?? prospect;
-        }
+        // 2. Real reputation metrics — always refreshed on an audit run so
+        //    stale/wrong numbers (e.g. AI-guessed ratings) get corrected by
+        //    the live Google Maps lookup. Failed lookups never clobber
+        //    existing values (?? fallbacks below).
+        const scraped = await scrapeReputation({
+          business_name: businessName,
+          city: input.city || prospect.city || "",
+          website: normalizedUrl,
+          google_maps_link: prospect.google_maps_link,
+          existing_email: email,
+        });
+        prospect =
+          (await updateProspect(prospect.id, {
+            google_rating: scraped.google_rating ?? prospect.google_rating,
+            review_count: scraped.review_count ?? prospect.review_count,
+            unanswered_reviews: scraped.unanswered_reviews ?? prospect.unanswered_reviews,
+            competitor_name: scraped.competitor_name ?? prospect.competitor_name,
+            competitor_reviews: scraped.competitor_reviews ?? prospect.competitor_reviews,
+            google_maps_link: scraped.google_maps_link ?? prospect.google_maps_link,
+            email: scraped.email ?? prospect.email,
+            phone: scraped.phone ?? prospect.phone,
+            website: scraped.website ?? prospect.website,
+            instagram: scraped.instagram ?? prospect.instagram,
+            facebook: scraped.facebook ?? prospect.facebook,
+          })) ?? prospect;
 
         // 3. Live AI brand audit + ROI projection.
         const audit = await buildBrandAudit(prospect);

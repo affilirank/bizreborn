@@ -31,6 +31,8 @@ export interface ScrapeResult {
   email?: string | null;
   audit_screenshot_url: string;
   website_preview_url: string;
+  /** Canonical Google Maps link for the verified listing (direct re-lookups). */
+  google_maps_link?: string | null;
 }
 
 export interface ScrapeInput {
@@ -377,9 +379,14 @@ export async function scrapeReputation(input: ScrapeInput): Promise<ScrapeResult
   //    only a fallback: it returns stale or wrong-business numbers surprisingly
   //    often (e.g. 4.8★/181 instead of 4.9★/451).
   if (apifyConfigured()) {
-    const place = await lookupPlaceLive(input.business_name, input.city || "");
+    // A Google Maps link (stored on the prospect, or pasted into the website
+    // field) pins the exact place — no search-ranking dependence.
+    const mapsLink =
+      (input.google_maps_link && /google\.[a-z.]+\/maps/i.test(input.google_maps_link) ? input.google_maps_link : null) ||
+      (input.website && /google\.[a-z.]+\/maps/i.test(input.website) ? input.website : null);
+    const place = await lookupPlaceLive(input.business_name, input.city || "", 35000, mapsLink);
     if (place && (place.totalScore != null || place.reviewsCount != null)) {
-      return mapApifyPlace(place, input);
+      return mapApifyPlace(place, input, Boolean(mapsLink));
     }
   }
 
@@ -469,8 +476,10 @@ export async function scrapeReputation(input: ScrapeInput): Promise<ScrapeResult
   };
 }
 
-/** Map a live Apify place result into the ScrapeResult shape. */
-async function mapApifyPlace(place: ApifyPlace, input: ScrapeInput): Promise<ScrapeResult> {
+/** Map a live Apify place result into the ScrapeResult shape. When the place
+ *  came from a direct Maps URL the target is unambiguous, so name matching is
+ *  skipped. */
+async function mapApifyPlace(place: ApifyPlace, input: ScrapeInput, direct = false): Promise<ScrapeResult> {
   const reviews = place.reviewsCount != null ? Number(place.reviewsCount) : null;
 
   // Unanswered reviews: count owner-unresponded within the newest-15 window
@@ -500,7 +509,17 @@ async function mapApifyPlace(place: ApifyPlace, input: ScrapeInput): Promise<Scr
     competitorReviews = Math.max((reviews ?? 0) + 50, Math.round((reviews ?? 0) * 1.35));
   }
 
-  const websiteUrl = place.website ? toHttpUrl(place.website) : input.website ? toHttpUrl(input.website) : null;
+  // A maps link in the website field was only a lookup pin — the real
+  // website comes from the listing itself.
+  const isMapsPin = (u?: string | null) => Boolean(u && /google\.[a-z.]+\/maps/i.test(u));
+  const websiteUrl =
+    place.website
+      ? toHttpUrl(place.website)
+      : isMapsPin(input.website)
+        ? null
+        : input.website
+          ? toHttpUrl(input.website)
+          : null;
   const verifiedEmail = await discoverEmailForBusiness({
     business_name: input.business_name,
     city: input.city,
@@ -522,5 +541,6 @@ async function mapApifyPlace(place: ApifyPlace, input: ScrapeInput): Promise<Scr
     email: verifiedEmail,
     audit_screenshot_url: "",
     website_preview_url: "",
+    google_maps_link: place.url && /^https:\/\/(www\.)?google\.[a-z.]+\/maps/i.test(place.url) ? place.url : null,
   };
 }

@@ -87,21 +87,35 @@ export async function lookupPlaceLive(
   name: string,
   city: string,
   budgetMs = 35000,
+  mapsUrl?: string | null,
 ): Promise<ApifyPlace | null> {
   const token = apifyToken();
   if (!token) return null;
+  // Direct-place mode: a place_id (or maps URL carrying one) pins the exact
+  // listing via the search string "place_id:ChIJ…" — no search-ranking
+  // dependence, no wrong-shop risk.
+  const placeId = mapsUrl?.match(/place_id:(ChIJ[\w-]+)/)?.[1] ?? null;
   try {
-    const input = {
-      searchStringsArray: [`${name} ${city}`.trim()],
-      locationQuery: city || undefined,
-      maxCrawledPlacesPerSearch: 1,
-      language: "en",
-      skipClosedPlaces: false,
-      scrapePlaceDetailPage: true,
-      scrapeContacts: false,
-      maxReviews: 15,
-      reviewsSort: "newest",
-    };
+    const input = placeId
+      ? {
+          searchStringsArray: [`place_id:${placeId}`],
+          scrapePlaceDetailPage: true,
+          scrapeContacts: false,
+          maxReviews: 15,
+          reviewsSort: "newest",
+          language: "en",
+        }
+      : {
+          searchStringsArray: [`${name} ${city}`.trim()],
+          locationQuery: city || undefined,
+          maxCrawledPlacesPerSearch: 8,
+          language: "en",
+          skipClosedPlaces: false,
+          scrapePlaceDetailPage: true,
+          scrapeContacts: false,
+          maxReviews: 15,
+          reviewsSort: "newest",
+        };
     const res = await fetch(`${API_BASE}/acts/${ACTOR_ID}/runs?token=${encodeURIComponent(token)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -139,14 +153,16 @@ export async function lookupPlaceLive(
 }
 
 /** Best-matching place for a business name (exact > substring), city-boosted.
- *  Requires at least one shared name token (>=3 chars) so a wrong business
- *  never silently substitutes for the target — null means "not found, fall
- *  back". */
+ *  For multi-word names requires at least 2 shared tokens (>=3 chars) —
+ *  a single shared generic token ("barbershop") is not enough to identify a
+ *  business — so a wrong shop never silently substitutes for the target.
+ *  Null means "not found, fall back". */
 function pickBestPlace(places: ApifyPlace[], name: string, city: string): ApifyPlace | null {
   if (places.length === 0) return null;
   const tokens = (s?: string) =>
     (s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").split(" ").filter((t) => t.length >= 3);
   const target = new Set(tokens(name));
+  const minOverlap = Math.min(2, target.size);
   const cityN = (city || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   let best: ApifyPlace | null = null;
   let bestScore = 0;
@@ -154,7 +170,7 @@ function pickBestPlace(places: ApifyPlace[], name: string, city: string): ApifyP
     if (p.permanentlyClosed || p.temporarilyClosed) continue;
     const pn = tokens(p.title);
     const overlap = pn.filter((t) => target.has(t)).length;
-    if (overlap === 0) continue;
+    if (overlap < minOverlap) continue;
     let score = overlap;
     if (cityN && (p.city || p.address || "").toLowerCase().includes(cityN)) score += 1;
     if (score > bestScore) {
