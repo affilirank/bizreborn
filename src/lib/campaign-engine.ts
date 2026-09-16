@@ -209,11 +209,25 @@ export async function runAllProspectCampaigns(force = false): Promise<{
     (p) => p.email && EMAIL_RE.test(p.email) && p.status !== "invalid" && p.status !== "closed" && p.campaign_stage !== "completed",
   );
 
+  // Least-recently-run first, so a big backlog drains evenly across hourly
+  // cron passes instead of repeatedly advancing the same newest leads.
+  active.sort((a, b) =>
+    (a.campaign_last_run_at ?? a.created_at ?? "").localeCompare(
+      b.campaign_last_run_at ?? b.created_at ?? "",
+    ),
+  );
+
+  // Serverless functions cap at 60s — stop cleanly at ~45s and let the next
+  // hourly pass continue. SMTP sends take 1-2s each, so this is ~30-40 sends.
+  const startedAt = Date.now();
+  const TIME_BUDGET_MS = 40_000;
+
   let processed = 0;
   let successes = 0;
   let errors = 0;
 
   for (const p of active) {
+    if (Date.now() - startedAt > TIME_BUDGET_MS) break;
     try {
       const res = await advanceProspectCampaign(p, force);
       processed++;
