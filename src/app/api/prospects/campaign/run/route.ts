@@ -22,16 +22,21 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  const stats = await runAllProspectCampaigns(false);
+  const startedAt = Date.now();
+  // Campaign engine sends within its own budget; Maps reconciliation only
+  // runs when the 60s function cap still has headroom.
+  const stats = await runAllProspectCampaigns(false, 30_000);
 
-  // Safety net: import any Maps scans that completed without being processed
-  // (tab closed, poll missed). Idempotent — dedupe + processed-marker.
   let maps: { processed: Array<{ runId: string; saved: number; keyword: string; city: string }>; skipped: number } | null = null;
-  try {
-    const { reconcileRecentRuns } = await import("@/lib/services/apify-maps");
-    maps = await reconcileRecentRuns();
-  } catch (err) {
-    console.warn("[campaign] maps reconciliation failed:", err);
+  if (Date.now() - startedAt < 40_000) {
+    // Safety net: import any Maps scans that completed without being processed
+    // (tab closed, poll missed). Idempotent — dedupe + processed-marker.
+    try {
+      const { reconcileRecentRuns } = await import("@/lib/services/apify-maps");
+      maps = await reconcileRecentRuns();
+    } catch (err) {
+      console.warn("[campaign] maps reconciliation failed:", err);
+    }
   }
 
   return NextResponse.json({ success: true, ...stats, maps });

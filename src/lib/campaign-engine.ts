@@ -196,7 +196,10 @@ function stepLabelOrStage(stage: string): string {
   return stage || "welcome";
 }
 
-export async function runAllProspectCampaigns(force = false): Promise<{
+export async function runAllProspectCampaigns(
+  force = false,
+  budgetMs = 30_000,
+): Promise<{
   total: number;
   processed: number;
   successes: number;
@@ -217,17 +220,17 @@ export async function runAllProspectCampaigns(force = false): Promise<{
     ),
   );
 
-  // Serverless functions cap at 60s — stop cleanly at ~45s and let the next
-  // hourly pass continue. SMTP sends take 1-2s each, so this is ~30-40 sends.
+  // Serverless functions cap at 60s — stop cleanly at the budget and let the
+  // next hourly pass continue. SMTP sends take 1-2s each, so this is ~20-30
+  // sends per pass.
   const startedAt = Date.now();
-  const TIME_BUDGET_MS = 40_000;
 
   let processed = 0;
   let successes = 0;
   let errors = 0;
 
   for (const p of active) {
-    if (Date.now() - startedAt > TIME_BUDGET_MS) break;
+    if (Date.now() - startedAt > budgetMs) break;
     try {
       const res = await advanceProspectCampaign(p, force);
       processed++;
