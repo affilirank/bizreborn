@@ -26,6 +26,7 @@ import {
   CalendarClock,
 } from "lucide-react";
 import { BlogBuilder } from "@/components/dashboard/blog-builder";
+import { CampaignPulse } from "@/components/dashboard/campaign-pulse";
 import { OfferBuilder } from "@/components/dashboard/offer-builder";
 import { ReportBuilder } from "@/components/dashboard/report-builder";
 import { AuditReportView } from "@/components/audit/audit-widget";
@@ -371,6 +372,8 @@ export function AdminDashboard() {
           <KpiCard label="Monthly recurring" value={`$${mrr.toLocaleString()}`} delta="client retainers" icon={CreditCard} accent="amber" />
           <KpiCard label="Captured leads" value={String(leads.length)} delta="CRM pipeline" icon={Users} accent="rose" />
         </div>
+
+        <CampaignPulse />
 
         {/* Audit requests + client orders */}
         <div className="mt-6 grid gap-4 lg:grid-cols-2">

@@ -308,6 +308,8 @@ async function emailScanSummary(
   totalScraped: number,
 ): Promise<boolean> {
   try {
+    // Emails-to-self are opt-in now; in-app Campaign Pulse panel replaces them.
+    if (process.env.SCAN_SUMMARY_EMAILS !== "1") return false;
     const key = process.env.RESEND_API_KEY;
     if (!key) return false;
     const to = process.env.REPLY_TO_EMAIL || "bizrebornmarketing@gmail.com";
