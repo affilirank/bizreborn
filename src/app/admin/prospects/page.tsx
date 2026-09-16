@@ -453,7 +453,7 @@ export default function ProspectsAdmin() {
     void refresh();
   }
 
-  function parseCSV(text: string): Array<Record<string, string>> {
+  function parseCSV(text: string, delim: string): Array<Record<string, string>> {
     // Parse CSV handling quoted fields with newlines inside them
     const rows: string[][] = [];
     let current: string[] = [];
@@ -470,7 +470,7 @@ export default function ProspectsAdmin() {
         }
       } else {
         if (ch === '"') { inQuotes = true; }
-        else if (ch === ',') { current.push(field); field = ""; }
+        else if (ch === delim) { current.push(field); field = ""; }
         else if (ch === '\r' || ch === '\n') {
           if (ch === '\r' && text[i + 1] === '\n') i++;
           current.push(field); field = "";
@@ -490,6 +490,51 @@ export default function ProspectsAdmin() {
       header.forEach((h, i) => (obj[h] = (cells[i] || "").trim()));
       return obj;
     });
+  }
+
+  /** Pick the delimiter from the header line — Outscraper/tab exports use
+   *  tabs, standard CSVs use commas. */
+  function detectDelimiter(text: string): string {
+    const headerLine = text.slice(0, text.indexOf("\n") + 1 || text.length);
+    const tabs = (headerLine.match(/\t/g) || []).length;
+    const commas = (headerLine.match(/,/g) || []).length;
+    return tabs > commas ? "\t" : ",";
+  }
+
+  /** First item of a "a, b, c" / "a; b; c" multi-value cell. */
+  function firstListItem(v: string): string {
+    const s = cleanCell(v);
+    if (!s) return "";
+    return s.split(/[;,]/).map((p) => p.trim()).find(Boolean) || "";
+  }
+
+  /** First plausible email from a multi-value cell. */
+  function firstEmail(v: string): string {
+    const s = cleanCell(v);
+    if (!s) return "";
+    const items = s.split(/[;,]/).map((p) => p.trim());
+    return items.find((p) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p)) || "";
+  }
+
+  /** First plausible phone (≥10 digits) from a multi-value cell. */
+  function firstPhone(v: string): string {
+    const items = cleanCell(v) ? v.split(/[;,]/) : [];
+    for (const item of items) {
+      const digits = item.replace(/\D/g, "");
+      if (digits.length >= 10) return item.trim();
+    }
+    return "";
+  }
+
+  /** Extract "City, ST" from a scraped address row
+   *  ("Business Name, 123 St, Port St. Lucie, FL 34952, United States"). */
+  function cityFromAddress(raw: string): string {
+    const s = cleanCell(raw);
+    if (!s) return "";
+    const re = /([A-Za-z][A-Za-z .'’\-]*?),\s*(A[LKZR]|C[AOT]|DE|FL|GA|HI|I[DLNA]|K[SY]|LA|M[ADEAOST]|N[EVHJMY]|O[HKR]|PA|RI|S[CD]|T[NX]|UT|V[TA]|W[AVIY]|DC)\b(?:\s+\d{5})?/g;
+    let last: RegExpExecArray | null = null;
+    for (let m = re.exec(s); m; m = re.exec(s)) last = m;
+    return last ? `${last[1].trim()}, ${last[2]}` : "";
   }
 
   async function submitRows(rows: Array<Record<string, string>>) {
@@ -536,30 +581,22 @@ export default function ProspectsAdmin() {
     return "";
   }
 
-  function toPhoneInput(v: string): string {
-    const s = cleanCell(v);
-    if (!s) return "";
-    // Spreadsheet exports often turn big phone numbers into scientific notation (7.7E+09) — junk, drop it.
-    if (/e[+-]\d+/i.test(s)) return "";
-    return s;
-  }
-
   async function onFile(file: File) {
     const text = await file.text().catch(() => "");
     if (!text.trim()) {
       setToast("Could not read that file");
       return;
     }
-    const rows = parseCSV(text.replace(/^\ufeff/, ""))
+    const rows = parseCSV(text.replace(/^\ufeff/, ""), detectDelimiter(text))
       .map((r) => ({
         business_name: [r.business_name, r.name, r.business, r.company, r.company_name, r.title].map(cleanCell).find(Boolean) || "",
-        city: [r.city, r.location, r.locality].map(cleanCell).find(Boolean) || "",
+        city: [r.city, r.location, r.locality, r.city_state, cityFromAddress(r.address || r.full_address || r.formatted_address)].map(cleanCell).find(Boolean) || "",
         website: ["website", "website_url", "url", "site", "web", "website_link", "website_domain", "domain"].map((k) => toWebsiteInput(r[k])).find(Boolean) || "",
         google_maps_link: ["gbp_link", "gbp_url", "google_business_link", "google_business_profile", "google_business_url", "google_maps_link", "google_maps_url", "maps_link", "maps_url", "place_url"].map((k) => cleanCell(r[k])).find(Boolean) || "",
-        email: ["email", "email_address", "contact_email", "support_email", "mail"].map(cleanCell).find(Boolean) || "",
-        phone: ["phone", "phone_number", "phone_no", "phone_num", "phone_nu", "telephone", "tel", "cell", "mobile"].map(toPhoneInput).find(Boolean) || "",
-        google_rating: ["google_rating", "rating", "average_rating", "avg_rating", "star_rating"].map(cleanCell).find(Boolean) || "",
-        review_count: ["review_count", "reviews", "reviews_count", "total_reviews", "review_total", "rating_count", "google_reviews"].map(cleanCell).find(Boolean) || "",
+        email: ["email", "email_address", "contact_email", "support_email", "mail", "e_mail", "e_mail_address", "emailaddress", "business_email", "primary_email"].map((k) => firstEmail(r[k])).find(Boolean) || "",
+        phone: ["phone", "phone_number", "phone_no", "phone_num", "phone_nu", "telephone", "tel", "cell", "mobile"].map((k) => firstPhone(r[k])).find(Boolean) || "",
+        google_rating: ["google_rating", "rating", "average_rating", "avg_rating", "star_rating"].map((k) => firstListItem(r[k])).find(Boolean) || "",
+        review_count: ["review_count", "reviews", "reviews_count", "total_reviews", "total_review", "totalreview", "review_total", "rating_count", "google_reviews"].map((k) => firstListItem(r[k])).find(Boolean) || "",
         unanswered_reviews: ["unanswered_reviews", "unanswered", "unanswered_count", "owner_unanswered", "no_response_reviews"].map(cleanCell).find(Boolean) || "",
         competitor_name: ["competitor_name", "competitor", "top_competitor", "market_leader"].map(cleanCell).find(Boolean) || "",
         competitor_reviews: ["competitor_reviews", "competitor_review_count", "competitor_reviews_count", "market_leader_reviews"].map(cleanCell).find(Boolean) || "",
@@ -568,11 +605,21 @@ export default function ProspectsAdmin() {
         tiktok: ["tiktok"].map(cleanCell).find(Boolean) || "",
       }))
       .filter((r) => r.business_name);
-    if (!rows.length) {
+    // Outscraper-style exports repeat near-identical rows — dedupe on
+    // business name + city so one shop doesn't enter the pipeline twice.
+    const seen = new Set<string>();
+    const unique = rows.filter((r) => {
+      const key = `${r.business_name.toLowerCase()}|${r.city.toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if (!unique.length) {
       setToast("No rows recognized. Expected a column like Business Name / Company / Name (also reads GBP/Maps, website, email, phone, city, rating, reviews)");
       return;
     }
-    await submitRows(rows.slice(0, 50));
+    setToast(`${unique.length} rows recognized (${rows.length - unique.length} duplicates skipped)`);
+    await submitRows(unique.slice(0, 50));
   }
 
   async function addManual() {
