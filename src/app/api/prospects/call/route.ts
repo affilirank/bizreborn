@@ -45,6 +45,115 @@ export async function POST(req: Request) {
     );
   }
 
+  // E.164 normalize (Retell requires +1XXXXXXXXXX).
+  const digits = phone.replace(/\D/g, "");
+  const e164 = digits.length === 10 ? `+1${digits}` : `+${digits}`;
+
+  // PREFERRED: Retell AI voice agent — sub-second responses, interruption
+  // handling, transcripts, and post-call analysis. Overrides the Twilio chain.
+  const retellKey = process.env.RETELL_API_KEY;
+  const retellAgent = process.env.RETELL_AGENT_ID;
+  if (retellKey && retellAgent) {
+    try {
+      const dyn: Record<string, string> = {
+        contact_name: "the business owner",
+        business_name: businessName || "the business",
+        grade: "n/a",
+        health_score: "n/a",
+        rating: "n/a",
+        reviews: "n/a",
+        unanswered: "n/a",
+        competitor_name: "the local market leader",
+        competitor_reviews: "n/a",
+        lost_monthly: "n/a",
+        extra_leads: "n/a",
+        projected_monthly: "n/a",
+      };
+      if (prospect) {
+        const roi = prospect.roi_projection;
+        dyn.contact_name = "the business owner";
+        dyn.business_name = prospect.business_name;
+        dyn.grade = prospect.audit_report?.grade ?? "n/a";
+        dyn.health_score = prospect.audit_report?.health_score != null ? String(prospect.audit_report.health_score) : "n/a";
+        dyn.rating = prospect.google_rating != null ? String(prospect.google_rating) : "n/a";
+        dyn.reviews = prospect.review_count != null ? String(prospect.review_count) : "n/a";
+        dyn.unanswered = prospect.unanswered_reviews != null ? String(prospect.unanswered_reviews) : "n/a";
+        dyn.competitor_name = prospect.competitor_name ?? "the local market leader";
+        dyn.competitor_reviews = prospect.competitor_reviews != null ? String(prospect.competitor_reviews) : "n/a";
+        dyn.lost_monthly = roi ? `$${Math.round(roi.lost_monthly).toLocaleString()}` : "n/a";
+        dyn.extra_leads = roi ? String(roi.leads_per_month) : "n/a";
+        dyn.projected_monthly = roi ? `$${Math.round(roi.projected_monthly).toLocaleString()}` : "n/a";
+      }
+
+      const fromNumber = process.env.RETELL_FROM_NUMBER;
+      const callBody: Record<string, unknown> = {
+        to: e164,
+        // When no dedicated number is configured, the agent dials from the
+        // number bound to it in the Retell dashboard.
+        ...(fromNumber ? { from_: fromNumber } : { from_agent: retellAgent }),
+        retell_llm_dynamic_variables: dyn,
+        metadata: { prospectId: prospectId || "", businessName: businessName || "" },
+        reduced_latency: true,
+      };
+
+      const res = await fetch("https://api.retellai.com/v2/create-phone-call", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${retellKey}`,
+        },
+        body: JSON.stringify(callBody),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return NextResponse.json(
+          { error: `Retell call failed: ${data?.message || res.status}` },
+          { status: 400 },
+        );
+      }
+      const callId = String(data.call_id ?? `retell_${Date.now()}`);
+      await upsertCallRecord({
+        callSid: callId,
+        prospectId: prospectId || null,
+        phone: e164,
+        businessName: businessName || "Business",
+        simulated: false,
+        status: "dialing",
+        startedAt: new Date().toISOString(),
+        endedAt: null,
+        durationSec: 0,
+        entries: [
+          { role: "system", text: `Retell AI call initiated to ${e164} for ${businessName || "Business"}.`, time: new Date().toLocaleTimeString() },
+        ],
+        outcome: null,
+      });
+      if (prospect) {
+        try {
+          await applyContactLog(
+            prospect,
+            makeContactLog({ kind: "call", trigger: "outreach", stepLabel: `Retell AI call initiated to ${e164}` }),
+            "outreach",
+          );
+        } catch (err) {
+          console.warn("[call] pipeline log failed:", err);
+        }
+      }
+      return NextResponse.json({
+        success: true,
+        simulated: false,
+        callSid: callId,
+        status: "registered",
+        message: `Retell AI call initiated to ${e164} — live transcript and outcome land back in the CRM when the call ends.`,
+      });
+    } catch (err) {
+      console.error("[call] Retell error:", err);
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Retell call failed." },
+        { status: 500 },
+      );
+    }
+  }
+
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
   const twilioNumber = process.env.TWILIO_PHONE_NUMBER;
