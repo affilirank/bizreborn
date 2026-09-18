@@ -61,32 +61,34 @@ async function handleVoiceWebhook(req: Request) {
   let projectedMonthly = "$3,675";
   let topFlaw = "unanswered reviews and weak review velocity";
 
-  if (prospectId) {
-    const p = await getProspectById(prospectId);
-    if (p) {
-      businessName = p.business_name;
-      rating = String(p.google_rating ?? "4.5");
-      review_count = String(p.review_count ?? "50");
-      unanswered = String(p.unanswered_reviews ?? "5");
-      competitorName = p.competitor_name ?? "top competitor";
-      competitorReviews = String(p.competitor_reviews ?? "150");
-      grade = p.audit_report?.grade ?? "C";
-      topFlaw = p.audit_report?.pain_points?.[0] || "unanswered reviews";
-      if (p.roi_projection) {
-        lostMonthly = `$${Math.round(p.roi_projection.lost_monthly).toLocaleString()}`;
-        extraLeads = String(p.roi_projection.leads_per_month);
-        projectedMonthly = `$${Math.round(p.roi_projection.projected_monthly).toLocaleString()}`;
-      }
+  // Fetch previous conversation history to prevent repetition & looping.
+  let existingEntries: Array<{ role: "ai" | "user" | "system"; text: string }> = [];
+
+  // Latency: prospect + call history reads are independent — run in parallel
+  // (saves ~300-600ms per turn vs sequential awaits).
+  const [prospect, rec] = await Promise.all([
+    prospectId ? getProspectById(prospectId) : Promise.resolve(null),
+    callSid ? getCallRecord(callSid) : Promise.resolve(null),
+  ]);
+
+  if (prospect) {
+    businessName = prospect.business_name;
+    rating = String(prospect.google_rating ?? "4.5");
+    review_count = String(prospect.review_count ?? "50");
+    unanswered = String(prospect.unanswered_reviews ?? "5");
+    competitorName = prospect.competitor_name ?? "top competitor";
+    competitorReviews = String(prospect.competitor_reviews ?? "150");
+    grade = prospect.audit_report?.grade ?? "C";
+    topFlaw = prospect.audit_report?.pain_points?.[0] || "unanswered reviews";
+    if (prospect.roi_projection) {
+      lostMonthly = `$${Math.round(prospect.roi_projection.lost_monthly).toLocaleString()}`;
+      extraLeads = String(prospect.roi_projection.leads_per_month);
+      projectedMonthly = `$${Math.round(prospect.roi_projection.projected_monthly).toLocaleString()}`;
     }
   }
 
-  // Fetch previous conversation history to prevent repetition & looping
-  let existingEntries: Array<{ role: "ai" | "user" | "system"; text: string }> = [];
-  if (callSid) {
-    const rec = await getCallRecord(callSid);
-    if (rec && Array.isArray(rec.entries)) {
-      existingEntries = rec.entries;
-    }
+  if (rec && Array.isArray(rec.entries)) {
+    existingEntries = rec.entries;
   }
 
   const voiceId = process.env.ELEVENLABS_VOICE_ID || "7o2jINz1addxWQ92Mv17";
@@ -148,8 +150,10 @@ Tone: warm, energetic, straightforward, confident, professional. Keep responses 
         body: JSON.stringify({
           model: process.env.CHAT_OPENAI_MODEL || "gpt-4o-mini",
           messages,
-          temperature: 0.3,
-          max_tokens: 150,
+          temperature: 0.4,
+          // Conversational turns are 1-2 sentences — 80 tokens caps generation
+          // time (~1s) without capping quality.
+          max_tokens: 80,
         }),
         signal: controller.signal,
       });
