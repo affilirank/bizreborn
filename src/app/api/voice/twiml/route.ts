@@ -180,14 +180,26 @@ Tone: warm, energetic, straightforward, confident, professional. Keep responses 
   }
 
   const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
-  const audioUrl = `${base}/api/voice/audio?text=${encodeURIComponent(aiResponseText)}`;
+
+  // Latency: per-turn <Play> of a serverless-rendered ElevenLabs MP3 added
+  // 2-5s of dead air per response (Twilio fetches the URL, the function
+  // cold-starts, ElevenLabs generates). The opening line keeps the cloned
+  // voice — it's the impression that matters — but conversational turns use
+  // Twilio's built-in <Say>, which starts speaking instantly.
+  const isOpeningTurn = !speechResult && existingEntries.length === 0;
+  const escapeXml = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+  const gatherAction = `/api/voice/twiml${prospectId ? `?prospectId=${prospectId}` : ""}`;
+  const body = isOpeningTurn
+    ? `<Play>${base}/api/voice/audio?text=${encodeURIComponent(aiResponseText)}</Play>`
+    : `<Say voice="Polly.Joanna" language="en-US">${escapeXml(aiResponseText)}</Say>`;
 
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech dtmf" action="/api/voice/twiml${prospectId ? `?prospectId=${prospectId}` : ""}" method="POST" speechTimeout="auto" numDigits="1">
-    <Play>${audioUrl}</Play>
+  <Gather input="speech dtmf" action="${gatherAction}" method="POST" speechTimeout="2" numDigits="1">
+    ${body}
   </Gather>
-  <Play>${base}/api/voice/audio?text=${encodeURIComponent("We did not hear a response. Feel free to check out your 45-second video audit on our website. Goodbye!")}</Play>
+  <Say voice="Polly.Joanna" language="en-US">We did not hear a response. Feel free to check out your 45-second video audit on our website. Goodbye!</Say>
 </Response>`;
 
   return new NextResponse(twiml, {

@@ -409,11 +409,13 @@ export default function ProspectsAdmin() {
   }
 
   async function retry(id: string) {
+    setToast("Regenerating audit + video…");
     await fetch("/api/prospects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "retry", id }),
     });
+    setToast("Lead re-processed.");
     void refresh();
   }
 
@@ -540,8 +542,9 @@ export default function ProspectsAdmin() {
   async function submitRows(rows: Array<Record<string, string>>) {
     setBusy(true);
     try {
-      // Uploads render in the background queue (status "pending"), not inline —
-      // 50-lead CSVs otherwise exceed the 60s function limit.
+      // Uploads insert instantly, then process one lead per API invocation
+      // (3 at a time) — the pipeline can't run in a single request/queue
+      // because serverless functions die at 60s and a batch needs minutes.
       const res = await fetch("/api/prospects/batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -553,12 +556,29 @@ export default function ProspectsAdmin() {
       if (!res.ok) throw new Error(json.error || "Upload failed");
       const ids = (json.prospects as Prospect[]).map((p) => p.id);
       setToast(`${ids.length} lead${ids.length === 1 ? "" : "s"} added — generating audits…`);
+
       // Kick off immediately so the admin sees progress without a second click.
-      await fetch("/api/prospects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "generate", ids }),
-      });
+      const CONCURRENCY = 3;
+      let done = 0;
+      const runOne = async (id: string) => {
+        try {
+          await fetch("/api/prospects", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "generate", ids: [id] }),
+          });
+        } catch {
+          // per-lead failures are visible in the row status (failed → retry)
+        } finally {
+          done++;
+          setToast(`Audits generated: ${done}/${ids.length}`);
+          void refresh();
+        }
+      };
+      for (let i = 0; i < ids.length; i += CONCURRENCY) {
+        await Promise.all(ids.slice(i, i + CONCURRENCY).map(runOne));
+      }
+      setToast(`${ids.length} leads processed — welcome emails sent, pitches fire in 1h.`);
     } catch (e) {
       setToast(e instanceof Error ? e.message : "Upload failed");
     } finally {

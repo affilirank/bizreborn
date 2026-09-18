@@ -69,6 +69,14 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: `prospect not found: ${id}` }, { status: 404 });
       }
     }
+    // Single-lead requests run the pipeline INLINE within this invocation —
+    // the in-memory queue dies with the serverless function after ~60s, which
+    // froze multi-lead batches mid-processing.
+    if (ids.length === 1) {
+      const { processProspectPipeline } = await import("@/lib/services/queue");
+      const result = await processProspectPipeline(ids[0]);
+      return NextResponse.json(result);
+    }
     batchQueue.enqueue(ids);
     // Keep the serverless function alive until the pipeline drains.
     after(() => batchQueue.whenIdle());
