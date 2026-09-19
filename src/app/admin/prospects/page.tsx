@@ -17,6 +17,7 @@ import {
   Clock,
   Film,
   Mail,
+  MailSearch,
   Send,
   Sparkles,
   X,
@@ -479,6 +480,34 @@ export default function ProspectsAdmin() {
       body: JSON.stringify({ id }),
     });
     void refresh();
+  }
+
+  // Re-find & verify before delete: for each selected lead, re-discover a
+  // published email, MX-verify it, and swap it in. Leads with no verifiable
+  // email are removed AND blacklisted so imports never re-add them.
+  async function refindSelectedEmails() {
+    if (selected.size === 0) return;
+    const ids = Array.from(selected);
+    setToast(`Re-finding emails for ${ids.length} lead${ids.length === 1 ? "" : "s"}… (can take ~20s each)`);
+    setBusy(true);
+    try {
+      const res = await fetch("/api/prospects/email-recovery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, deleteIfNotFound: true }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setToast(json.error || "Email re-find failed");
+        return;
+      }
+      const r = json.recovered?.length ?? 0;
+      setToast(`${r} email${r === 1 ? "" : "s"} re-found & verified · ${json.pruned ?? 0} removed & blacklisted`);
+      setSelected(new Set());
+    } finally {
+      setBusy(false);
+      void refresh();
+    }
   }
 
   async function removeSelected() {
@@ -1009,6 +1038,15 @@ export default function ProspectsAdmin() {
                       className="flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20"
                     >
                       <Trash2 size={13} /> Delete Selected ({selected.size})
+                    </button>
+                  )}
+                  {selected.size > 0 && (
+                    <button
+                      onClick={() => void refindSelectedEmails()}
+                      disabled={busy}
+                      className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/20 disabled:opacity-50"
+                    >
+                      <MailSearch size={13} /> Re-find &amp; Verify Emails ({selected.size})
                     </button>
                   )}
                   {selected.size > 0 && (

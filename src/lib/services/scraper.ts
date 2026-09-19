@@ -274,8 +274,27 @@ async function searchWebForEmail(input: {
 /**
  * Explicit email discovery and enrichment step using direct website scraping and web search grounding.
  * Pass `{ skipAiGrounding: true }` for bulk calls to avoid one grounded AI lookup per business.
+ * Pass `excludeEmails` (e.g. a just-bounced address) so the bad address is never re-selected.
  */
 export async function discoverEmailForBusiness(
+  input: {
+    business_name: string;
+    city: string;
+    website?: string | null;
+    google_maps_link?: string | null;
+    initial_email?: string | null;
+  },
+  opts?: { skipAiGrounding?: boolean; webSearch?: boolean; excludeEmails?: string[] },
+): Promise<string | null> {
+  const excluded = new Set(
+    (opts?.excludeEmails ?? []).map((e) => normalizeEmail(e)).filter((e): e is string => Boolean(e)),
+  );
+  const result = await discoverEmailCandidate(input, opts);
+  if (result && excluded.has(result)) return null; // only the bad address was findable
+  return result;
+}
+
+async function discoverEmailCandidate(
   input: {
     business_name: string;
     city: string;
