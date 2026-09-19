@@ -147,8 +147,8 @@ export async function POST(req: Request) {
       tasks,
       call_time_window: {
         timezone: "America/New_York",
-        windows: [{ startMin: 600, endMin: 1140 }],
-        day: ["monday", "tuesday", "wednesday", "thursday", "friday"],
+        windows: [{ start: 600, end: 1140 }],
+        day: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
       },
     }),
   });
