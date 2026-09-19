@@ -8,9 +8,10 @@ import {
 import { batchQueue } from "@/lib/services/queue";
 import { isAdminOrDemo } from "@/lib/supabase/server";
 import { LEADGEN_SQL } from "@/lib/leadgen-sql";
+import { suppressEmails } from "@/lib/suppressions";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export async function GET() {
   if (!(await isAdminOrDemo())) {
@@ -38,11 +39,18 @@ export async function DELETE(req: Request) {
   if (ids.length === 0) {
     return NextResponse.json({ error: "valid UUID id or ids required" }, { status: 400 });
   }
+  // "Remove and remember": when suppress is set (bad/dead emails), record the
+  // addresses first so imports and campaigns never re-add them.
+  let suppressed = 0;
+  if (body.suppress) {
+    const rows = (await Promise.all(ids.map((id) => getProspectById(id)))).filter(Boolean) as Array<{ email?: string | null }>;
+    suppressed = await suppressEmails(rows.map((r) => r.email ?? null), body.reason ? String(body.reason).slice(0, 200) : "removed by admin");
+  }
   let deleted = 0;
   for (const id of ids) {
     if (await deleteProspect(id)) deleted++;
   }
-  return NextResponse.json({ ok: true, deleted });
+  return NextResponse.json({ ok: true, deleted, suppressed });
 }
 
 export async function POST(req: Request) {

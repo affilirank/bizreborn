@@ -168,4 +168,21 @@ create policy "prospect_calls admin all"
   to authenticated
   using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
   with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+
+-- Email suppression list ("remove and remember"): leads removed for bad
+-- emails are recorded here so imports/campaigns never re-add them.
+create table if not exists public.email_suppressions (
+  email text primary key,
+  reason text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.email_suppressions enable row level security;
+
+drop policy if exists "email_suppressions admin all" on public.email_suppressions;
+create policy "email_suppressions admin all"
+  on public.email_suppressions for all
+  to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
 `;

@@ -8,6 +8,7 @@ import { generateVoiceover } from "@/lib/services/tts";
 import { renderPitchVideo } from "@/lib/services/renderer";
 import { welcomeCreatedProspects } from "@/lib/crm-actions";
 import { normalizeEmail, toRealMapsLink } from "@/lib/services/email-validate";
+import { getSuppressedEmails, isSuppressed } from "@/lib/suppressions";
 import type { Prospect } from "@/lib/supabase-types";
 
 export const dynamic = "force-dynamic";
@@ -41,16 +42,24 @@ export async function POST(req: Request) {
     return s || undefined;
   };
 
+  const suppressed = await getSuppressedEmails();
+
   const processedRows: Array<Partial<Prospect> & { business_name: string }> = [];
   const readyIndices: number[] = [];
+  let skippedSuppressed = 0;
 
   for (const row of rows) {
     const name = String(row.business_name || row.name || row.business || "").trim();
     if (!name) continue;
 
+    const email = normalizeEmail(row.email);
+    // Skip businesses whose email was previously removed as bad ("remember").
+    if (isSuppressed(email, suppressed)) {
+      skippedSuppressed++;
+      continue;
+    }
     const city = str(row.city) || "Local";
     const website = str(row.website || row.url);
-    const email = normalizeEmail(row.email);
     const phone = str(row.phone);
     const google_maps_link = toRealMapsLink(row.google_maps_link || row.google_maps_url || row.maps_link, name, city);
 
@@ -143,5 +152,5 @@ export async function POST(req: Request) {
     console.warn("[batch] welcome emails partially failed:", err);
   }
 
-  return NextResponse.json({ prospects: inserted }, { status: 201 });
+  return NextResponse.json({ prospects: inserted, skippedSuppressed }, { status: 201 });
 }

@@ -493,6 +493,21 @@ export default function ProspectsAdmin() {
     void refresh();
   }
 
+  // Remove selected leads AND blacklist their emails: imports and campaigns
+  // will skip these businesses from now on (bad/dead email addresses).
+  async function removeSelectedAndBlacklist() {
+    if (selected.size === 0) return;
+    const ids = Array.from(selected);
+    await fetch("/api/prospects", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids, suppress: true, reason: "bad email (blacklisted by admin)" }),
+    });
+    setToast(`${ids.length} lead${ids.length === 1 ? "" : "s"} removed & blacklisted`);
+    setSelected(new Set());
+    void refresh();
+  }
+
   // One-click cleanup: drop every visible lead that has no email address —
   // the campaign is email-driven, so non-emailable rows are dead weight.
   async function removeNoEmail() {
@@ -994,6 +1009,14 @@ export default function ProspectsAdmin() {
                       className="flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20"
                     >
                       <Trash2 size={13} /> Delete Selected ({selected.size})
+                    </button>
+                  )}
+                  {selected.size > 0 && (
+                    <button
+                      onClick={() => void removeSelectedAndBlacklist()}
+                      className="flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-500/20 px-2.5 py-1 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/30"
+                    >
+                      <Trash2 size={13} /> Remove &amp; Blacklist Emails ({selected.size})
                     </button>
                   )}
                 </div>

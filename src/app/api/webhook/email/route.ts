@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { suppressEmails } from "@/lib/suppressions";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 export const dynamic = "force-dynamic";
@@ -142,6 +143,7 @@ export async function POST(req: Request) {
       .delete()
       .eq("email", toEmail)
       .select("business_name");
+    await suppressEmails([toEmail], `hard bounce: ${diagnosis.reason}`).catch(() => {});
     console.warn(
       `[resend webhook] deleted ${(deleted?.length ?? 0)} lead(s) for ${toEmail}: ${diagnosis.reason}`,
     );
@@ -151,6 +153,7 @@ export async function POST(req: Request) {
   // Spam complaint → never send again, regardless of anything else.
   if (admin && eventType === "email.complained") {
     await admin.from("prospects").delete().eq("email", toEmail);
+    await suppressEmails([toEmail], "spam complaint").catch(() => {});
     console.warn(`[resend webhook] deleted lead(s) for ${toEmail} after spam complaint`);
     return NextResponse.json({ received: true, action: "deleted", reason: "spam complaint", toEmail });
   }
