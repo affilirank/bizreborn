@@ -510,6 +510,19 @@ export default function ProspectsAdmin() {
     }
   }
 
+  // One-click: registers the four call-to-action custom tools on the Retell
+  // agent so it can send the audit, book calls, and honor opt-outs live.
+  async function setupRetellTools() {
+    setToast("Registering agent tools on Retell…");
+    try {
+      const res = await fetch("/api/voice/retell-setup", { method: "POST" });
+      const json = await res.json();
+      setToast(res.ok ? `Agent tools live: ${(json.tools ?? []).join(", ")}` : json.error || "Retell setup failed");
+    } catch {
+      setToast("Retell setup failed — check your connection.");
+    }
+  }
+
   async function removeSelected() {
     if (selected.size === 0) return;
     const ids = Array.from(selected);
@@ -954,6 +967,13 @@ export default function ProspectsAdmin() {
             >
               {calling ? <Loader2 size={16} className="animate-spin" /> : <PhoneCall size={16} />}
               {calling ? "Queuing…" : `Call All Leads (${callStats?.callable ?? "…"})`}
+            </button>
+            <button
+              onClick={() => void setupRetellTools()}
+              disabled={busy}
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-purple-500/40 bg-purple-500/10 px-4 py-2 text-xs font-semibold text-purple-200 transition hover:bg-purple-500/20 disabled:opacity-50"
+            >
+              <PhoneCall size={13} /> Register Agent Tools (send audit / book / stop)
             </button>
             {callStats && callStats.recentCalls.length > 0 && (
               <div className="mt-3 border-t border-ink-800/60 pt-3">
