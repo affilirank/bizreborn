@@ -3,6 +3,7 @@ import { listProspects } from "@/lib/prospects";
 import { listCallRecordsForProspect } from "@/lib/call-store";
 import { dialProspect, withinBusinessHours } from "@/lib/services/dialer";
 import { classifyCallTranscript } from "@/lib/call-intent";
+import { isAdminOrDemo } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -30,7 +31,8 @@ const DIALS_PER_PASS = Number(process.env.CALL_AUTO_DIALS_PER_PASS ?? 5);
  *   - or MAX_ATTEMPTS is exhausted (marked "call_exhausted" in the CRM).
  */
 export async function GET(req: Request) {
-  if (!isCronAuth(req)) {
+  // Vercel Cron (Bearer CRON_SECRET) or an admin session (manual trigger).
+  if (!isCronAuth(req) && !(await isAdminOrDemo())) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
