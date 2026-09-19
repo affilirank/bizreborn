@@ -87,10 +87,10 @@ export async function POST(req: Request) {
 
       const fromNumber = process.env.RETELL_FROM_NUMBER;
       const callBody: Record<string, unknown> = {
-        to: e164,
+        to_number: e164,
         // When no dedicated number is configured, the agent dials from the
         // number bound to it in the Retell dashboard.
-        ...(fromNumber ? { from_: fromNumber } : { from_agent: retellAgent }),
+        ...(fromNumber ? { from_number: fromNumber } : { from_agent: retellAgent }),
         retell_llm_dynamic_variables: dyn,
         metadata: { prospectId: prospectId || "", businessName: businessName || "" },
         reduced_latency: true,
