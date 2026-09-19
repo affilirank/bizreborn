@@ -129,28 +129,27 @@ export async function listCallRecords(limit = 40): Promise<CallRecord[]> {
     .slice(0, limit);
 }
 
-export async function getLatestCallRecord(prospectId: string): Promise<CallRecord | null> {  const sb = await serviceDb();
+export async function getLatestCallRecord(prospectId: string): Promise<CallRecord | null> {
+  const calls = await listCallRecordsForProspect(prospectId, 1);
+  return calls[0] ?? null;
+}
+
+/** All recorded calls for one prospect, newest first (retry pacing + stop conditions). */
+export async function listCallRecordsForProspect(prospectId: string, limit = 20): Promise<CallRecord[]> {
+  const sb = await serviceDb();
   if (sb && !tableMissing) {
     const { data, error } = await sb
       .from("prospect_calls")
       .select("*")
       .eq("prospect_id", prospectId)
       .order("started_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (!error && data) {
-      const rec = toRecord(data);
-      memoryCalls.set(rec.callSid, rec);
-      return rec;
-    }
+      .limit(limit);
+    if (!error && data) return (data as any[]).map(toRecord);
   }
-  let latest: CallRecord | null = null;
-  for (const rec of memoryCalls.values()) {
-    if (rec.prospectId === prospectId) {
-      if (!latest || rec.startedAt > latest.startedAt) latest = rec;
-    }
-  }
-  return latest;
+  return Array.from(memoryCalls.values())
+    .filter((r) => r.prospectId === prospectId)
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    .slice(0, limit);
 }
 
 export async function appendCallEntry(

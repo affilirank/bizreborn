@@ -1218,7 +1218,7 @@ function ProspectRow({
 }) {
   const badge = statusBadge[p.status || "pending"] || statusBadge.pending;
   const Icon =
-    { saved: Clock, queued: Clock, audited: Loader2, pitched: Send, replied: Mail, booked: CheckCircle, closed: CheckCircle, pending: Clock, scraping: Loader2, rendering: Film, ready: CheckCircle, failed: AlertTriangle, invalid: AlertTriangle }[p.status || "pending"] || Clock;
+    { saved: Clock, queued: Clock, audited: Loader2, pitched: Send, replied: Mail, booked: CheckCircle, closed: CheckCircle, pending: Clock, scraping: Loader2, rendering: Film, ready: CheckCircle, failed: AlertTriangle, invalid: AlertTriangle, do_not_call: AlertTriangle, call_exhausted: Clock }[p.status || "pending"] || Clock;
   const spinning = p.status === "scraping" || p.status === "rendering" || p.status === "pending";
   const roi = p.roi_projection;
   const grade = p.audit_report?.grade;

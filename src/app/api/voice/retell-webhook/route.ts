@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { upsertCallRecord, appendCallEntry } from "@/lib/call-store";
 import { getProspectById } from "@/lib/prospects";
 import { applyContactLog, makeContactLog } from "@/lib/crm-actions";
+import { classifyCallTranscript, intentSummary } from "@/lib/call-intent";
+import { performPostCallIntents } from "@/lib/call-actions";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 /**
  * Retell AI webhook — receives call_started / call_ended / call_analyzed
@@ -74,12 +77,19 @@ export async function POST(req: Request) {
     if (prospectId) {
       const p = await getProspectById(prospectId);
       if (p) {
+        // Detect what the client actually asked for, and DO it (send audit /
+        // place booking hold / honor stop-calling) even when the agent's live
+        // tool call didn't fire.
+        const userLines = entries.filter((e) => e.role === "user").map((e) => e.text);
+        const flags = classifyCallTranscript(userLines, { disconnectionReason: disconnect, callSuccessful: successful });
+        const performed = await performPostCallIntents(prospectId, flags, callId);
+
         const label = summary
           ? `AI call (${disconnect || "ended"}${sentiment ? `, ${sentiment}` : ""}): ${summary.slice(0, 180)}`
           : `AI call ended (${disconnect || "no details"})`;
         await applyContactLog(
           p,
-          makeContactLog({ kind: "call", trigger: "outreach", stepLabel: label }),
+          makeContactLog({ kind: "call", trigger: "outreach", stepLabel: flags.book_call || flags.send_audit || flags.stop_calling ? `${label} — ${intentSummary(flags)}${performed.length ? ` → ${performed.join("; ")}` : ""}` : label }),
           "outreach",
         );
       }

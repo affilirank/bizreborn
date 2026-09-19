@@ -142,7 +142,9 @@ export type ProspectStatus =
   | "rendering"
   | "ready"
   | "failed"
-  | "invalid";
+  | "invalid"
+  | "do_not_call"
+  | "call_exhausted";
 
 /** Brand audit snapshot stored on a prospect (website + socials + reputation). */
 export interface ProspectAudit {
