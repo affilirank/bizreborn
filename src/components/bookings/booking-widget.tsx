@@ -75,6 +75,16 @@ export function BookingWidget() {
   }, []);
 
   React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const business = params.get("business");
+    const email = params.get("email");
+    if (business || email) {
+      setForm((f) => ({
+        ...f,
+        businessName: business ?? f.businessName,
+        email: email && EMAIL_RE.test(email) ? email : f.email,
+      }));
+    }
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);

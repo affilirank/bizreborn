@@ -37,9 +37,7 @@ export default async function PitchPage({
   const difference = (p.competitor_reviews ?? 0) - (p.review_count ?? 0);
   const audit = p.audit_report;
   const roi = p.roi_projection;
-  const mailto = `mailto:${LEADGEN.email}?subject=${encodeURIComponent(
-    `Growth Strategy for ${p.business_name}`,
-  )}`;
+  const bookHref = `/book?business=${encodeURIComponent(p.business_name)}${p.email ? `&email=${encodeURIComponent(p.email)}` : ""}`;
 
   return (
     <div className="min-h-screen bg-ink-950 text-mist">
@@ -185,7 +183,7 @@ export default async function PitchPage({
         {/* CTA */}
         <section className="mt-8">
           <a
-            href={mailto}
+            href={bookHref}
             className="block w-full rounded-2xl bg-gradient-to-r from-brand-600 to-glow-600 p-6 text-center transition hover:opacity-95"
           >
             <p className="font-sora text-xl font-bold text-white sm:text-2xl">Schedule Your 10-Min Strategy Call</p>
