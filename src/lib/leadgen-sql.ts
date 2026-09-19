@@ -139,4 +139,33 @@ create policy "bookings admin all"
   to authenticated
   using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
   with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+
+-- AI voice-call records (Twilio + Retell), shared across serverless instances so
+-- webhooks, the CRM, and dashboards all see the same call state.
+create table if not exists public.prospect_calls (
+  call_sid text primary key,
+  prospect_id uuid,
+  phone text,
+  business_name text,
+  simulated boolean not null default false,
+  status text not null default 'dialing',
+  started_at timestamptz not null default now(),
+  ended_at timestamptz,
+  duration_sec integer not null default 0,
+  entries jsonb not null default '[]'::jsonb,
+  outcome text,
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists prospect_calls_started_idx on public.prospect_calls (started_at desc);
+create index if not exists prospect_calls_prospect_idx on public.prospect_calls (prospect_id);
+
+alter table public.prospect_calls enable row level security;
+
+drop policy if exists "prospect_calls admin all" on public.prospect_calls;
+create policy "prospect_calls admin all"
+  on public.prospect_calls for all
+  to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
 `;

@@ -113,8 +113,23 @@ export async function getCallRecord(callSid: string): Promise<CallRecord | null>
   return null;
 }
 
-export async function getLatestCallRecord(prospectId: string): Promise<CallRecord | null> {
+/** Most recent call records, newest first (call tracker dashboard). */
+export async function listCallRecords(limit = 40): Promise<CallRecord[]> {
   const sb = await serviceDb();
+  if (sb && !tableMissing) {
+    const { data, error } = await sb
+      .from("prospect_calls")
+      .select("*")
+      .order("started_at", { ascending: false })
+      .limit(limit);
+    if (!error && data) return (data as any[]).map(toRecord);
+  }
+  return Array.from(memoryCalls.values())
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    .slice(0, limit);
+}
+
+export async function getLatestCallRecord(prospectId: string): Promise<CallRecord | null> {  const sb = await serviceDb();
   if (sb && !tableMissing) {
     const { data, error } = await sb
       .from("prospect_calls")

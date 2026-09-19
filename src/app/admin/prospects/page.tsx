@@ -208,6 +208,23 @@ const EMPTY_MANUAL = {
   competitor_reviews: "",
 };
 
+type CallStats = {
+  callable: number;
+  called: number;
+  neverCalled: number;
+  last24h: number;
+  outcomes: Record<string, number>;
+  recentCalls: Array<{
+    callSid: string;
+    businessName: string;
+    phone: string;
+    status: string;
+    durationSec: number;
+    outcome: string | null;
+    startedAt: string;
+  }>;
+};
+
 export default function ProspectsAdmin() {
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [store, setStore] = useState<ProspectStoreStatus | null>(null);
@@ -228,6 +245,42 @@ export default function ProspectsAdmin() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [manual, setManual] = useState(EMPTY_MANUAL);
   const [logModalProspect, setLogModalProspect] = useState<Prospect | null>(null);
+  const [calling, setCalling] = useState(false);
+  const [callStats, setCallStats] = useState<CallStats | null>(null);
+
+  const refreshCalls = useCallback(() => {
+    fetch("/api/prospects/call-batch")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setCallStats(d))
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    refreshCalls();
+    const t = setInterval(refreshCalls, 20000);
+    return () => clearInterval(t);
+  }, [refreshCalls]);
+
+  async function callAllLeads() {
+    setCalling(true);
+    try {
+      const res = await fetch("/api/prospects/call-batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: 50 }),
+      });
+      const json = await res.json();
+      setToast(
+        res.ok
+          ? `Batch queued: ${json.queued} AI calls (dials 10am-7pm ET, weekdays) — outcomes auto-log here.`
+          : json.error || "Batch call failed",
+      );
+      refreshCalls();
+    } catch {
+      setToast("Batch call failed");
+    } finally {
+      setCalling(false);
+    }
+  }
 
   async function updateStatus(id: string, status: string) {
     try {
@@ -834,6 +887,50 @@ export default function ProspectsAdmin() {
               {busy ? <Loader2 size={16} className="animate-spin" /> : <Film size={16} />}
               Generate Audits &amp; Videos ({selected.size})
             </button>
+          </div>
+
+          <div className="rounded-xl border border-purple-500/30 bg-purple-500/5 p-5">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-white">AI Call Campaign</p>
+              <span className="text-[11px] text-ink-500">{callStats?.last24h ?? 0} called today</span>
+            </div>
+            <p className="mt-1 text-xs text-ink-500">
+              Sarah (Retell AI) dials every lead with a phone — 20 lines at once, 10am-7pm ET weekdays.
+              Outcomes auto-log to the CRM below.
+            </p>
+            <div className="mt-2 flex gap-2 text-[11px] text-ink-400">
+              <span>{callStats?.callable ?? "—"} callable</span>
+              <span>·</span>
+              <span>{callStats?.neverCalled ?? "—"} never called</span>
+            </div>
+            <button
+              onClick={() => void callAllLeads()}
+              disabled={calling || !callStats}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-500 disabled:opacity-50"
+            >
+              {calling ? <Loader2 size={16} className="animate-spin" /> : <PhoneCall size={16} />}
+              {calling ? "Queuing…" : `Call All Leads (${callStats?.callable ?? "…"})`}
+            </button>
+            {callStats && callStats.recentCalls.length > 0 && (
+              <div className="mt-3 border-t border-ink-800/60 pt-3">
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-400">Recent calls</p>
+                <div className="max-h-56 space-y-1.5 overflow-auto">
+                  {callStats.recentCalls.slice(0, 12).map((c) => (
+                    <div key={c.callSid} className="rounded-lg bg-ink-950/60 px-2.5 py-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-[11px] font-medium text-white">{c.businessName}</span>
+                        <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
+                          c.status === "completed" ? "bg-glow-500/15 text-glow-400" : c.status === "failed" ? "bg-rose-500/15 text-rose-400" : "bg-amber-500/15 text-amber-400"
+                        }`}>
+                          {c.status}{c.durationSec > 0 ? ` · ${c.durationSec}s` : ""}
+                        </span>
+                      </div>
+                      {c.outcome && <p className="mt-0.5 line-clamp-2 text-[10px] text-ink-400">{c.outcome}</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
