@@ -59,8 +59,13 @@ export default async function PitchPage({
       <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         {/* Video */}
         <section className="mx-auto max-w-sm">
-          {p.status === "ready" ? (
+          {p.status === "ready" || p.audit_report || p.pitch_script ? (
             <PitchPlayer p={p} contactEmail={LEADGEN.email} />
+          ) : p.error ? (
+            <div className="flex aspect-[9/16] w-full flex-col items-center justify-center gap-2 rounded-2xl border border-rose-500/20 bg-rose-500/5 p-6 text-center text-rose-300">
+              <p className="text-sm font-semibold">Pitch generation failed</p>
+              <p className="text-xs text-ink-400">{p.error}</p>
+            </div>
           ) : (
             <div className="flex aspect-[9/16] w-full items-center justify-center rounded-2xl border border-ink-800 bg-ink-900/50 text-ink-500">
               Pitch video is being generated…

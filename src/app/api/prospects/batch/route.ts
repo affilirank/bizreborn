@@ -118,9 +118,10 @@ export async function POST(req: Request) {
         const { voiceover_url } = await generateVoiceover(script, name);
         const tempProspect = { ...base, ...audit, pitch_script: script, voiceover_url } as Prospect;
         const rendered = await renderPitchVideo(tempProspect);
-        Object.assign(base, { ...audit, pitch_script: script, voiceover_url, ...rendered });
+        Object.assign(base, { ...audit, pitch_script: script, voiceover_url, ...rendered, status: "ready", error: null });
       } catch (err) {
         console.warn("[batch] instant render failed for", name, ":", err);
+        base.error = err instanceof Error ? err.message.slice(0, 300) : "Pitch generation failed.";
       }
     }));
   }

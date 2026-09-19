@@ -98,6 +98,9 @@ export async function PUT(
       })) ?? updated;
     } catch (err) {
       console.error("[prospect update] regeneration failed:", err);
+      await updateProspect(id, {
+        error: err instanceof Error ? err.message.slice(0, 300) : "Regeneration failed.",
+      }).catch(() => {});
     }
   }
 
