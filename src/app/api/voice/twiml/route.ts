@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getProspectById } from "@/lib/prospects";
 import { appendCallEntry, upsertCallRecord, getCallRecord } from "@/lib/call-store";
+import { classifyCallTranscript } from "@/lib/call-intent";
+import { performPostCallIntents } from "@/lib/call-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -190,12 +192,41 @@ Rules: under 4 sentences total, sound human and excited for them (not salesy), O
       : `${compliment} This is Sarah with Biz Reborn Marketing — I was searching for businesses like yours in ${cityLabel} and noticed ${competitorName} is outranking you on Google Maps. I put together a free 45-second video audit on exactly how to get you into that top 3 — can I send it to your email today?`;
   }
 
+  // LIVE ACTION WIRING (Twilio path): if the prospect just asked for the
+  // audit/proposal, asked to book, or said stop calling — DO IT NOW, mid-call,
+  // and confirm it out loud. Same executor the Retell agent uses.
+  let liveConfirmation = "";
+  if (speechResult) {
+    const flags = classifyCallTranscript([speechResult]);
+    if (flags.send_audit || flags.book_call || flags.stop_calling) {
+      const performed = await performPostCallIntents(prospectId ?? null, flags, callSid || "");
+      if (/stop_calling/.test(performed[0] ?? "")) {
+        // Honor it immediately and end warmly.
+        aiResponseText = "Absolutely — I'll stop calling and take you off our list. Sorry to have bothered you. Have a great day!";
+        liveConfirmation = "STOP";
+      } else if (/send_audit/.test(performed[0] ?? "")) {
+        liveConfirmation = "AUDIT_SENT";
+        aiResponseText = `${aiResponseText} Actually — I just sent it to your inbox this very second. Check your email in about a minute, it's a 45-second video made just for ${businessName}.`;
+      } else if (/book_call/.test(performed[0] ?? "")) {
+        liveConfirmation = "BOOKED";
+        aiResponseText = `${aiResponseText} And I've already placed a hold on the calendar for you — you'll get a confirmation email in a minute. Which day works best for you to talk for 10 minutes?`;
+      }
+    }
+  }
+
   if (callSid) {
     const time = new Date().toLocaleTimeString();
     if (speechResult) {
       await appendCallEntry(callSid, { role: "user", text: speechResult, time });
     }
     await appendCallEntry(callSid, { role: "ai", text: aiResponseText, time });
+    if (liveConfirmation && liveConfirmation !== "STOP" && prospectId) {
+      await appendCallEntry(callSid, {
+        role: "system",
+        text: `LIVE ACTION (${liveConfirmation}): ${liveConfirmation === "AUDIT_SENT" ? "audit/proposal email sent while the prospect was on the phone" : "booking hold placed while the prospect was on the phone"}.`,
+        time,
+      });
+    }
   }
 
   const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
