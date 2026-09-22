@@ -156,8 +156,18 @@ export async function POST(req: Request) {
 
   // Twilio mode (~$0.02-0.03/call): dial each lead directly (3 concurrent) —
   // no Retell platform fee. Same transcripts via the TwiML webhook.
-  const { callProvider, dialProspect } = await import("@/lib/services/dialer");
+  // Business-hours guard: Twilio dials FIRE IMMEDIATELY (unlike Retell batch
+  // mode, which schedules inside its window), so bulk calls must never land
+  // on someone's phone at night.
+  const { callProvider, dialProspect, withinBusinessHours } = await import("@/lib/services/dialer");
   if (callProvider() === "twilio") {
+    const window = withinBusinessHours();
+    if (!window.ok) {
+      return NextResponse.json(
+        { error: `Bulk calling is only allowed Mon–Fri 10am–7pm ET (it's ${window.et}). The daily auto-caller will dial for you at 10:30am ET.` },
+        { status: 403 },
+      );
+    }
     const byId = new Map(prospects.map((p) => [p.id, p] as const));
     let dialed = 0;
     const failed: string[] = [];
