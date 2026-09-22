@@ -93,6 +93,17 @@ async function handleVoiceWebhook(req: Request) {
 
   const voiceId = process.env.ELEVENLABS_VOICE_ID || "7o2jINz1addxWQ92Mv17";
 
+  // Compliment-first opener: lead with something TRUE and positive (never fake
+  // "great reviews" at a struggling listing), THEN the gap, THEN the ask.
+  const ratingNum = Number(rating) || 0;
+  const cityLabel = prospect?.city ?? "your area";
+  const compliment =
+    ratingNum >= 4.5 && Number(review_count) >= 20
+      ? `First off — ${rating} stars across ${review_count} reviews? Genuinely impressive, you all clearly take great care of your customers.`
+      : Number(review_count) >= 10
+        ? `First off — ${review_count} reviews and counting, it's clear ${businessName} is a real staple in the ${cityLabel} community.`
+        : `Love seeing local businesses like yours holding it down in ${cityLabel}.`;
+
   const systemPrompt = `You are Sarah, an expert master AI sales closer for Biz Reborn Marketing (using ElevenLabs cloned voice ID ${voiceId}). You are on an outbound live phone call with ${businessName}.
 CRITICAL RULE 1: NEVER repeat yourself or loop previous statements. Always advance the conversation naturally based on what was just said.
 CRITICAL RULE 2: NEVER mention service numbers (like "service #41") on the phone. Speak strictly about solutions, real-world results, features, and projected ROI in natural, confident, conversational human language.
@@ -129,14 +140,18 @@ Tone: warm, energetic, straightforward, confident, professional. Keep responses 
         }
       }
 
-      if (speechResult) {
-        messages.push({ role: "user", content: speechResult });
-      } else if (existingEntries.length === 0) {
-        messages.push({
-          role: "user",
-          content: `You have just reached ${businessName} on the phone. Deliver a warm, energetic opening greeting: introduce yourself as Sarah from Biz Reborn Marketing, mention that you audited their brand (Grade ${grade}, ${rating} stars, ${review_count} reviews) and noticed they are leaking ${lostMonthly}/mo to ${competitorName}, and ask if they have 45 seconds to hear how to close the gap.`,
-        });
-      }
+        if (speechResult) {
+          messages.push({ role: "user", content: speechResult });
+        } else if (existingEntries.length === 0) {
+          messages.push({
+            role: "user",
+            content: `You have just reached ${businessName} on the phone. Deliver a warm, energetic opening as Sarah from Biz Reborn Marketing with EXACTLY this structure:
+1. OPEN with a genuine compliment (never the problem): "${compliment}"
+2. DISCOVERY framing: "I was searching for businesses like yours in ${cityLabel} this week and noticed ${competitorName} is outranking you on Google Maps right now — looks like it's mostly the ${unanswered} unanswered reviews."
+3. THE OFFER + ASK: "I'd love to help a great business like yours claim that top 3 spot — I already put together a free 45-second video audit for ${businessName} showing exactly how. Can I send it to your email today?"
+Rules: under 4 sentences total, sound human and excited for them (not salesy), ONE question at the end (the email ask). Never mention grades, dollar losses, or "audit data" in the first turn.`,
+          });
+        }
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // Super fast 5s timeout
@@ -172,7 +187,7 @@ Tone: warm, energetic, straightforward, confident, professional. Keep responses 
   if (!aiResponseText) {
     aiResponseText = speechResult
       ? `That makes total sense. We mapped out an exact plan to add ${extraLeads} leads and ${projectedMonthly} a month. Can we schedule 10 minutes this week?`
-      : `Hi ${businessName}, this is Sarah from Biz Reborn. We audited your Google listing and noticed you're leaking roughly ${lostMonthly} a month to ${competitorName}. Do you have 45 seconds to chat about locking in your Top 3 spot?`;
+      : `${compliment} This is Sarah with Biz Reborn Marketing — I was searching for businesses like yours in ${cityLabel} and noticed ${competitorName} is outranking you on Google Maps. I put together a free 45-second video audit on exactly how to get you into that top 3 — can I send it to your email today?`;
   }
 
   if (callSid) {
