@@ -154,6 +154,34 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No leads to call (phones missing or cooldown active).", skipped: skipped.slice(0, 10) }, { status: 400 });
   }
 
+  // Twilio mode (~$0.02-0.03/call): dial each lead directly (3 concurrent) —
+  // no Retell platform fee. Same transcripts via the TwiML webhook.
+  const { callProvider, dialProspect } = await import("@/lib/services/dialer");
+  if (callProvider() === "twilio") {
+    const byId = new Map(prospects.map((p) => [p.id, p] as const));
+    let dialed = 0;
+    const failed: string[] = [];
+    for (let i = 0; i < tasks.length; i += 3) {
+      await Promise.all(tasks.slice(i, i + 3).map(async (t) => {
+        const pid = String((t.metadata as Record<string, unknown>)?.prospectId ?? "");
+        const p = pid ? byId.get(pid) : undefined;
+        if (!p) return;
+        const r = await dialProspect(p);
+        if (r.ok) dialed++;
+        else failed.push(`${p.business_name}: ${r.error ?? "failed"}`);
+      }));
+    }
+    return NextResponse.json({
+      success: dialed > 0,
+      provider: "twilio",
+      queued: dialed,
+      failedCount: failed.length,
+      failed: failed.slice(0, 5),
+      skippedCount: skipped.length,
+      skipped: skipped.slice(0, 10),
+    });
+  }
+
   // Calling window: 10:00-19:00 ET, Mon-Fri — keeps cold calls inside polite
   // (and TCPA-friendlier) hours regardless of when the batch is triggered.
   const res = await fetch("https://api.retellai.com/create-batch-call", {

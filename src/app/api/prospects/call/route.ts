@@ -51,9 +51,11 @@ export async function POST(req: Request) {
 
   // PREFERRED: Retell AI voice agent — sub-second responses, interruption
   // handling, transcripts, and post-call analysis. Overrides the Twilio chain.
+  // Only used when CALL_PROVIDER=retell (Twilio is ~10x cheaper and default).
   const retellKey = process.env.RETELL_API_KEY;
   const retellAgent = process.env.RETELL_AGENT_ID;
-  if (retellKey && retellAgent) {
+  const { callProvider } = await import("@/lib/services/dialer");
+  if (retellKey && retellAgent && callProvider() === "retell") {
     try {
       const dyn: Record<string, string> = {
         contact_name: "the business owner",

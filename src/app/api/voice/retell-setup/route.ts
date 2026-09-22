@@ -79,11 +79,55 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `Agent update failed: ${(patched as Record<string, unknown>)?.message ?? patchRes.status}` }, { status: 400 });
   }
 
+  // ---- Honest-opener prompt fix ----
+  // The stored agent prompt claims "you recently requested a free audit" —
+  // false (these are outbound cold calls) and an instant hang-up trigger.
+  // Rewrite the opening: compliment first, honest discovery framing, email ask.
+  const HONEST_OPENER = `## OPENING — READ VERBATIM (overrides any earlier opening)
+"Hi, this is Sarah from Biz Reborn Marketing — did I catch the business owner?"
+- If NOT the owner: "No problem at all! When's a good time to catch them — or I can email the audit link straight over. Which works better?"
+- If owner: "[COMPLIMENT FIRST — use the prospect's real data: 4.5+ stars → '{rating} stars across {reviews} reviews? Genuinely impressive, you clearly take great care of your customers.' / fewer reviews → '{reviews} reviews and counting — {business_name} is clearly a staple in {city}.']"
+  Then: "I was researching businesses like yours in {city} this week and noticed {competitor_name} is outranking you on Google Maps right now — looks like it's mostly the {unanswered} unanswered reviews."
+  Then: "I'd love to help a great business like yours claim that top 3 spot — I actually already put together a free 45-second video audit for {business_name} showing exactly how. Can I send it to your email right now?"
+## CRITICAL HONESTY RULE
+NEVER claim the business requested, signed up for, or booked an audit. You found them through YOUR OWN research and proactively prepared the audit FOR them. If they ask "how did you get my number?" say: "I found your business while researching top local spots in {city} — that's how the audit got built, honestly."
+NEVER mention dollar losses, grades, or "audit data" in the first turn. One question max per turn.`;
+
+  let promptFixed = false;
+  const engine = (agent as Record<string, unknown>).response_engine as Record<string, unknown> | undefined;
+  const llmId = engine && engine.type === "retell-llm" ? String(engine.llm_id ?? "") : "";
+  if (llmId) {
+    try {
+      const llmRes = await fetch(`https://api.retellai.com/get-retell-llm/${llmId}`, {
+        headers: { Authorization: `Bearer ${key}` },
+      });
+      const llm = (await llmRes.json().catch(() => ({}))) as Record<string, unknown>;
+      if (llmRes.ok && typeof llm.system_prompt === "string") {
+        let prompt = String(llm.system_prompt);
+        // Strip every false claim that the business requested/signed up.
+        prompt = prompt.replace(/[^.\n]*(recently requested|requested a free|signed up for|opted in)[^.\n]*\.?/gi, "");
+        // Prepend the override so it wins over any leftover opening text.
+        prompt = `${HONEST_OPENER}\n\n${prompt}`;
+        const llmPatch = await fetch("https://api.retellai.com/update-retell-llm", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+          body: JSON.stringify({ llm_id: llmId, system_prompt: prompt }),
+        });
+        promptFixed = llmPatch.ok;
+      }
+    } catch {
+      // prompt patch is best-effort; tools are the critical part
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     agentId,
     tools: Array.from(byName.keys()),
     webhook: url,
-    note: "Agent updated — the four tools are live. The agent will execute them mid-call when the client asks.",
+    promptFixed,
+    note: promptFixed
+      ? "Agent updated — tools registered AND the opening prompt rewritten (compliment-first, no false 'you requested' claim)."
+      : "Agent updated — tools registered. Prompt auto-fix skipped (agent doesn't use a Retell-managed LLM prompt) — update the opener manually in the Retell dashboard.",
   });
 }

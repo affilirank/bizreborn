@@ -39,16 +39,75 @@ export function toE164(phone: string): string | null {
   return null;
 }
 
+/**
+ * Provider selection. Retell is ~$0.19/call (voice-minute + LLM billing);
+ * the Twilio/TwiML AI caller costs ~$0.02-0.03/call with the same CRM
+ * transcripts — so Twilio is the DEFAULT. Set CALL_PROVIDER=retell to opt
+ * back into Retell.
+ */
+export function callProvider(): "twilio" | "retell" {
+  const p = (process.env.CALL_PROVIDER ?? "twilio").toLowerCase();
+  return p === "retell" ? "retell" : "twilio";
+}
+
+async function twilioDial(p: Prospect, e164: string): Promise<DialResult> {
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  const from = process.env.TWILIO_PHONE_NUMBER;
+  if (!sid || !token || !from) {
+    return { ok: false, error: "Twilio is not configured (TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_PHONE_NUMBER)." };
+  }
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
+  const body = new URLSearchParams({
+    To: e164,
+    From: from,
+    Url: `${base}/api/voice/twiml?prospectId=${p.id}`,
+    MachineDetection: "Hangup", // don't waste minutes talking to voicemail
+  });
+  const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Calls.json`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) {
+    return { ok: false, error: `Twilio call failed: ${(data as { message?: string })?.message || res.status}` };
+  }
+  const callSid = String(data.sid ?? `tw_${Date.now()}`);
+  await upsertCallRecord({
+    callSid,
+    prospectId: p.id,
+    phone: e164,
+    businessName: p.business_name,
+    simulated: false,
+    status: "dialing",
+    startedAt: new Date().toISOString(),
+    endedAt: null,
+    durationSec: 0,
+    entries: [{ role: "system", text: `Twilio AI call initiated to ${e164} for ${p.business_name}.`, time: new Date().toLocaleTimeString() }],
+    outcome: null,
+  });
+  return { ok: true, callId: callSid };
+}
+
 export async function dialProspect(p: Prospect): Promise<DialResult> {
+  const phone = p.phone;
+  if (!phone) return { ok: false, error: "No phone number on the lead." };
+  const e164 = toE164(phone);
+  if (!e164) return { ok: false, error: `Invalid phone number: ${phone}` };
+
+  if (callProvider() === "twilio") {
+    return twilioDial(p, e164);
+  }
+
   const retellKey = process.env.RETELL_API_KEY;
   const retellAgent = process.env.RETELL_AGENT_ID;
   if (!retellKey || !retellAgent) {
     return { ok: false, error: "Retell is not configured (RETELL_API_KEY / RETELL_AGENT_ID)." };
   }
-  const phone = p.phone;
-  if (!phone) return { ok: false, error: "No phone number on the lead." };
-  const e164 = toE164(phone);
-  if (!e164) return { ok: false, error: `Invalid phone number: ${phone}` };
 
   const fromNumber = process.env.RETELL_FROM_NUMBER;
   const res = await fetch("https://api.retellai.com/v2/create-phone-call", {

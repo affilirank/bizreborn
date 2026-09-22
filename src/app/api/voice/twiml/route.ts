@@ -202,23 +202,31 @@ Rules: under 4 sentences total, sound human and excited for them (not salesy), O
 
   // Latency: per-turn <Play> of a serverless-rendered ElevenLabs MP3 added
   // 2-5s of dead air per response (Twilio fetches the URL, the function
-  // cold-starts, ElevenLabs generates). The opening line keeps the cloned
-  // voice — it's the impression that matters — but conversational turns use
-  // Twilio's built-in <Say>, which starts speaking instantly.
+  // cold-starts, ElevenLabs generates) — dead air at the OPENING is the #1
+  // hangup cause on cold calls. Polly starts instantly, so it's the default
+  // everywhere; set CALL_TWILIO_ELEVENLABS_OPENING=1 to trade 3-5s of silence
+  // for the cloned voice on the opening line only.
   const isOpeningTurn = !speechResult && existingEntries.length === 0;
+  const useElevenLabsOpening = process.env.CALL_TWILIO_ELEVENLABS_OPENING === "1";
   const escapeXml = (s: string) =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
   const gatherAction = `/api/voice/twiml${prospectId ? `?prospectId=${prospectId}` : ""}`;
-  const body = isOpeningTurn
+  const body = isOpeningTurn && useElevenLabsOpening
     ? `<Play>${base}/api/voice/audio?text=${encodeURIComponent(aiResponseText)}</Play>`
     : `<Say voice="Polly.Joanna" language="en-US">${escapeXml(aiResponseText)}</Say>`;
 
+  // Silence handling: give ONE gentle nudge ("Hello? Can you hear me?") before
+  // hanging up — an immediate "goodbye" wastes every silent pickup.
+  const nudgedAlready = existingEntries.some((e) => e.role === "ai" && /can you hear me/i.test(e.text));
+  const afterSilence = nudgedAlready
+    ? `<Say voice="Polly.Joanna" language="en-US">No problem — I'll email your free video audit instead. Have a great day!</Say>`
+    : `<Say voice="Polly.Joanna" language="en-US">Hello? This is Sarah — can you hear me okay?</Say><Gather input="speech dtmf" action="${gatherAction}" method="POST" speechTimeout="3" numDigits="1" />`;
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Gather input="speech dtmf" action="${gatherAction}" method="POST" speechTimeout="2" numDigits="1">
     ${body}
   </Gather>
-  <Say voice="Polly.Joanna" language="en-US">We did not hear a response. Feel free to check out your 45-second video audit on our website. Goodbye!</Say>
+  ${afterSilence}
 </Response>`;
 
   return new NextResponse(twiml, {
