@@ -102,6 +102,20 @@ export async function POST(req: Request) {
     );
   }
 
+  // Hard daily dial budget (Retell bills ~$0.07-0.15/voice-minute + LLM tokens;
+  // one "Call All Leads" click used to queue EVERY callable lead at once).
+  const dailyBudget = Number(process.env.CALL_MAX_DAILY_DIALS ?? 40);
+  const dayStart = new Date().toISOString().slice(0, 10);
+  const recentCalls = await listCallRecords(500);
+  const dialedToday = recentCalls.filter((c) => (c.startedAt ?? "").slice(0, 10) === dayStart).length;
+  if (dialedToday >= dailyBudget) {
+    return NextResponse.json(
+      { error: `Daily call budget reached (${dialedToday}/${dailyBudget} dials today). Raise CALL_MAX_DAILY_DIALS in Vercel env if you want more.` },
+      { status: 429 },
+    );
+  }
+  const remainingToday = Math.max(0, dailyBudget - dialedToday);
+
   const prospects = await listProspects();
   const cooldownCutoff = new Date(Date.now() - cooldownDays * 24 * 3600e3).toISOString();
 
@@ -123,6 +137,10 @@ export async function POST(req: Request) {
     );
     if (callLogs.length > 0) {
       skipped.push(`${p.business_name}: called within ${cooldownDays}d`);
+      continue;
+    }
+    if (tasks.length >= remainingToday) {
+      skipped.push(`daily dial budget reached (${dailyBudget}/day)`);
       continue;
     }
     tasks.push({
