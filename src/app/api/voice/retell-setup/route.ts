@@ -13,8 +13,9 @@ export const dynamic = "force-dynamic";
  */
 const TOOL_SPEC = {
   type: "custom",
-  deployment: "webhook",
-  webhook_url: "",
+  tool_call_synchronous: true, // agent waits for the result and speaks it
+  speak_during_tool_execution: true,
+  webhook_timeout_ms: 30000,
 };
 
 function toolUrl(base: string) {
@@ -69,10 +70,10 @@ export async function POST(req: Request) {
     byName.set(String(t.name), t); // upsert by name (re-points webhook if base changed)
   }
 
-  const patchRes = await fetch("https://api.retellai.com/update-agent", {
+  const patchRes = await fetch(`https://api.retellai.com/update-agent/${agentId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ agent_id: agentId, tools: Array.from(byName.values()) }),
+    body: JSON.stringify({ tools: Array.from(byName.values()) }),
   });
   const patched = await patchRes.json().catch(() => ({}));
   if (!patchRes.ok) {
@@ -108,10 +109,10 @@ NEVER mention dollar losses, grades, or "audit data" in the first turn. One ques
         prompt = prompt.replace(/[^.\n]*(recently requested|requested a free|signed up for|opted in)[^.\n]*\.?/gi, "");
         // Prepend the override so it wins over any leftover opening text.
         prompt = `${HONEST_OPENER}\n\n${prompt}`;
-        const llmPatch = await fetch("https://api.retellai.com/update-retell-llm", {
+        const llmPatch = await fetch(`https://api.retellai.com/update-retell-llm/${llmId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-          body: JSON.stringify({ llm_id: llmId, system_prompt: prompt }),
+          body: JSON.stringify({ system_prompt: prompt }),
         });
         promptFixed = llmPatch.ok;
       }
