@@ -96,13 +96,15 @@ export async function POST(req: Request) {
 
   // Hard daily dial budget (Retell bills ~$0.07-0.15/voice-minute + LLM tokens;
   // one "Call All Leads" click used to queue EVERY callable lead at once).
-  const dailyBudget = Number(process.env.CALL_MAX_DAILY_DIALS ?? 2);
+  const dailyBudget = batchProvider === "retell"
+    ? Number(process.env.RETELL_MAX_DAILY_DIALS ?? 2)
+    : Number(process.env.TWILIO_MAX_DAILY_DIALS ?? 50);
   const dayStart = new Date().toISOString().slice(0, 10);
   const recentCalls = await listCallRecords(500);
   const dialedToday = recentCalls.filter((c) => (c.startedAt ?? "").slice(0, 10) === dayStart).length;
   if (dialedToday >= dailyBudget) {
     return NextResponse.json(
-      { error: `Daily call budget reached (${dialedToday}/${dailyBudget} dials today). Raise CALL_MAX_DAILY_DIALS in Vercel env if you want more.` },
+      { error: `Daily ${batchProvider} call budget reached (${dialedToday}/${dailyBudget} dials today).` },
       { status: 429 },
     );
   }
