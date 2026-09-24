@@ -96,13 +96,16 @@ async function twilioDial(p: Prospect, e164: string): Promise<DialResult> {
   return { ok: true, callId: callSid };
 }
 
-export async function dialProspect(p: Prospect): Promise<DialResult> {
+export async function dialProspect(
+  p: Prospect,
+  forcedProvider?: "twilio" | "retell",
+): Promise<DialResult> {
   const phone = p.phone;
   if (!phone) return { ok: false, error: "No phone number on the lead." };
   const e164 = toE164(phone);
   if (!e164) return { ok: false, error: `Invalid phone number: ${phone}` };
 
-  if (callProvider() === "twilio") {
+  if ((forcedProvider ?? callProvider()) === "twilio") {
     return twilioDial(p, e164);
   }
 

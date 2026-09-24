@@ -75,7 +75,7 @@ export async function GET(req: Request) {
       if (Date.now() - new Date(last.startedAt).getTime() < RETRY_GAP_MS) { skipped.tooSoon++; continue; }
     }
 
-    const r = await dialProspect(p);
+    const r = await dialProspect(p, "twilio");
     dialed++;
     results.push({ business: p.business_name, result: r.ok ? `dialing (${calls.length + 1}/${MAX_ATTEMPTS})` : r.error ?? "failed" });
   }
