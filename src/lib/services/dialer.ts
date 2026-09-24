@@ -40,15 +40,15 @@ export function toE164(phone: string): string | null {
 }
 
 /**
- * Provider selection. Twilio is the low-cost default. Retell handles
- * streaming speech and interruptions with lower turn latency; opt into it
- * explicitly with CALL_PROVIDER=retell.
+ * Manual provider selection. Retell is preferred when configured because it
+ * handles streaming speech and interruptions better. Scheduled and bulk
+ * callers pass Twilio explicitly to avoid spending Retell credits.
  */
 export function callProvider(): "twilio" | "retell" {
   const configured = (process.env.CALL_PROVIDER ?? "").toLowerCase();
   if (configured === "twilio") return "twilio";
   if (configured === "retell") return "retell";
-  return "twilio";
+  return process.env.RETELL_API_KEY && process.env.RETELL_AGENT_ID ? "retell" : "twilio";
 }
 
 async function twilioDial(p: Prospect, e164: string): Promise<DialResult> {
