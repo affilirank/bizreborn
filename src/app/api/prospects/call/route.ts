@@ -49,9 +49,9 @@ export async function POST(req: Request) {
   const digits = phone.replace(/\D/g, "");
   const e164 = digits.length === 10 ? `+1${digits}` : `+${digits}`;
 
-  // PREFERRED: Retell AI voice agent — sub-second responses, interruption
-  // handling, transcripts, and post-call analysis. Overrides the Twilio chain.
-  // Only used when CALL_PROVIDER=retell (Twilio is ~10x cheaper and default).
+  // Optional: Retell AI voice agent — sub-second responses, interruption
+  // handling, transcripts, and post-call analysis. Set CALL_PROVIDER=retell
+  // to use it; Twilio remains the lower-cost default.
   const retellKey = process.env.RETELL_API_KEY;
   const retellAgent = process.env.RETELL_AGENT_ID;
   const { callProvider } = await import("@/lib/services/dialer");
@@ -179,6 +179,8 @@ export async function POST(req: Request) {
             To: phone,
             From: twilioNumber,
             Url: twimlUrl,
+            Timeout: process.env.TWILIO_RING_TIMEOUT_SECONDS ?? "20",
+            TimeLimit: process.env.TWILIO_CALL_TIME_LIMIT_SECONDS ?? "180",
             StatusCallback: `${protocol}://${host}/api/voice/status`,
             StatusCallbackEvent: "initiated ringing answered completed",
             StatusCallbackMethod: "POST",

@@ -196,7 +196,7 @@ function defaultOutcome(status: CallStatus): string {
   }
 }
 
-function summarizeOutcome(entries: CallTranscriptEntry[]): string | null {
+export function summarizeOutcome(entries: CallTranscriptEntry[]): string | null {
   const userLines = entries
     .filter((e) => e.role === "user")
     .map((e) => e.text.toLowerCase());

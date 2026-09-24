@@ -62,6 +62,10 @@ const statusBadge: Record<string, { label: string; cls: string }> = {
 const money = (n: number | null | undefined) =>
   n == null ? "—" : `$${Math.round(n).toLocaleString("en-US")}`;
 
+function uniqueProspects(rows: Prospect[]): Prospect[] {
+  return Array.from(new Map(rows.map((prospect) => [prospect.id, prospect])).values());
+}
+
 function absPitch(p: Prospect) {
   const base =
     typeof window !== "undefined"
@@ -370,7 +374,7 @@ export default function ProspectsAdmin() {
     try {
       const res = await fetch("/api/prospects", { cache: "no-store" });
       const json = await res.json();
-      if (json.prospects) setProspects(json.prospects);
+      if (json.prospects) setProspects(uniqueProspects(json.prospects));
       if (json.store) setStore(json.store);
       if (json.setupSql) setSetupSql(json.setupSql);
     } finally {
@@ -384,7 +388,7 @@ export default function ProspectsAdmin() {
       .then((res) => res.json())
       .then((json) => {
         if (!active) return;
-        if (json.prospects) setProspects(json.prospects);
+        if (json.prospects) setProspects(uniqueProspects(json.prospects));
         if (json.store) setStore(json.store);
         if (json.setupSql) setSetupSql(json.setupSql);
         setLoading(false);

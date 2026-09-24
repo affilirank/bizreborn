@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getProspectById } from "@/lib/prospects";
-import { appendCallEntry, upsertCallRecord, getCallRecord } from "@/lib/call-store";
+import { upsertCallRecord, getCallRecord, summarizeOutcome } from "@/lib/call-store";
+import type { CallTranscriptEntry } from "@/lib/call-store";
 import { classifyCallTranscript } from "@/lib/call-intent";
 import { performPostCallIntents } from "@/lib/call-actions";
 
@@ -94,17 +95,12 @@ async function handleVoiceWebhook(req: Request) {
   }
 
   const voiceId = process.env.ELEVENLABS_VOICE_ID || "7o2jINz1addxWQ92Mv17";
+  const isOpeningTurn = !speechResult && existingEntries.length === 0;
 
-  // Compliment-first opener: lead with something TRUE and positive (never fake
-  // "great reviews" at a struggling listing), THEN the gap, THEN the ask.
-  const ratingNum = Number(rating) || 0;
   const cityLabel = prospect?.city ?? "your area";
-  const compliment =
-    ratingNum >= 4.5 && Number(review_count) >= 20
-      ? `First off — ${rating} stars across ${review_count} reviews? Genuinely impressive, you all clearly take great care of your customers.`
-      : Number(review_count) >= 10
-        ? `First off — ${review_count} reviews and counting, it's clear ${businessName} is a real staple in the ${cityLabel} community.`
-        : `Love seeing local businesses like yours holding it down in ${cityLabel}.`;
+  const ownerCheck = businessName === "the business owner"
+    ? "the business owner"
+    : `the owner of ${businessName}`;
 
   const systemPrompt = `You are Sarah, an expert master AI sales closer for Biz Reborn Marketing (using ElevenLabs cloned voice ID ${voiceId}). You are on an outbound live phone call with ${businessName}.
 CRITICAL RULE 1: NEVER repeat yourself or loop previous statements. Always advance the conversation naturally based on what was just said.
@@ -122,19 +118,19 @@ OBJECTION HANDLING:
 - "We already have an agency": "That’s awesome, glad you have someone! But are they tracking your geo-grid ranking outside your immediate zip code and capturing missed calls after hours?"
 - "Not interested": "No worries at all! Just keep an eye on your map rankings. If things change, you know where to find us. Have a great day!"
 
-Tone: warm, energetic, straightforward, confident, professional. Keep responses punchy (1-2 sentences maximum).`;
+Tone: warm, curious, straightforward, and professional. Be transparent that this is an unsolicited outreach call. Keep every response to one short sentence unless the person asks for detail. Ask one question at a time. Stop speaking immediately when the person starts talking or sounds rushed.`;
 
   const openAiKey = process.env.OPENAI_API_KEY;
   let aiResponseText = "";
 
-  if (openAiKey) {
+  if (openAiKey && !isOpeningTurn) {
     try {
       const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
         { role: "system", content: systemPrompt },
       ];
 
-      // Append past conversation turns so the model has full context and never loops
-      for (const entry of existingEntries) {
+      // Keep only the latest turns so the live request stays small and focused.
+      for (const entry of existingEntries.slice(-8)) {
         if (entry.role === "user") {
           messages.push({ role: "user", content: entry.text });
         } else if (entry.role === "ai") {
@@ -147,16 +143,15 @@ Tone: warm, energetic, straightforward, confident, professional. Keep responses 
         } else if (existingEntries.length === 0) {
           messages.push({
             role: "user",
-            content: `You have just reached ${businessName} on the phone. Deliver a warm, energetic opening as Sarah from Biz Reborn Marketing with EXACTLY this structure:
-1. OPEN with a genuine compliment (never the problem): "${compliment}"
-2. DISCOVERY framing: "I was searching for businesses like yours in ${cityLabel} this week and noticed ${competitorName} is outranking you on Google Maps right now — looks like it's mostly the ${unanswered} unanswered reviews."
-3. THE OFFER + ASK: "I'd love to help a great business like yours claim that top 3 spot — I already put together a free 45-second video audit for ${businessName} showing exactly how. Can I send it to your email today?"
-Rules: under 4 sentences total, sound human and excited for them (not salesy), ONE question at the end (the email ask). Never mention grades, dollar losses, or "audit data" in the first turn.`,
+            content: `You have just reached ${businessName} on the phone. Say this in a natural, trustworthy way: "Hi, am I speaking with ${ownerCheck}? This is Sarah with Biz Reborn Marketing. I found your business while researching local businesses in ${cityLabel}, noticed a couple of opportunities on your Google profile, and made a free 45-second video showing them. Is it okay if I tell you the quick reason I called?" Keep it under 4 short sentences. Do not claim they requested anything, do not exaggerate, and ask only the final permission question.`,
           });
         }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // Super fast 5s timeout
+      const timeoutId = setTimeout(
+        () => controller.abort(),
+        Number(process.env.CALL_AI_TIMEOUT_MS ?? 2500),
+      );
 
       const res = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -168,9 +163,7 @@ Rules: under 4 sentences total, sound human and excited for them (not salesy), O
           model: process.env.CHAT_OPENAI_MODEL || "gpt-4o-mini",
           messages,
           temperature: 0.4,
-          // Conversational turns are 1-2 sentences — 80 tokens caps generation
-          // time (~1s) without capping quality.
-          max_tokens: 80,
+          max_tokens: 45,
         }),
         signal: controller.signal,
       });
@@ -188,8 +181,8 @@ Rules: under 4 sentences total, sound human and excited for them (not salesy), O
   // Fallback if OpenAI failed or key missing
   if (!aiResponseText) {
     aiResponseText = speechResult
-      ? `That makes total sense. We mapped out an exact plan to add ${extraLeads} leads and ${projectedMonthly} a month. Can we schedule 10 minutes this week?`
-      : `${compliment} This is Sarah with Biz Reborn Marketing — I was searching for businesses like yours in ${cityLabel} and noticed ${competitorName} is outranking you on Google Maps. I put together a free 45-second video audit on exactly how to get you into that top 3 — can I send it to your email today?`;
+      ? `I hear you, and I will keep this brief: I noticed a couple of Google opportunities for ${businessName} and made a free 45-second video; would you like me to send it over?`
+      : `Hi, am I speaking with ${ownerCheck}? This is Sarah with Biz Reborn Marketing. I found your business while researching local businesses in ${cityLabel}, noticed a couple of opportunities on your Google profile, and made a free 45-second video showing them. Is it okay if I tell you the quick reason I called?`;
   }
 
   // LIVE ACTION WIRING (Twilio path): if the prospect just asked for the
@@ -216,17 +209,34 @@ Rules: under 4 sentences total, sound human and excited for them (not salesy), O
 
   if (callSid) {
     const time = new Date().toLocaleTimeString();
+    const entries: CallTranscriptEntry[] = [...(rec?.entries ?? [])];
     if (speechResult) {
-      await appendCallEntry(callSid, { role: "user", text: speechResult, time });
+      entries.push({ role: "user", text: speechResult, time });
     }
-    await appendCallEntry(callSid, { role: "ai", text: aiResponseText, time });
+    entries.push({ role: "ai", text: aiResponseText, time });
     if (liveConfirmation && liveConfirmation !== "STOP" && prospectId) {
-      await appendCallEntry(callSid, {
+      entries.push({
         role: "system",
         text: `LIVE ACTION (${liveConfirmation}): ${liveConfirmation === "AUDIT_SENT" ? "audit/proposal email sent while the prospect was on the phone" : "booking hold placed while the prospect was on the phone"}.`,
         time,
       });
     }
+    await upsertCallRecord({
+      ...(rec ?? {
+        callSid,
+        prospectId,
+        phone: "",
+        businessName,
+        simulated: false,
+        status: "in-progress" as const,
+        startedAt: new Date().toISOString(),
+        endedAt: null,
+        durationSec: 0,
+        outcome: null,
+      }),
+      entries,
+      outcome: summarizeOutcome(entries),
+    });
   }
 
   const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
@@ -237,7 +247,6 @@ Rules: under 4 sentences total, sound human and excited for them (not salesy), O
   // hangup cause on cold calls. Polly starts instantly, so it's the default
   // everywhere; set CALL_TWILIO_ELEVENLABS_OPENING=1 to trade 3-5s of silence
   // for the cloned voice on the opening line only.
-  const isOpeningTurn = !speechResult && existingEntries.length === 0;
   const useElevenLabsOpening = process.env.CALL_TWILIO_ELEVENLABS_OPENING === "1";
   const escapeXml = (s: string) =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
@@ -259,9 +268,8 @@ Rules: under 4 sentences total, sound human and excited for them (not salesy), O
     : `<Say voice="${voice}" language="en-US">Hello? This is Sarah — can you hear me okay?</Say><Gather input="speech dtmf" action="${gatherAction}" method="POST" speechTimeout="3" numDigits="1" />`;
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech dtmf" action="${gatherAction}" method="POST" speechTimeout="2" numDigits="1">
-    ${body}
-  </Gather>
+  ${body}
+  <Gather input="speech dtmf" action="${gatherAction}" method="POST" speechTimeout="auto" timeout="1" numDigits="1" />
   ${afterSilence}
 </Response>`;
 

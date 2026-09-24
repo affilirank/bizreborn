@@ -15,9 +15,9 @@ function isCronAuth(req: Request): boolean {
   return !!secret && auth === `Bearer ${secret}`;
 }
 
-const MAX_ATTEMPTS = Number(process.env.CALL_MAX_ATTEMPTS ?? 6); // business days of tries
+const MAX_ATTEMPTS = Number(process.env.CALL_MAX_ATTEMPTS ?? 3); // business days of tries
 const RETRY_GAP_MS = Number(process.env.CALL_RETRY_HOURS ?? 20) * 60 * 60 * 1000; // ~1/day
-const DIALS_PER_PASS = Number(process.env.CALL_AUTO_DIALS_PER_PASS ?? 5);
+const DIALS_PER_PASS = Number(process.env.CALL_AUTO_DIALS_PER_PASS ?? 1);
 
 /**
  * Auto-call scheduler (Vercel Cron, every 30 min).

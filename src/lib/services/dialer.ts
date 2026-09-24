@@ -40,14 +40,15 @@ export function toE164(phone: string): string | null {
 }
 
 /**
- * Provider selection. Retell is ~$0.19/call (voice-minute + LLM billing);
- * the Twilio/TwiML AI caller costs ~$0.02-0.03/call with the same CRM
- * transcripts — so Twilio is the DEFAULT. Set CALL_PROVIDER=retell to opt
- * back into Retell.
+ * Provider selection. Twilio is the low-cost default. Retell handles
+ * streaming speech and interruptions with lower turn latency; opt into it
+ * explicitly with CALL_PROVIDER=retell.
  */
 export function callProvider(): "twilio" | "retell" {
-  const p = (process.env.CALL_PROVIDER ?? "twilio").toLowerCase();
-  return p === "retell" ? "retell" : "twilio";
+  const configured = (process.env.CALL_PROVIDER ?? "").toLowerCase();
+  if (configured === "twilio") return "twilio";
+  if (configured === "retell") return "retell";
+  return "twilio";
 }
 
 async function twilioDial(p: Prospect, e164: string): Promise<DialResult> {
@@ -63,6 +64,8 @@ async function twilioDial(p: Prospect, e164: string): Promise<DialResult> {
     From: from,
     Url: `${base}/api/voice/twiml?prospectId=${p.id}`,
     MachineDetection: "Hangup", // don't waste minutes talking to voicemail
+    Timeout: process.env.TWILIO_RING_TIMEOUT_SECONDS ?? "20",
+    TimeLimit: process.env.TWILIO_CALL_TIME_LIMIT_SECONDS ?? "180",
   });
   const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Calls.json`, {
     method: "POST",
