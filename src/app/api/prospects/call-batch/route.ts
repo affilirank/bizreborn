@@ -92,19 +92,11 @@ export async function POST(req: Request) {
   const limit = Math.min(200, Math.max(1, Number(body?.limit ?? 50)));
   const cooldownDays = Math.max(0, Number(body?.cooldownDays ?? CALLED_RECENTLY_DAYS));
 
-  const retellKey = process.env.RETELL_API_KEY;
-  const fromNumber = process.env.RETELL_FROM_NUMBER;
-  const agentId = process.env.RETELL_AGENT_ID;
-  if (!retellKey || !fromNumber || !agentId) {
-    return NextResponse.json(
-      { error: "Retell is not fully configured (RETELL_API_KEY / RETELL_FROM_NUMBER / RETELL_AGENT_ID)." },
-      { status: 400 },
-    );
-  }
+  const batchProvider = process.env.CALL_BATCH_PROVIDER?.toLowerCase() === "retell" ? "retell" : "twilio";
 
   // Hard daily dial budget (Retell bills ~$0.07-0.15/voice-minute + LLM tokens;
   // one "Call All Leads" click used to queue EVERY callable lead at once).
-  const dailyBudget = Number(process.env.CALL_MAX_DAILY_DIALS ?? 40);
+  const dailyBudget = Number(process.env.CALL_MAX_DAILY_DIALS ?? 2);
   const dayStart = new Date().toISOString().slice(0, 10);
   const recentCalls = await listCallRecords(500);
   const dialedToday = recentCalls.filter((c) => (c.startedAt ?? "").slice(0, 10) === dayStart).length;
@@ -159,8 +151,8 @@ export async function POST(req: Request) {
   // Business-hours guard: Twilio dials FIRE IMMEDIATELY (unlike Retell batch
   // mode, which schedules inside its window), so bulk calls must never land
   // on someone's phone at night.
-  const { callProvider, dialProspect, withinBusinessHours } = await import("@/lib/services/dialer");
-  if (callProvider() === "twilio") {
+  const { dialProspect, withinBusinessHours } = await import("@/lib/services/dialer");
+  if (batchProvider === "twilio") {
     const window = withinBusinessHours();
     if (!window.ok) {
       return NextResponse.json(
@@ -190,6 +182,16 @@ export async function POST(req: Request) {
       skippedCount: skipped.length,
       skipped: skipped.slice(0, 10),
     });
+  }
+
+  const retellKey = process.env.RETELL_API_KEY;
+  const fromNumber = process.env.RETELL_FROM_NUMBER;
+  const agentId = process.env.RETELL_AGENT_ID;
+  if (!retellKey || !fromNumber || !agentId) {
+    return NextResponse.json(
+      { error: "Retell bulk calling is disabled unless CALL_BATCH_PROVIDER=retell and Retell is fully configured." },
+      { status: 400 },
+    );
   }
 
   // Calling window: 10:00-19:00 ET, Mon-Fri — keeps cold calls inside polite
