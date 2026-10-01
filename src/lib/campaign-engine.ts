@@ -91,7 +91,7 @@ export async function advanceProspectCampaign(
     }
     const competitor = prospect.competitor_name ?? "the local market leader";
     subject = `Great news, ${prospect.business_name} — your free audit is on the way! 🎉`;
-    body = `Hi ${prospect.business_name} team,\n\nWelcome to Biz Reborn! We just added ${prospect.business_name} to our audit queue — your FREE local growth audit is being compiled right now.\n\nIt covers your Google map-pack standing vs ${competitor}, your review scorecard, unanswered-review leaks, and the exact fixes to lock in your Top 3 spot.\n\nYour audit link lands right back in this inbox within the next hour. Keep an eye out — it includes a 45-second video walkthrough built just for ${prospect.business_name}.\n\nNo strings, no cost. If your listings are already perfect, you'll know in 60 seconds.`;
+    body = `Hi ${prospect.business_name} team,\n\nWelcome to Merit Marketing! We just added ${prospect.business_name} to our audit queue — your FREE local growth audit is being compiled right now.\n\nIt covers your Google map-pack standing vs ${competitor}, your review scorecard, unanswered-review leaks, and the exact fixes to lock in your Top 3 spot.\n\nYour audit link lands right back in this inbox within the next hour. Keep an eye out — it includes a 45-second video walkthrough built just for ${prospect.business_name}.\n\nNo strings, no cost. If your listings are already perfect, you'll know in 60 seconds.`;
     kind = "welcome";
     stepNumber = 1;
     stepLabel = "Welcome · Free Audit Incoming";
@@ -149,7 +149,7 @@ export async function advanceProspectCampaign(
     const article = sorted[(dayNum - 1) % sorted.length] || sorted[0];
 
     subject = `[Day ${dayNum} of 100 Authority Newsletter] ${article.title}`;
-    body = `Hi ${prospect.business_name} team,\n\nWelcome to Day ${dayNum} of our Biz Reborn Authority Newsletter series for ${prospect.city || "local businesses"}.\n\nToday's featured guide: "${article.title}"\n\n${article.intro}\n\nKey Takeaways:\n${(article.sections || []).slice(0, 2).map((s) => `• ${s.heading}`).join("\n")}\n\nWant to implement these strategies for ${prospect.business_name}? Pick your modules on our service menu or review your custom proposal and video audit:\n\n${base}/pitch/${prospect.slug}\n\nBest regards,\nDaniel Brown\nLead Growth Specialist, Biz Reborn`;
+    body = `Hi ${prospect.business_name} team,\n\nWelcome to Day ${dayNum} of our Merit Marketing Authority Newsletter series for ${prospect.city || "local businesses"}.\n\nToday's featured guide: "${article.title}"\n\n${article.intro}\n\nKey Takeaways:\n${(article.sections || []).slice(0, 2).map((s) => `• ${s.heading}`).join("\n")}\n\nWant to implement these strategies for ${prospect.business_name}? Pick your modules on our service menu or review your custom proposal and video audit:\n\n${base}/pitch/${prospect.slug}\n\nBest regards,\nDaniel Brown\nLead Growth Specialist, Merit Marketing`;
 
     kind = "drip";
     stepNumber = 3;

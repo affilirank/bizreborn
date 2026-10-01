@@ -44,7 +44,7 @@ export default async function PitchPage({
       <header className="border-b border-ink-800/60 bg-gradient-to-b from-brand-950/40 to-ink-950">
         <div className="mx-auto max-w-3xl px-4 py-10 text-center sm:px-6">
           <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-brand-500/20 bg-brand-500/5 px-3 py-1 text-xs font-medium text-brand-400">
-            Biz Reborn Marketing · Custom Growth Audit
+            Merit Marketing · Custom Growth Audit
           </div>
           <h1 className="mt-4 font-sora text-3xl font-bold text-white sm:text-4xl">
             {p.business_name}
@@ -140,7 +140,7 @@ export default async function PitchPage({
               label={p.business_name}
               reviews={p.review_count ?? 0}
               pct={percent(p.review_count ?? 0, p.competitor_reviews ?? 0)}
-              color="#6366F1"
+              color="#D6A536"
               highlight
             />
             {p.competitor_name && (

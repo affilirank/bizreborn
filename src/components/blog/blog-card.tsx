@@ -26,7 +26,7 @@ export function pillarShort(id: PillarId): string {
 }
 
 export function pillarAccent(id: PillarId): string {
-  return PILLAR_ACCENT[id] ?? "from-brand-500 to-violet-600";
+  return PILLAR_ACCENT[id] ?? "from-brand-500 to-brand-600";
 }
 
 export function formatDate(iso: string): string {
@@ -49,7 +49,7 @@ export function BlogBadge({
     <span
       className={cn(
         "inline-flex items-center rounded-full bg-gradient-to-r px-3 py-1 text-[11px] font-semibold text-white",
-        isCategory ? "from-fuchsia-500 to-brand-500" : pillarAccent(article.pillar),
+        isCategory ? "from-brand-500 to-brand-500" : pillarAccent(article.pillar),
         className,
       )}
     >
@@ -71,7 +71,7 @@ export function BlogCard({
     <Link
       href={`/blog/${article.slug}`}
       className={cn(
-        "group flex flex-col rounded-2xl border border-white/10 bg-ink-850/80 p-6 transition-all duration-300 hover:-translate-y-1 hover:border-brand-500/40 hover:shadow-[0_20px_60px_-20px_rgba(99,102,241,0.35)]",
+        "group flex flex-col rounded-2xl border border-white/10 bg-ink-850/80 p-6 transition-all duration-300 hover:-translate-y-1 hover:border-brand-500/40 hover:shadow-[0_20px_60px_-20px_rgba(214, 165, 54,0.35)]",
         className,
       )}
     >

@@ -9,11 +9,11 @@
   --color-ink-600: #1e2942;
   --color-ink-500: #2b3a5c;
 
-  --color-brand-300: #a5b4fc;
-  --color-brand-400: #818cf8;
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
-  --color-brand-700: #4338ca;
+  --color-brand-300: #f4d889;
+  --color-brand-400: #edc65b;
+  --color-brand-500: #d6a536;
+  --color-brand-600: #aa7a1e;
+  --color-brand-700: #805a12;
 
   --color-glow-400: #34d399;
   --color-glow-500: #10b981;
@@ -192,7 +192,7 @@ body {
 }
 
 @utility text-gradient-brand {
-  background: linear-gradient(120deg, #a5b4fc 0%, #6366f1 45%, #34d399 100%);
+  background: linear-gradient(120deg, #f4d889 0%, #d6a536 55%, #fff0b8 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -230,9 +230,9 @@ body {
 }
 
 @utility ring-glow {
-  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.25),
-    0 0 40px -8px rgba(99, 102, 241, 0.5),
-    inset 0 0 24px -12px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 0 0 1px rgba(214, 165, 54, 0.25),
+    0 0 40px -8px rgba(214, 165, 54, 0.38),
+    inset 0 0 24px -12px rgba(214, 165, 54, 0.32);
 }
 
 .no-scrollbar::-webkit-scrollbar {

@@ -31,9 +31,9 @@ const pains = [
     icon: Lock,
     title: "Locked In",
     desc: "Stuck with agencies that overcharge and underdeliver. No transparency, no real results.",
-    color: "from-purple-500/20 to-purple-600/10",
-    border: "border-purple-500/20",
-    iconColor: "text-purple-400",
+    color: "from-brand-500/20 to-brand-600/10",
+    border: "border-brand-500/20",
+    iconColor: "text-brand-400",
   },
 ];
 

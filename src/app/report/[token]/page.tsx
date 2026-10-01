@@ -133,7 +133,7 @@ export default async function ReportPage({
 
         <div className="mt-10 flex flex-col items-center gap-1 border-t border-white/5 pt-6 text-center">
           <p className="text-sm font-semibold text-mist">
-            Prepared with care by the Biz Reborn team
+            Prepared with care by the Merit Marketing team
           </p>
           <p className="text-xs text-mute">
             Questions? Reply to the email that sent this, or ask your dedicated

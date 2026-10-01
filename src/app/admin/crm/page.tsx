@@ -67,7 +67,7 @@ const tempBadgeCls: Record<string, string> = {
   Warm: "border-amber-500/30 bg-amber-500/10 text-amber-300",
   Cold: "border-blue-500/30 bg-blue-500/10 text-blue-300",
   Replied: "border-cyan-500/30 bg-cyan-500/10 text-cyan-300",
-  "Proposal Sent": "border-purple-500/30 bg-purple-500/10 text-purple-300",
+  "Proposal Sent": "border-brand-500/30 bg-brand-500/10 text-brand-300",
   "Client (Active)": "border-glow-500/30 bg-glow-500/10 text-glow-400",
 };
 
@@ -85,7 +85,7 @@ function absPitch(p: Prospect) {
 }
 
 function emailSubject(p: Prospect) {
-  return `Your Growth Audit: ${p.business_name} \u00d7 Biz Reborn Marketing`;
+  return `Your Growth Audit: ${p.business_name} \u00d7 Merit Marketing`;
 }
 
 function emailPlain(p: Prospect) {
@@ -103,7 +103,7 @@ function emailPlain(p: Prospect) {
     "",
     `Want 10 minutes this week to walk through it? Just reply — ${LEADGEN.email}`,
     "",
-    "— Biz Reborn Marketing",
+    "— Merit Marketing",
   ]
     .filter((l) => l !== null)
     .join("\n");
@@ -123,7 +123,7 @@ function emailHtml(p: Prospect) {
     p.thumbnail_url && /^https?:/i.test(p.thumbnail_url)
       ? `<a href="${url}"><img src="${p.thumbnail_url}" alt="${bName} growth audit" width="360" style="max-width:100%;border-radius:14px;display:block;margin:0 auto 18px auto;" /></a>`
       : `<a href="${url}" style="text-decoration:none;display:block;margin:0 auto 18px auto;max-width:360px;background:#0B0F17;border-radius:16px;padding:22px;color:#fff;font-family:Arial,Helvetica,sans-serif;">
-  <div style="font-size:11px;letter-spacing:2px;color:#a5b4fc;">BIZ REBORN · GROWTH AUDIT</div>
+  <div style="font-size:11px;letter-spacing:2px;color:#F4D889;">MERIT MARKETING · GROWTH AUDIT</div>
   <div style="font-size:22px;font-weight:800;margin-top:6px;">${bName}</div>
   <div style="margin-top:14px;font-size:40px;font-weight:900;">${p.google_rating ?? "—"} <span style="font-size:14px;color:#fbbf24;">★ ${p.review_count ?? 0} reviews</span></div>
   <div style="margin-top:10px;display:inline-block;background:rgba(248,113,113,.15);color:#fca5a5;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;">Brand grade ${escapeHtml(grade)}</div>
@@ -138,9 +138,9 @@ function emailHtml(p: Prospect) {
     roi
       ? `<p>That gap is leaking roughly <strong>${money(roi.lost_monthly)}/month</strong>. Fixing it projects to <strong>+${roi.leads_per_month} leads</strong> and <strong>${money(roi.projected_monthly)}/month</strong> in new revenue.</p>`
       : "",
-    `<p style="text-align:center;margin:20px 0;"><a href="${url}" style="display:inline-block;background:#6366F1;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:bold;">Watch your audit →</a></p>`,
-    `<p>Want 10 minutes this week to walk through it? Just reply, or email <a href="mailto:${LEADGEN.email}" style="color:#6366F1;">${LEADGEN.email}</a>.</p>`,
-    `<p style="color:#64748b;font-size:13px;border-top:1px solid #e2e8f0;padding-top:14px;">— Biz Reborn Marketing · <a href="https://www.bizreborn.com" style="color:#6366F1;">www.bizreborn.com</a></p>`,
+    `<p style="text-align:center;margin:20px 0;"><a href="${url}" style="display:inline-block;background:#D6A536;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:bold;">Watch your audit →</a></p>`,
+    `<p>Want 10 minutes this week to walk through it? Just reply, or email <a href="mailto:${LEADGEN.email}" style="color:#D6A536;">${LEADGEN.email}</a>.</p>`,
+    `<p style="color:#64748b;font-size:13px;border-top:1px solid #e2e8f0;padding-top:14px;">— Merit Marketing · <a href="https://www.bizreborn.com" style="color:#D6A536;">www.bizreborn.com</a></p>`,
     `</div>`,
   ].join("");
 }
@@ -604,8 +604,8 @@ export default function CrmPage() {
             <p className="mt-1 font-display text-2xl font-bold text-amber-300">{counts.warm}</p>
           </Card>
           <Card className="p-5">
-            <p className="text-xs uppercase tracking-wider text-purple-300">Proposals Sent</p>
-            <p className="mt-1 font-display text-2xl font-bold text-purple-300">{counts.proposal}</p>
+            <p className="text-xs uppercase tracking-wider text-brand-300">Proposals Sent</p>
+            <p className="mt-1 font-display text-2xl font-bold text-brand-300">{counts.proposal}</p>
           </Card>
           <Card className="p-5">
             <p className="text-xs uppercase tracking-wider text-glow-400">Active Clients</p>
@@ -795,7 +795,7 @@ export default function CrmPage() {
                               </button>
                               <button
                                 onClick={() => void loadNewsletter(p)}
-                                className="rounded-lg border border-purple-500/30 bg-purple-500/10 px-2 py-1 text-[11px] font-semibold text-purple-300 hover:bg-purple-500/20 transition flex items-center gap-1"
+                                className="rounded-lg border border-brand-500/30 bg-brand-500/10 px-2 py-1 text-[11px] font-semibold text-brand-300 hover:bg-brand-500/20 transition flex items-center gap-1"
                                 title="AI Newsletter Drip"
                               >
                                 <Sparkles className="h-3 w-3" /> Drip
@@ -1149,7 +1149,7 @@ export default function CrmPage() {
                     setPreviewProspect(null);
                     void loadNewsletter(previewProspect);
                   }}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-2.5 text-xs font-semibold text-purple-300 transition hover:bg-purple-500/20"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-brand-500/30 bg-brand-500/10 px-4 py-2.5 text-xs font-semibold text-brand-300 transition hover:bg-brand-500/20"
                 >
                   <Sparkles className="h-4 w-4" /> AI Newsletter Drip
                 </button>
@@ -1677,7 +1677,7 @@ function VoiceCallModal({
     t(3500, () =>
       pushLog(
         "ai",
-        `Hi ${p.business_name}, this is Sarah with Biz Reborn Marketing. We just finished a brand audit on your Google listing — ${rating} stars, ${reviews} reviews, ${unanswered} unanswered. Do you have 45 seconds to talk through what we found?`,
+        `Hi ${p.business_name}, this is Sarah with Merit Marketing. We just finished a brand audit on your Google listing — ${rating} stars, ${reviews} reviews, ${unanswered} unanswered. Do you have 45 seconds to talk through what we found?`,
       ),
     );
     t(6000, () =>

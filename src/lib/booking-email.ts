@@ -2,7 +2,7 @@ import { renderProfessionalEmailHtml } from "@/lib/email-template";
 import type { BookingRow } from "@/lib/booking-store";
 import { BOOKING } from "@/lib/config";
 
-const FROM = () => process.env.EMAIL_FROM || `Biz Reborn Marketing <hello@bizreborn.com>`;
+const FROM = () => process.env.EMAIL_FROM || `Merit Marketing <hello@bizreborn.com>`;
 const REPLY_TO = () => process.env.REPLY_TO_EMAIL || "bizrebornmarketing@gmail.com";
 const OPERATOR = () => process.env.REPLY_TO_EMAIL || "bizrebornmarketing@gmail.com";
 
@@ -64,14 +64,14 @@ function formatCallTime(iso: string, tz?: string | null): string {
 export function confirmationEmail(booking: BookingRow): { subject: string; html: string } {
   const when = formatCallTime(booking.scheduled_at, booking.timezone);
   const duration = booking.duration_min || 60;
-  const subject = `Your ${booking.call_type} is booked — ${booking.business_name} × Biz Reborn`;
+  const subject = `Your ${booking.call_type} is booked — ${booking.business_name} × Merit Marketing`;
   const body = `Hi ${booking.name},
 
 Great — your ${booking.call_type} is confirmed:
 
   When: ${when}
   Duration: ${duration} minutes
-  With: Daniel Brown, Lead Growth Specialist — Biz Reborn Marketing
+  With: Daniel Brown, Lead Growth Specialist — Merit Marketing
 
 We'll cover the results of your local growth audit, the gaps we found for ${booking.business_name}, and the exact services we recommend — plus a quick live look at how they run.
 
@@ -81,7 +81,7 @@ Need to reschedule or cancel? Just reply to this email and we'll take care of it
 
 Talk soon,
 Daniel Brown
-Biz Reborn Marketing`;
+Merit Marketing`;
   return {
     subject,
     html: renderProfessionalEmailHtml({ prospect: null, subject, body, stepNumber: 1 }),
@@ -129,7 +129,7 @@ Your ${booking.call_type} on ${when} has been cancelled. No need to do anything 
 
 Sorry for any inconvenience,
 Daniel Brown
-Biz Reborn Marketing`;
+Merit Marketing`;
   return sendEmail({
     to: booking.email,
     subject,
@@ -151,7 +151,7 @@ This replaces the previous time. If it no longer works, just reply and we'll fin
 
 Talk soon,
 Daniel Brown
-Biz Reborn Marketing`;
+Merit Marketing`;
   return sendEmail({
     to: booking.email,
     subject,

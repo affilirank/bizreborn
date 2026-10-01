@@ -45,13 +45,13 @@ type Tab = "new" | "saved" | "failed";
 
 const statusBadge: Record<string, { label: string; cls: string }> = {
   saved: { label: "Saved", cls: "text-blue-400 border-blue-500/20 bg-blue-500/5" },
-  queued: { label: "Queued", cls: "text-indigo-400 border-indigo-500/20 bg-indigo-500/5" },
-  pending: { label: "Queued", cls: "text-indigo-400 border-indigo-500/20 bg-indigo-500/5" },
+  queued: { label: "Queued", cls: "text-brand-400 border-brand-500/20 bg-brand-500/5" },
+  pending: { label: "Queued", cls: "text-brand-400 border-brand-500/20 bg-brand-500/5" },
   scraping: { label: "Auditing", cls: "text-amber-400 border-amber-500/20 bg-amber-500/5" },
   audited: { label: "Audited", cls: "text-amber-400 border-amber-500/20 bg-amber-500/5" },
   rendering: { label: "Rendering", cls: "text-amber-400 border-amber-500/20 bg-amber-500/5" },
   ready: { label: "Ready", cls: "text-brand-400 border-brand-500/20 bg-brand-500/5" },
-  pitched: { label: "Pitched", cls: "text-purple-400 border-purple-500/20 bg-purple-500/5" },
+  pitched: { label: "Pitched", cls: "text-brand-400 border-brand-500/20 bg-brand-500/5" },
   replied: { label: "Replied", cls: "text-cyan-400 border-cyan-500/20 bg-cyan-500/5" },
   booked: { label: "Booked", cls: "text-emerald-400 border-emerald-500/20 bg-emerald-500/5" },
   closed: { label: "Closed", cls: "text-green-400 border-green-500/20 bg-green-500/5" },
@@ -75,7 +75,7 @@ function absPitch(p: Prospect) {
 }
 
 function emailSubject(p: Prospect) {
-  return `Your Growth Audit: ${p.business_name} \u00d7 Biz Reborn Marketing`;
+  return `Your Growth Audit: ${p.business_name} \u00d7 Merit Marketing`;
 }
 
 // Per-lead campaign email status derived from communication logs.
@@ -131,7 +131,7 @@ function emailPlain(p: Prospect) {
     "",
     `Want 10 minutes this week to walk through it? Just reply — ${LEADGEN.email}`,
     "",
-    "— Biz Reborn Marketing",
+    "— Merit Marketing",
   ]
     .filter((l) => l !== null)
     .join("\n");
@@ -151,7 +151,7 @@ function emailHtml(p: Prospect) {
     p.thumbnail_url && /^https?:/i.test(p.thumbnail_url)
       ? `<a href="${url}"><img src="${p.thumbnail_url}" alt="${bName} growth audit" width="360" style="max-width:100%;border-radius:14px;display:block;margin:0 auto 18px auto;" /></a>`
       : `<a href="${url}" style="text-decoration:none;display:block;margin:0 auto 18px auto;max-width:360px;background:#0B0F17;border-radius:16px;padding:22px;color:#fff;font-family:Arial,Helvetica,sans-serif;">
-  <div style="font-size:11px;letter-spacing:2px;color:#a5b4fc;">BIZ REBORN · GROWTH AUDIT</div>
+  <div style="font-size:11px;letter-spacing:2px;color:#F4D889;">MERIT MARKETING · GROWTH AUDIT</div>
   <div style="font-size:22px;font-weight:800;margin-top:6px;">${bName}</div>
   <div style="margin-top:14px;font-size:40px;font-weight:900;">${p.google_rating ?? "—"} <span style="font-size:14px;color:#fbbf24;">★ ${fmtNumber(p.review_count)} reviews</span></div>
   <div style="margin-top:10px;display:inline-block;background:rgba(248,113,113,.15);color:#fca5a5;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;">Brand grade ${escapeHtml(grade)}</div>
@@ -166,9 +166,9 @@ function emailHtml(p: Prospect) {
     roi
       ? `<p>That gap is leaking roughly <strong>${money(roi.lost_monthly)}/month</strong>. Fixing it projects to <strong>+${roi.leads_per_month} leads</strong> and <strong>${money(roi.projected_monthly)}/month</strong> in new revenue.</p>`
       : "",
-    `<p style="text-align:center;margin:20px 0;"><a href="${url}" style="display:inline-block;background:#6366F1;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:bold;">Watch your audit →</a></p>`,
-    `<p>Want 10 minutes this week to walk through it? Just reply, or email <a href="mailto:${LEADGEN.email}" style="color:#6366F1;">${LEADGEN.email}</a>.</p>`,
-    `<p style="color:#64748b;font-size:13px;border-top:1px solid #e2e8f0;padding-top:14px;">— Biz Reborn Marketing · <a href="https://www.bizreborn.com" style="color:#6366F1;">www.bizreborn.com</a></p>`,
+    `<p style="text-align:center;margin:20px 0;"><a href="${url}" style="display:inline-block;background:#D6A536;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:bold;">Watch your audit →</a></p>`,
+    `<p>Want 10 minutes this week to walk through it? Just reply, or email <a href="mailto:${LEADGEN.email}" style="color:#D6A536;">${LEADGEN.email}</a>.</p>`,
+    `<p style="color:#64748b;font-size:13px;border-top:1px solid #e2e8f0;padding-top:14px;">— Merit Marketing · <a href="https://www.bizreborn.com" style="color:#D6A536;">www.bizreborn.com</a></p>`,
     `</div>`,
   ].join("");
 }
@@ -950,7 +950,7 @@ export default function ProspectsAdmin() {
             </button>
           </div>
 
-          <div className="rounded-xl border border-purple-500/30 bg-purple-500/5 p-5">
+          <div className="rounded-xl border border-brand-500/30 bg-brand-500/5 p-5">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-white">AI Call Campaign</p>
               <span className="text-[11px] text-ink-500">{callStats?.last24h ?? 0} called today</span>
@@ -967,7 +967,7 @@ export default function ProspectsAdmin() {
             <button
               onClick={() => void callAllLeads()}
               disabled={calling || !callStats}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-500 disabled:opacity-50"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-500 disabled:opacity-50"
             >
               {calling ? <Loader2 size={16} className="animate-spin" /> : <PhoneCall size={16} />}
               {calling ? "Queuing…" : `Call All Leads (${callStats?.callable ?? "…"})`}
@@ -975,7 +975,7 @@ export default function ProspectsAdmin() {
             <button
               onClick={() => void setupRetellTools()}
               disabled={busy}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-purple-500/40 bg-purple-500/10 px-4 py-2 text-xs font-semibold text-purple-200 transition hover:bg-purple-500/20 disabled:opacity-50"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-brand-500/40 bg-brand-500/10 px-4 py-2 text-xs font-semibold text-brand-300 transition hover:bg-brand-500/20 disabled:opacity-50"
             >
               <PhoneCall size={13} /> Update AI Agent (honest intro + tools)
             </button>
@@ -1380,7 +1380,7 @@ function ProspectRow({
                 <button onClick={onSendEmail} className="inline-flex items-center gap-1 rounded-full border border-brand-500/30 bg-brand-500/10 px-2.5 py-0.5 text-[10px] font-medium text-brand-300 hover:bg-brand-500/20">
                   <Send size={10} /> Send Direct Email
                 </button>
-                <button onClick={onNewsletter} className="inline-flex items-center gap-1 rounded-full border border-purple-500/30 bg-purple-500/10 px-2.5 py-0.5 text-[10px] font-medium text-purple-300 hover:bg-purple-500/20">
+                <button onClick={onNewsletter} className="inline-flex items-center gap-1 rounded-full border border-brand-500/30 bg-brand-500/10 px-2.5 py-0.5 text-[10px] font-medium text-brand-300 hover:bg-brand-500/20">
                   <Sparkles size={10} /> AI Newsletter
                 </button>
                 <button onClick={onVoiceCall} className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-medium text-emerald-300 hover:bg-emerald-500/20">
@@ -1574,7 +1574,7 @@ function PreviewModal({
             </button>
             <button
               onClick={onNewsletter}
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-xs font-semibold text-purple-300 transition hover:bg-purple-500/20"
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-brand-500/30 bg-brand-500/10 px-3 py-2 text-xs font-semibold text-brand-300 transition hover:bg-brand-500/20"
             >
               <Sparkles size={13} /> AI Newsletter Drip
             </button>
@@ -2175,7 +2175,7 @@ function VoiceCallModal({
         setLogs((prev) => [
           ...prev,
           { sender: "system", text: json.simulated ? "Simulated live call connected (add Twilio keys for carrier delivery)." : "Live call connected successfully via Twilio!", time: new Date().toLocaleTimeString() },
-          { sender: "ai", text: `[Sarah - Gemini + ElevenLabs]: Hi ${p.business_name}, this is Sarah from Biz Reborn. We ran a brand audit on your Google listing (${p.google_rating ?? "4.5"} stars, ${p.review_count ?? 50} reviews). Do you have 45 seconds to discuss your review growth?`, time: new Date().toLocaleTimeString() }
+          { sender: "ai", text: `[Sarah - Gemini + ElevenLabs]: Hi ${p.business_name}, this is Sarah from Merit Marketing. We ran a brand audit on your Google listing (${p.google_rating ?? "4.5"} stars, ${p.review_count ?? 50} reviews). Do you have 45 seconds to discuss your review growth?`, time: new Date().toLocaleTimeString() }
         ]);
       } else {
         setStatus("ended");

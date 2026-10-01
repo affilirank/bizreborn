@@ -10,7 +10,7 @@ const testimonials = [
     business: "Coastal Plumbing & Rooter",
     rating: 5,
     quote:
-      "Our phone hasn't stopped ringing since Biz Reborn overhauled our Google profile. We went from page 3 to the local 3-pack in under 6 weeks.",
+      "Our phone hasn't stopped ringing since Merit Marketing overhauled our Google profile. We went from page 3 to the local 3-pack in under 6 weeks.",
   },
   {
     name: "Sarah T.",
@@ -24,7 +24,7 @@ const testimonials = [
     business: "Treasure Coast Electrical",
     rating: 5,
     quote:
-      "We tried three other agencies before Biz Reborn. Nobody else could show us a clear ROI. They're not just marketing — they're a growth partner.",
+      "We tried three other agencies before Merit Marketing. Nobody else could show us a clear ROI. They're not just marketing — they're a growth partner.",
   },
   {
     name: "Lisa M.",

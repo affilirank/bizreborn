@@ -419,7 +419,7 @@ async function emailScanSummary(
     const key = process.env.RESEND_API_KEY;
     if (!key) return false;
     const to = process.env.REPLY_TO_EMAIL || "bizrebornmarketing@gmail.com";
-    const from = process.env.EMAIL_FROM || "Biz Reborn Marketing <hello@bizreborn.com>";
+    const from = process.env.EMAIL_FROM || "Merit Marketing <hello@bizreborn.com>";
     const dash = `${process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com"}/admin/prospects`;
 
     const res = await fetch("https://api.resend.com/emails", {
@@ -442,7 +442,7 @@ async function emailScanSummary(
             </table>
             <p style="color:#475569;">The leads are in your library (Saved tab) ready for audit &amp; pitch generation.</p>
             <p style="margin:24px 0;">
-              <a href="${dash}" style="background:#4f46e5;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:bold;display:inline-block;">Open Lead Library →</a>
+              <a href="${dash}" style="background:#AA7A1E;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:bold;display:inline-block;">Open Lead Library →</a>
             </p>
           </div>`,
       }),

@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const text = url.searchParams.get("text") || "Hello from Biz Reborn Marketing.";
+  const text = url.searchParams.get("text") || "Hello from Merit Marketing.";
 
   const apiKey = process.env.ELEVENLABS_API_KEY;
   const voiceId = process.env.ELEVENLABS_VOICE_ID || "7o2jINz1addxWQ92Mv17"; // Cloned voice ID

@@ -46,7 +46,7 @@ export function PricingTiers() {
                   className={cn(
                     "flex h-full flex-col rounded-3xl p-7",
                     featured
-                      ? "border border-brand-400/50 bg-gradient-to-b from-brand-500/12 to-ink-850 shadow-[0_30px_80px_-30px_rgba(99,102,241,0.6)]"
+                      ? "border border-brand-400/50 bg-gradient-to-b from-brand-500/12 to-ink-850 shadow-[0_30px_80px_-30px_rgba(214, 165, 54,0.6)]"
                       : "card-obsidian",
                   )}
                 >
@@ -90,7 +90,7 @@ export function PricingTiers() {
                     className={cn(
                       "mt-7 inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-semibold transition",
                       featured
-                        ? "bg-brand-500 text-white shadow-[0_8px_30px_-8px_rgba(99,102,241,0.8)] hover:bg-brand-400"
+                        ? "bg-brand-500 text-white shadow-[0_8px_30px_-8px_rgba(214, 165, 54,0.8)] hover:bg-brand-400"
                         : "border border-white/15 text-mist hover:border-brand-400/60 hover:text-white",
                     )}
                   >

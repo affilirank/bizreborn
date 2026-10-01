@@ -27,7 +27,7 @@ function buildPrompt(input: ScriptInput): string {
   const missingGbp = input.missing_gbp_apple;
   const roi = input.roi;
   return (
-    "Write a comprehensive 60-second high-urgency video pitch script (130-150 words) from Biz Reborn Marketing to " +
+    "Write a comprehensive 60-second high-urgency video pitch script (130-150 words) from Merit Marketing to " +
     `${target}. Facts: Google rating ${input.google_rating ?? "4.0"} with ` +
     `${input.review_count ?? 0} reviews (${input.unanswered_reviews ?? 0} unanswered) while ` +
     `${input.competitor_name ?? "a local competitor"} has ${input.competitor_reviews ?? 0}. ` +
@@ -45,7 +45,7 @@ function buildPrompt(input: ScriptInput): string {
 export async function generatePitchScript(input: ScriptInput): Promise<string> {
   const text = await callAi({
     prompt: buildPrompt(input),
-    systemPrompt: "You are an expert short-form video copywriter for local marketing agency Biz Reborn Marketing.",
+    systemPrompt: "You are an expert short-form video copywriter for local marketing agency Merit Marketing.",
   });
   if (text) return text;
   return fallbackScript(input);
@@ -67,7 +67,7 @@ export function fallbackScript(input: ScriptInput): string {
   const roi = input.roi;
 
   const parts = [
-    `Hi ${input.business_name}, this is Biz Reborn Marketing — we just completed a comprehensive 60-second growth audit on your brand, and it came back a ${grade}.`,
+    `Hi ${input.business_name}, this is Merit Marketing — we just completed a comprehensive 60-second growth audit on your brand, and it came back a ${grade}.`,
     `${input.missing_gbp_apple ? "Your business has no verified Google Business Profile or Apple Maps listing, making you completely invisible to local searchers." : `Your Google listing holds ${rating} stars`} with ${reviews} reviews (${unanswered} unanswered), while ${competitor} has ${compReviews} reviews and is capturing the local calls that should be yours.`,
     `Worse yet, every after-hours call going to voicemail is a lost high-ticket client.`,
     `That leak is costing you roughly ${roi ? money(roi.lost_monthly) : "$3,500"} a month.`,

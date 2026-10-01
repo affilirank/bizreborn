@@ -1,7 +1,7 @@
 import { SITE, LEADGEN } from "@/lib/config";
 import type { Prospect } from "@/lib/supabase-types";
 
-/** Who actually signs Biz Reborn outreach (placeholder-proof sign-off). */
+/** Who actually signs Merit Marketing outreach (placeholder-proof sign-off). */
 export const OUTREACH_SIGNER = {
   name: "Daniel Brown",
   title: "Lead Growth Specialist",
@@ -132,7 +132,7 @@ export function renderProfessionalEmailHtml(props: EmailTemplateProps): string {
                 </tr>
                 <tr>
                   <td align="center" style="padding-top:6px;">
-                    <span style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:#a5b4fc;">
+                    <span style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:#F4D889;">
                       Step ${stepNumber} of 3 · Custom Growth Nurture
                     </span>
                   </td>
@@ -144,7 +144,7 @@ export function renderProfessionalEmailHtml(props: EmailTemplateProps): string {
           <!-- Main Content -->
           <tr>
             <td style="padding:40px 36px 24px 36px;">
-              <p style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#6366F1;font-weight:700;margin:0 0 12px 0;">
+              <p style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#D6A536;font-weight:700;margin:0 0 12px 0;">
                 Prepared for ${safeBizName} (${safeCity})
               </p>
               <h1 style="font-size:22px;font-weight:800;color:#0f172a;margin:0 0 20px 0;line-height:1.3;">
@@ -159,7 +159,7 @@ export function renderProfessionalEmailHtml(props: EmailTemplateProps): string {
               <table role="presentation" cellspacing="0" cellpadding="0" style="margin:32px 0 24px 0;" width="100%">
                 <tr>
                   <td align="center">
-                    <a href="${pitchUrl}" target="_blank" style="background:linear-gradient(135deg, #6366F1 0%, #4f46e5 100%);color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:12px;font-weight:bold;font-size:15px;display:inline-block;box-shadow:0 4px 14px rgba(99,102,241,0.4);">
+                    <a href="${pitchUrl}" target="_blank" style="background:linear-gradient(135deg, #D6A536 0%, #AA7A1E 100%);color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:12px;font-weight:bold;font-size:15px;display:inline-block;box-shadow:0 4px 14px rgba(214, 165, 54,0.4);">
                       Watch Your 45-Second Video Audit →
                     </a>
                   </td>
@@ -175,7 +175,7 @@ export function renderProfessionalEmailHtml(props: EmailTemplateProps): string {
                 ${agencyName}
               </p>
               <p style="margin:0 0 12px 0;font-size:12px;color:#64748b;">
-                Direct: <a href="mailto:${agencyEmail}" style="color:#6366F1;text-decoration:none;">${agencyEmail}</a> · Phone: ${agencyPhone}
+                Direct: <a href="mailto:${agencyEmail}" style="color:#D6A536;text-decoration:none;">${agencyEmail}</a> · Phone: ${agencyPhone}
               </p>
               <p style="margin:0;font-size:11px;color:#94a3b8;">
                 You are receiving this because we prepared a complimentary local growth audit for ${safeBizName}. <a href="${base}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a>

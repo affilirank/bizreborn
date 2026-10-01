@@ -25,7 +25,7 @@ const TESTIMONIALS = [
     name: "Vince R.",
     role: "Owner, Rapid Air HVAC · Phoenix, AZ",
     quote:
-      "I fired my $3,000/month agency. Biz Reborn rebuilt my whole machine for less, and the dashboard shows me exactly which lead came from which ad. Unreal.",
+      "I fired my $3,000/month agency. Merit Marketing rebuilt my whole machine for less, and the dashboard shows me exactly which lead came from which ad. Unreal.",
     score: 98,
   },
 ];

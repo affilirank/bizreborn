@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description:
     "100 full-length, SEO-optimized service guides plus 12 category playbooks — one for every business vertical. Local SEO, video, funnels, reviews, SMS, ads, branding, and automation.",
   openGraph: {
-    title: "Biz Reborn Guide Library — 112 SEO Marketing Guides",
+    title: "Merit Marketing Guide Library — 112 SEO Marketing Guides",
     description:
       "Full-length marketing guides for every service module and business vertical: pricing, ROI, stats, pain points, and solutions for local businesses.",
     type: "website",
@@ -34,7 +34,7 @@ export default async function BlogIndexPage() {
             <span className="text-gradient-brand">For Every Business.</span>
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-base text-fog sm:text-lg">
-            A full-length guide for every service in the Biz Reborn menu plus a
+            A full-length guide for every service in the Merit Marketing menu plus a
             category playbook for each business vertical — stats, pain points,
             and the exact fixes that move your number.
           </p>

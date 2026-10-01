@@ -52,7 +52,7 @@ export function AccordionItem({
           <span
             className={cn(
               "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-lg",
-              accent ?? "from-brand-500 to-violet-600",
+              accent ?? "from-brand-500 to-brand-600",
             )}
           >
             {icon}

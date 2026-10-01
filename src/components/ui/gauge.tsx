@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 const colorFor = (score: number) => {
   if (score >= 80) return { stroke: "#10B981", text: "text-glow-400", track: "rgba(16,185,129,0.12)" };
-  if (score >= 60) return { stroke: "#6366F1", text: "text-brand-300", track: "rgba(99,102,241,0.12)" };
+  if (score >= 60) return { stroke: "#D6A536", text: "text-brand-300", track: "rgba(214, 165, 54,0.12)" };
   if (score >= 40) return { stroke: "#F59E0B", text: "text-amber-300", track: "rgba(245,158,11,0.12)" };
   return { stroke: "#F43F5E", text: "text-rose-300", track: "rgba(244,63,94,0.12)" };
 };

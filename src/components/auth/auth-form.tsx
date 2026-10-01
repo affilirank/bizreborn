@@ -116,7 +116,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           </h1>
           <p className="mt-1 text-sm text-fog">
             {isLogin
-              ? "Sign in to your Biz Reborn command center."
+              ? "Sign in to your Merit Marketing command center."
               : "Track audits, fulfillments, and ROI in one place."}
           </p>
 
@@ -179,7 +179,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           )}
 
           <p className="mt-6 text-center text-sm text-fog">
-            {isLogin ? "New to Biz Reborn?" : "Already have an account?"}{" "}
+            {isLogin ? "New to Merit Marketing?" : "Already have an account?"}{" "}
             <Link
               href={isLogin ? "/signup" : "/login"}
               className="inline-flex items-center gap-1 font-semibold text-brand-300 hover:text-white"

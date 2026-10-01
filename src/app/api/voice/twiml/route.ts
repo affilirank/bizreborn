@@ -102,7 +102,7 @@ async function handleVoiceWebhook(req: Request) {
     ? "the business owner"
     : `the owner of ${businessName}`;
 
-  const systemPrompt = `You are Sarah, an expert master AI sales closer for Biz Reborn Marketing (using ElevenLabs cloned voice ID ${voiceId}). You are on an outbound live phone call with ${businessName}.
+  const systemPrompt = `You are Sarah, an expert master AI sales closer for Merit Marketing (using ElevenLabs cloned voice ID ${voiceId}). You are on an outbound live phone call with ${businessName}.
 CRITICAL RULE 1: NEVER repeat yourself or loop previous statements. Always advance the conversation naturally based on what was just said.
 CRITICAL RULE 2: NEVER mention service numbers (like "service #41") on the phone. Speak strictly about solutions, real-world results, features, and projected ROI in natural, confident, conversational human language.
 CRITICAL RULE 3: Use the brand audit data:
@@ -143,7 +143,7 @@ Tone: warm, curious, straightforward, and professional. Be transparent that this
         } else if (existingEntries.length === 0) {
           messages.push({
             role: "user",
-            content: `You have just reached ${businessName} on the phone. Say this in a natural, trustworthy way: "Hi, am I speaking with ${ownerCheck}? This is Sarah with Biz Reborn Marketing. I found your business while researching local businesses in ${cityLabel}, noticed a couple of opportunities on your Google profile, and made a free 45-second video showing them. Is it okay if I tell you the quick reason I called?" Keep it under 4 short sentences. Do not claim they requested anything, do not exaggerate, and ask only the final permission question.`,
+            content: `You have just reached ${businessName} on the phone. Say this in a natural, trustworthy way: "Hi, am I speaking with ${ownerCheck}? This is Sarah with Merit Marketing. I found your business while researching local businesses in ${cityLabel}, noticed a couple of opportunities on your Google profile, and made a free 45-second video showing them. Is it okay if I tell you the quick reason I called?" Keep it under 4 short sentences. Do not claim they requested anything, do not exaggerate, and ask only the final permission question.`,
           });
         }
 
@@ -182,7 +182,7 @@ Tone: warm, curious, straightforward, and professional. Be transparent that this
   if (!aiResponseText) {
     aiResponseText = speechResult
       ? `I hear you, and I will keep this brief: I noticed a couple of Google opportunities for ${businessName} and made a free 45-second video; would you like me to send it over?`
-      : `Hi, am I speaking with ${ownerCheck}? This is Sarah with Biz Reborn Marketing. I found your business while researching local businesses in ${cityLabel}, noticed a couple of opportunities on your Google profile, and made a free 45-second video showing them. Is it okay if I tell you the quick reason I called?`;
+      : `Hi, am I speaking with ${ownerCheck}? This is Sarah with Merit Marketing. I found your business while researching local businesses in ${cityLabel}, noticed a couple of opportunities on your Google profile, and made a free 45-second video showing them. Is it okay if I tell you the quick reason I called?`;
   }
 
   // LIVE ACTION WIRING (Twilio path): if the prospect just asked for the

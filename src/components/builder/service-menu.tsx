@@ -187,7 +187,7 @@ export function ServiceMenu() {
                               className={cn(
                                 "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-all duration-200",
                                 selected
-                                  ? "border-brand-400 bg-brand-500 text-white shadow-[0_0_12px_rgba(99,102,241,0.6)]"
+                                  ? "border-brand-400 bg-brand-500 text-white shadow-[0_0_12px_rgba(214, 165, 54,0.6)]"
                                   : "border-white/20 bg-ink-800 group-hover:border-brand-400/50",
                               )}
                             >

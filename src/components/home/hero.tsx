@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import { ArrowRight, Play, Zap, ShieldCheck, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/section";
@@ -27,12 +28,28 @@ export function Hero() {
       <Container className="relative">
         <div className="mx-auto max-w-4xl text-center">
           <motion.div
+            initial={{ opacity: 0, scale: 0.94 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.7, delay: 0.05 }}
+            className="mx-auto mb-5 w-[min(78vw,390px)] sm:mb-7 sm:w-[min(42vw,470px)]"
+          >
+            <Image
+              src="/merit-logo.png"
+              alt="Merit Media & Marketing"
+              width={1254}
+              height={1254}
+              priority
+              className="h-auto w-full"
+            />
+          </motion.div>
+
+          <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
             className="mb-6 flex justify-center"
           >
-            <Badge variant="emerald" className="px-4 py-2">
+            <Badge variant="brand" className="px-4 py-2">
               <Zap className="h-3.5 w-3.5" /> AI-driven local marketing systems — now booking
             </Badge>
           </motion.div>
@@ -43,10 +60,7 @@ export function Hero() {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="font-display text-4xl font-extrabold leading-[1.08] tracking-tight text-white sm:text-6xl lg:text-[4.25rem]"
           >
-            Stop Burning Cash on{" "}
-            <span className="text-gradient-brand">Invisible Marketing.</span>{" "}
-            Reborn Your Business into a{" "}
-            <span className="shimmer-text">Local Category Leader.</span>
+            Make Your Brand Impossible to Ignore.
           </motion.h1>
 
           <motion.p
@@ -55,8 +69,7 @@ export function Hero() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-fog sm:text-xl"
           >
-            AI-driven local audit systems, high-converting content infrastructure,
-            and modular marketing pipelines designed to dominate your local market.
+            Merit Marketing builds clear, measurable growth systems for ambitious local businesses.
           </motion.p>
 
           <motion.div

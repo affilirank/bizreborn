@@ -111,7 +111,7 @@ export function buildStrategyCallScript(input: CallScriptInput): CallScriptSecti
     heading: `OPEN · ${b.call_type} with ${b.name}`,
     lines: [
       `[Call ${b.name}${b.phone ? ` at ${b.phone}` : ""} — booked for ${callAt}${b.timezone ? `, ${b.timezone}` : ""}.]`,
-      `Hi ${b.name}, thanks for making time for this call. This is Daniel Brown with Biz Reborn Marketing. I wanted to walk you through ${business} growth picture and show you exactly what we would do to fix it.`,
+      `Hi ${b.name}, thanks for making time for this call. This is Daniel Brown with Merit Marketing. I wanted to walk you through ${business} growth picture and show you exactly what we would do to fix it.`,
       b.notes ? `[Their notes: ${b.notes}]` : "",
     ].filter(Boolean),
   });

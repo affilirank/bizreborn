@@ -31,7 +31,7 @@ export default function Footer() {
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-glow-500">
                 <span className="text-sm font-bold text-white">BR</span>
               </div>
-              <span className="text-sm font-bold text-white">Biz Reborn</span>
+              <span className="text-sm font-bold text-white">Merit Marketing</span>
             </Link>
             <p className="text-xs leading-relaxed text-ink-400">
               AI-driven local audit systems that help service businesses eliminate

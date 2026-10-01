@@ -83,7 +83,7 @@ export async function createOfferCheckoutSession(opts: {
         currency: "usd",
         product_data: {
           name: `${setup.title} (Initiation / Setup)`,
-          description: "Biz Reborn one-time setup fee",
+          description: "Merit Marketing one-time setup fee",
         },
         unit_amount: Math.round(setup.amount) * 100,
       },

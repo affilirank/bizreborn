@@ -96,7 +96,7 @@ async function persistOrder(session: Stripe.Checkout.Session) {
   const { data: order, error } = await admin
     .from("orders")
     .insert({
-      business_name: metadata.businessName ?? "Biz Reborn Client",
+      business_name: metadata.businessName ?? "Merit Marketing Client",
       email: metadata.email ?? session.customer_details?.email ?? "client@bizreborn.io",
       vertical,
       service_ids: services,

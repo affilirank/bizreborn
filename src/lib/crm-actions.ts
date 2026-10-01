@@ -140,7 +140,7 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
   const mjPrivateKey = process.env.MJ_API_KEY_PRIVATE;
   const brevoSmtpKey = process.env.BREVO_SMTP_KEY;
   const brevoKey = process.env.BREVO_API_KEY;
-  const fromEmail = process.env.EMAIL_FROM || `Biz Reborn Marketing <hello@bizreborn.com>`;
+  const fromEmail = process.env.EMAIL_FROM || `Merit Marketing <hello@bizreborn.com>`;
   // Every prospect reply should land in the operator's real inbox, not a
   // brand-only From address that may have no mailbox behind it.
   const replyTo = process.env.REPLY_TO_EMAIL || "bizrebornmarketing@gmail.com";
@@ -162,7 +162,7 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
       const senderMatch = fromAddr.match(/^(.*?)\s*<(.+)>$/) || [];
       const displayFrom = fromAddr.includes("<")
         ? fromAddr
-        : `"${senderMatch[1] || "Biz Reborn Marketing"}" <${senderMatch[2] || fromAddr}>`;
+        : `"${senderMatch[1] || "Merit Marketing"}" <${senderMatch[2] || fromAddr}>`;
       const transport = nodemailer.createTransport({
         host: smtpHost,
         port: Number(process.env.SMTP_PORT || 587),
@@ -184,7 +184,7 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
     try {
       const senderMatch = fromEmail.match(/^(.*?)\s*<(.+)>$/) || [];
       const senderEmail = senderMatch[2] || fromEmail;
-      const senderName = senderMatch[1] || "Biz Reborn Marketing";
+      const senderName = senderMatch[1] || "Merit Marketing";
       const auth = Buffer.from(`${mjPublicKey}:${mjPrivateKey}`).toString("base64");
       const res = await fetch("https://api.mailjet.com/v3.1/send", {
         method: "POST",
@@ -218,7 +218,7 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
       const nodemailer = (await import("nodemailer")).default;
       const senderMatch = fromEmail.match(/^(.*?)\s*<(.+)>$/) || [];
       const senderEmail = senderMatch[2] || fromEmail;
-      const senderName = senderMatch[1] || "Biz Reborn Marketing";
+      const senderName = senderMatch[1] || "Merit Marketing";
       const smtpUser = process.env.BREVO_SMTP_USER || senderEmail;
       const transport = nodemailer.createTransport({
         host: "smtp-relay.brevo.com",
@@ -241,7 +241,7 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
     try {
       const senderMatch = fromEmail.match(/^(.*?)\s*<(.+)>$/) || [];
       const senderEmail = senderMatch[2] || fromEmail;
-      const senderName = senderMatch[1] || "Biz Reborn Marketing";
+      const senderName = senderMatch[1] || "Merit Marketing";
       const res = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {
@@ -348,7 +348,7 @@ export async function welcomeProspect(p: Prospect): Promise<void> {
 
   const subject = `Great news, ${p.business_name} — your free audit is on the way! 🎉`;
   const competitor = p.competitor_name ?? "the local market leader";
-  const body = `Hi ${p.business_name} team,\n\nWelcome to Biz Reborn! We just added ${p.business_name} to our audit queue — your FREE local growth audit is being compiled right now.\n\nIt covers your Google map-pack standing vs ${competitor}, your review scorecard, unanswered-review leaks, and the exact fixes to lock in your Top 3 spot.\n\nYour audit link lands right back in this inbox within the next hour. Keep an eye out — it includes a 45-second video walkthrough built just for ${p.business_name}.\n\nNo strings, no cost. If your listings are already perfect, you'll know in 60 seconds.`;
+  const body = `Hi ${p.business_name} team,\n\nWelcome to Merit Marketing! We just added ${p.business_name} to our audit queue — your FREE local growth audit is being compiled right now.\n\nIt covers your Google map-pack standing vs ${competitor}, your review scorecard, unanswered-review leaks, and the exact fixes to lock in your Top 3 spot.\n\nYour audit link lands right back in this inbox within the next hour. Keep an eye out — it includes a 45-second video walkthrough built just for ${p.business_name}.\n\nNo strings, no cost. If your listings are already perfect, you'll know in 60 seconds.`;
 
   const html = renderProfessionalEmailHtml({ prospect: p, subject, body, stepNumber: 1 });
   await deliverEmail({

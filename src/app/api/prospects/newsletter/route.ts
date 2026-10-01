@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     `Business: ${p.business_name}, City: ${p.city || "Local"}, Grade: ${grade}`,
     `Top Flaws: ${flaws}`,
     `Write a 3-part email nurture sequence (Email 1: The Hook & Video Audit, Email 2: Niche Local Authority Newsletter/Strategy, Email 3: The Financial Close & ROI).`,
-    `Never use bracket placeholders like [Your Name], [Company], [Email], or [link] — always fill in the actual sender name (${OUTREACH_SIGNER.name}, ${OUTREACH_SIGNER.title} at Biz Reborn Marketing) and real details.`,
+    `Never use bracket placeholders like [Your Name], [Company], [Email], or [link] — always fill in the actual sender name (${OUTREACH_SIGNER.name}, ${OUTREACH_SIGNER.title} at Merit Marketing) and real details.`,
     `Return ONLY a valid JSON object with keys: email1_subject, email1_body, email2_subject, email2_body, email3_subject, email3_body. No markdown fences, raw JSON only.`,
   ].join("\n");
 

@@ -15,7 +15,7 @@ export function Logo({
       href={href}
       className={cn("group inline-flex items-center gap-2.5", className)}
     >
-      <span className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-brand-500 to-glow-500 shadow-[0_4px_20px_-4px_rgba(99,102,241,0.7)]">
+      <span className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-brand-300 to-brand-600 shadow-[0_4px_20px_-4px_rgba(214,165,54,0.55)]">
         <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="none">
           <path
             d="M4 12h4l3 8 4-16 3 8h4"
@@ -30,10 +30,7 @@ export function Logo({
       {!compact ? (
         <span className="flex flex-col leading-none">
           <span className="font-display text-lg font-bold tracking-tight text-white">
-            Biz<span className="text-gradient-brand">Reborn</span>
-          </span>
-          <span className="text-[9px] font-medium uppercase tracking-[0.32em] text-fog">
-            Marketing
+            Merit <span className="text-gradient-brand">Marketing</span>
           </span>
         </span>
       ) : null}

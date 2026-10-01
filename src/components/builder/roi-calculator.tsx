@@ -108,7 +108,7 @@ export function RoiCalculator() {
           step={stepSizes[Math.floor(Math.log10(Math.max(acv, 1)))] ?? 50}
           value={acv}
           onChange={(e) => setAcv(parseInt(e.target.value, 10))}
-          className="w-full accent-indigo-500"
+          className="w-full accent-brand-500"
           aria-label="Average customer value"
         />
       </div>

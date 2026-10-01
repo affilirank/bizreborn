@@ -18,13 +18,13 @@ const sora = Sora({
 
 export const metadata: Metadata = {
   title: {
-    default: "Biz Reborn Marketing — Dominate Your Local Market",
-    template: "%s · Biz Reborn Marketing",
+    default: "Merit Marketing — Measurable Local Growth",
+    template: "%s · Merit Marketing",
   },
   description:
     "AI-driven local audit systems, high-converting content infrastructure, and modular marketing pipelines designed to dominate your local market.",
   openGraph: {
-    title: "Biz Reborn Marketing",
+    title: "Merit Marketing",
     description:
       "Stop burning cash on invisible marketing. Reborn your business into a local category leader.",
     type: "website",

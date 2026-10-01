@@ -58,13 +58,13 @@ export function buildPosterSvg(p: Prospect): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
   <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1e1b4b"/><stop offset="1" stop-color="#0B0F17"/></linearGradient></defs>
   <rect width="1080" height="1920" fill="url(#g)"/>
-  <text x="60" y="200" fill="#a5b4fc" font-size="40" font-weight="700" font-family="sans-serif">BIZ REBORN MARKETING · GROWTH AUDIT</text>
+  <text x="60" y="200" fill="#F4D889" font-size="40" font-weight="700" font-family="sans-serif">MERIT MARKETING · GROWTH AUDIT</text>
   <text x="60" y="300" fill="#ffffff" font-size="72" font-weight="900" font-family="sans-serif">${esc(p.business_name)}</text>
   ${grade ? `<circle cx="900" cy="560" r="120" fill="#F87171" opacity="0.15"/><circle cx="900" cy="560" r="120" fill="none" stroke="#F87171" stroke-width="10"/><text x="900" y="600" text-anchor="middle" fill="#ffffff" font-size="120" font-weight="900" font-family="sans-serif">${esc(grade)}</text><text x="900" y="720" text-anchor="middle" fill="#94A3B8" font-size="32" font-family="sans-serif">brand grade</text>` : ""}
   <text x="60" y="600" fill="#ffffff" font-size="150" font-weight="900" font-family="sans-serif">${rating.toFixed(1)}</text>
   <text x="60" y="660" fill="#FBBF24" font-size="44" font-family="sans-serif">★ ${reviews} reviews · ${p.unanswered_reviews ?? 0} unanswered</text>
   <rect x="60" y="820" width="960" height="24" rx="12" fill="#1f2937"/>
-  <rect x="60" y="820" width="${Math.max(40, Math.min(960, Math.round((reviews / Math.max(compReviews, 1)) * 960)))}" height="24" rx="12" fill="#6366F1"/>
+  <rect x="60" y="820" width="${Math.max(40, Math.min(960, Math.round((reviews / Math.max(compReviews, 1)) * 960)))}" height="24" rx="12" fill="#D6A536"/>
   <text x="60" y="900" fill="#94A3B8" font-size="40" font-family="sans-serif">You: ${reviews} vs ${esc(p.competitor_name)}: ${compReviews}</text>
   ${lost ? `<text x="60" y="1120" fill="#F87171" font-size="44" font-weight="700" font-family="sans-serif">Leaking ≈ $${Math.round(lost).toLocaleString("en-US")}/mo to the market leader</text>` : ""}
   <circle cx="540" cy="1400" r="110" fill="#ffffff" opacity="0.1"/><polygon points="505,1340 505,1460 615,1400" fill="#ffffff"/>

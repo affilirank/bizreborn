@@ -2,7 +2,7 @@ import type { Offer } from "@/lib/types";
 import { SITE, LEADGEN } from "@/lib/config";
 import { canReceiveEmail } from "@/lib/services/email-validate";
 
-const FROM = () => process.env.EMAIL_FROM || `Biz Reborn Marketing <hello@bizreborn.com>`;
+const FROM = () => process.env.EMAIL_FROM || `Merit Marketing <hello@bizreborn.com>`;
 const REPLY_TO = () => process.env.REPLY_TO_EMAIL || "bizrebornmarketing@gmail.com";
 
 export interface EmailResult {
@@ -21,7 +21,7 @@ function ctaButtons(offer: Offer): string {
   const reviewUrl = `${base}/offer/${offer.token}`;
   const primary = `
     <td align="center">
-      <a href="${reviewUrl}" target="_blank" style="background:linear-gradient(135deg, #6366F1 0%, #4f46e5 100%);color:#ffffff;text-decoration:none;padding:14px 36px;border-radius:12px;font-weight:bold;font-size:15px;display:inline-block;box-shadow:0 4px 14px rgba(99,102,241,0.4);">
+      <a href="${reviewUrl}" target="_blank" style="background:linear-gradient(135deg, #D6A536 0%, #AA7A1E 100%);color:#ffffff;text-decoration:none;padding:14px 36px;border-radius:12px;font-weight:bold;font-size:15px;display:inline-block;box-shadow:0 4px 14px rgba(214, 165, 54,0.4);">
         Review Your Proposal →
       </a>
     </td>`;
@@ -29,7 +29,7 @@ function ctaButtons(offer: Offer): string {
     <tr><td height="14" style="font-size:0;line-height:0;">&nbsp;</td></tr>
     <tr>
       <td align="center">
-        <a href="${reviewUrl}" target="_blank" style="color:#6366F1;text-decoration:underline;font-size:13px;font-weight:600;">${label}</a>
+        <a href="${reviewUrl}" target="_blank" style="color:#D6A536;text-decoration:underline;font-size:13px;font-weight:600;">${label}</a>
       </td>
     </tr>`;
   if (offer.billingMode === "one-time" && offer.stripePaymentLink) {
@@ -80,7 +80,7 @@ function priceBlock(offer: Offer): string {
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin:16px 0;">
         <tr>
           <td style="padding:16px 20px 8px 20px;">
-            <p style="margin:0 0 4px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#6366F1;font-weight:700;">Monthly retainer</p>
+            <p style="margin:0 0 4px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#D6A536;font-weight:700;">Monthly retainer</p>
             <p style="margin:0;font-size:13px;color:#475569;">Regular rate <span style="text-decoration:line-through;color:#94a3b8;">${money(offer.monthlyListPrice)}/mo</span> — choose your commitment term below. ${badge}</p>
           </td>
         </tr>
@@ -137,7 +137,7 @@ export function renderOfferEmailHtml(offer: Offer): string {
 
   const notes = offer.notes
     ? `<tr>
-        <td style="padding:16px;background:#eef2ff;border-left:3px solid #6366F1;border-radius:0 8px 8px 0;font-size:13px;color:#3730a3;line-height:1.6;margin:16px 0;">
+        <td style="padding:16px;background:#eef2ff;border-left:3px solid #D6A536;border-radius:0 8px 8px 0;font-size:13px;color:#3730a3;line-height:1.6;margin:16px 0;">
           ${offer.notes.replace(/\n/g, "<br>")}
         </td>
       </tr>`
@@ -148,7 +148,7 @@ export function renderOfferEmailHtml(offer: Offer): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your Customized Biz Reborn Proposal — ${offer.clientName}</title>
+  <title>Your Customized Merit Marketing Proposal — ${offer.clientName}</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f8fafc;font-family:Arial,Helvetica,sans-serif;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f8fafc;padding:32px 0;">
@@ -169,7 +169,7 @@ export function renderOfferEmailHtml(offer: Offer): string {
                 </tr>
                 <tr>
                   <td align="center" style="padding-top:6px;">
-                    <span style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:#a5b4fc;">
+                    <span style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:#F4D889;">
                       Customized Proposal · ${offer.clientName}
                     </span>
                   </td>
@@ -181,7 +181,7 @@ export function renderOfferEmailHtml(offer: Offer): string {
           <!-- Main content -->
           <tr>
             <td style="padding:40px 36px 24px 36px;">
-              <p style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#6366F1;font-weight:700;margin:0 0 12px 0;">
+              <p style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#D6A536;font-weight:700;margin:0 0 12px 0;">
                 Prepared for ${offer.clientName}
               </p>
               <h1 style="font-size:22px;font-weight:800;color:#0f172a;margin:0 0 16px 0;line-height:1.3;">
@@ -192,7 +192,7 @@ export function renderOfferEmailHtml(offer: Offer): string {
               </p>
 
               <!-- Included services -->
-              <p style="margin:24px 0 10px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#6366F1;font-weight:700;">
+              <p style="margin:24px 0 10px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#D6A536;font-weight:700;">
                 What&apos;s included · ${offer.serviceTitles.length} modules
               </p>
               <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 8px 0;">
@@ -216,7 +216,7 @@ export function renderOfferEmailHtml(offer: Offer): string {
                 ${agencyName}
               </p>
               <p style="margin:0 0 12px 0;font-size:12px;color:#64748b;">
-                Direct: <a href="mailto:${agencyEmail}" style="color:#6366F1;text-decoration:none;">${agencyEmail}</a> · Phone: ${agencyPhone}
+                Direct: <a href="mailto:${agencyEmail}" style="color:#D6A536;text-decoration:none;">${agencyEmail}</a> · Phone: ${agencyPhone}
               </p>
               <p style="margin:0;font-size:11px;color:#94a3b8;">
                 This is a private proposal link — just for ${offer.clientName}. If you have any questions, simply reply to this email.
@@ -279,7 +279,7 @@ export async function sendOfferEmail(offer: Offer): Promise<EmailResult> {
       error: `Recipient domain ${offer.clientEmail.split("@")[1]} has no MX record (cannot receive mail). Send blocked — fix the client email.`,
     };
   }
-  const subject = `Your Customized Biz Reborn Proposal — ${offer.clientName}`;
+  const subject = `Your Customized Merit Marketing Proposal — ${offer.clientName}`;
   return sendEmail({
     to: offer.clientEmail,
     subject,

@@ -114,9 +114,9 @@ function buildDocs(): KbDoc[] {
 
   const faq: Array<[string, string, string[]]> = [
     [
-      "What is Biz Reborn?",
-      "Biz Reborn is a modular local-marketing machine. Instead of a one-size agency retainer, you pick exactly the modules you need across 10 pillars — Local SEO, short-form video, websites & funnels, reviews, SMS retention, paid ads, social, digital products, commercial real estate, and automation. You pay a one-time setup per module plus a monthly retainer, or bundle into the Solo, Growth, or Local Dominance tier.",
-      ["about", "what is", "who are you", "company", "biz reborn", "start"],
+      "What is Merit Marketing?",
+      "Merit Marketing is a modular local-marketing machine. Instead of a one-size agency retainer, you pick exactly the modules you need across 10 pillars — Local SEO, short-form video, websites & funnels, reviews, SMS retention, paid ads, social, digital products, commercial real estate, and automation. You pay a one-time setup per module plus a monthly retainer, or bundle into the Solo, Growth, or Local Dominance tier.",
+      ["about", "what is", "who are you", "company", "merit marketing", "start"],
     ],
     [
       "How does it work?",
@@ -130,7 +130,7 @@ function buildDocs(): KbDoc[] {
     ],
     [
       "Why do 88% of local searches matter?",
-      "88% of consumers who search for a local business on mobile call or visit within 24 hours. That's why speed, map-pack rank, and instant SMS response decide who wins the local market — and why Biz Reborn prioritizes those systems first.",
+      "88% of consumers who search for a local business on mobile call or visit within 24 hours. That's why speed, map-pack rank, and instant SMS response decide who wins the local market — and why Merit Marketing prioritizes those systems first.",
       ["88", "local search", "mobile", "stat"],
     ],
     [
@@ -150,7 +150,7 @@ function buildDocs(): KbDoc[] {
     ],
     [
       "Can you handle my barbershop / restaurant / real estate / trades / e-commerce / practice?",
-      "Yes. Biz Reborn ships category-specific stacks for 12 verticals — Barbershop & Salon, Real Estate & Mortgage, Contractor & HVAC, Restaurant & QSR, E-Commerce, Professional Services, Gym & Fitness, Dental / Medical / Aesthetics, Auto & Automotive, Law & Legal, Education & Coaching, and Creator / Influencer / Podcast. Each vertical has a recommended pillar stack that matches how buyers in that category choose.",
+      "Yes. Merit Marketing ships category-specific stacks for 12 verticals — Barbershop & Salon, Real Estate & Mortgage, Contractor & HVAC, Restaurant & QSR, E-Commerce, Professional Services, Gym & Fitness, Dental / Medical / Aesthetics, Auto & Automotive, Law & Legal, Education & Coaching, and Creator / Influencer / Podcast. Each vertical has a recommended pillar stack that matches how buyers in that category choose.",
       ["vertical", "niche", "industry", "category", "barbershop", "salon", "restaurant", "real estate", "contractor", "hvac", "ecommerce", "professional", "fitness", "dental", "automotive", "law", "education", "creator", "influencer", "podcast"],
     ],
     [
@@ -178,10 +178,10 @@ function buildDocs(): KbDoc[] {
   docs.push({
     id: "product-about",
     kind: "product",
-    title: "Biz Reborn Marketing",
+    title: "Merit Marketing",
     href: "/",
-    keywords: ["biz reborn", "marketing", "about", "agency", "company"],
-    body: "Biz Reborn Marketing is a modular, AI-accelerated local growth system: 10 pillars, 100 services, and 6 industry stacks — with a free AI audit, transparent pricing, live ROI math, and dashboards for clients and admins.",
+    keywords: ["merit marketing", "marketing", "about", "agency", "company"],
+    body: "Merit Marketing is a modular, AI-accelerated local growth system: 10 pillars, 100 services, and 6 industry stacks — with a free AI audit, transparent pricing, live ROI math, and dashboards for clients and admins.",
   });
 
   return docs;

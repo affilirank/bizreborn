@@ -201,7 +201,7 @@ function replyFor(patch: BlogPatch): string {
 
 function geminiPrompt(d: BlogDraft, instruction: string): string {
   return (
-    "You are the AI writing assistant inside the Biz Reborn Marketing blog editor. " +
+    "You are the AI writing assistant inside the Merit Marketing blog editor. " +
     "You write crisp, persuasive local-SEO marketing copy in a confident American voice. " +
     "Respond ONLY with a single JSON object, no markdown fences, no commentary. Shape: " +
     '{"reply": "<one short summary sentence for the admin>", "patch": { any subset of ' +

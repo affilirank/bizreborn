@@ -30,9 +30,9 @@ const engines = [
     icon: BarChart3,
     title: "Brand Audits & Analytics",
     desc: "Deep AI-powered audits that uncover every blind spot in your brand.",
-    color: "from-violet-500/20 to-violet-600/10",
-    border: "border-violet-500/20",
-    iconColor: "text-violet-400",
+    color: "from-brand-500/20 to-brand-600/10",
+    border: "border-brand-500/20",
+    iconColor: "text-brand-400",
   },
   {
     icon: Globe,

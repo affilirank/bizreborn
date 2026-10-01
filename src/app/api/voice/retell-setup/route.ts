@@ -85,7 +85,7 @@ export async function POST(req: Request) {
   // false (these are outbound cold calls) and an instant hang-up trigger.
   // Rewrite the opening: compliment first, honest discovery framing, email ask.
   const HONEST_OPENER = `## OPENING — READ VERBATIM (overrides any earlier opening)
-"Hi, this is Sarah from Biz Reborn Marketing — did I catch the business owner?"
+"Hi, this is Sarah from Merit Marketing — did I catch the business owner?"
 - If NOT the owner: "No problem at all! When's a good time to catch them — or I can email the audit link straight over. Which works better?"
 - If owner: "[COMPLIMENT FIRST — use the prospect's real data: 4.5+ stars → '{rating} stars across {reviews} reviews? Genuinely impressive, you clearly take great care of your customers.' / fewer reviews → '{reviews} reviews and counting — {business_name} is clearly a staple in {city}.']"
   Then: "I was researching businesses like yours in {city} this week and noticed {competitor_name} is outranking you on Google Maps right now — looks like it's mostly the {unanswered} unanswered reviews."

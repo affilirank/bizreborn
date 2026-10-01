@@ -18,7 +18,7 @@ export default function ChatWidget() {
           </div>
           <div className="p-4">
             <p className="text-xs leading-relaxed text-ink-400">
-              Hi! I&apos;m Biz Reborn&apos;s AI assistant. Ask me about our
+              Hi! I&apos;m Merit Marketing&apos;s AI assistant. Ask me about our
               services, brand audits, or anything else.
             </p>
           </div>

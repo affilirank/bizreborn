@@ -22,7 +22,7 @@ const ENGINES = [
     bullets: ["Brand Health Score / 100", "Pain point identifiers", "Local keyword intelligence"],
     cta: "Run the audit",
     href: "/audit",
-    accent: "from-brand-500 to-violet-600",
+    accent: "from-brand-500 to-brand-600",
     chip: "Free",
   },
   {

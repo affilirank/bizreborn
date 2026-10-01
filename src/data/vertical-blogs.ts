@@ -54,7 +54,7 @@ export const VERTICAL_ARTICLES: BlogArticle[] = [
       {
         "heading": "The Solutions: A barbershop marketing System That Actually Converts",
         "paragraphs": [
-          "None of these fixes are a campaign — they're a system, and they're exactly what the Biz Reborn module library was built to deliver. Each one below is a single installable module you can launch in a click:"
+          "None of these fixes are a campaign — they're a system, and they're exactly what the Merit Marketing module library was built to deliver. Each one below is a single installable module you can launch in a click:"
         ],
         "bullets": [
           "Rebuild your Google Business Profile into a lead machine. Correct categories, service menu, photos, posts, and Q&A so the map pack actually routes 'near me' searchers to your door instead of your competitor's.",
@@ -169,7 +169,7 @@ export const VERTICAL_ARTICLES: BlogArticle[] = [
       {
         "heading": "The Solutions: A real estate marketing System That Actually Converts",
         "paragraphs": [
-          "None of these fixes are a campaign — they're a system, and they're exactly what the Biz Reborn module library was built to deliver. Each one below is a single installable module you can launch in a click:"
+          "None of these fixes are a campaign — they're a system, and they're exactly what the Merit Marketing module library was built to deliver. Each one below is a single installable module you can launch in a click:"
         ],
         "bullets": [
           "Turn every listing into a branded pitch asset. A conversion-focused landing page per property or farm area — capture forms, video, and a single clear next step — instead of a generic multi-purpose site.",
@@ -284,7 +284,7 @@ export const VERTICAL_ARTICLES: BlogArticle[] = [
       {
         "heading": "The Solutions: A contractor marketing System That Actually Converts",
         "paragraphs": [
-          "None of these fixes are a campaign — they're a system, and they're exactly what the Biz Reborn module library was built to deliver. Each one below is a single installable module you can launch in a click:"
+          "None of these fixes are a campaign — they're a system, and they're exactly what the Merit Marketing module library was built to deliver. Each one below is a single installable module you can launch in a click:"
         ],
         "bullets": [
           "Own the map pack for every service you run. Full Google Business Profile optimization — service menus, service-area setup, photos, and posts — so emergency searches route straight to your team.",
@@ -399,7 +399,7 @@ export const VERTICAL_ARTICLES: BlogArticle[] = [
       {
         "heading": "The Solutions: A restaurant marketing System That Actually Converts",
         "paragraphs": [
-          "None of these fixes are a campaign — they're a system, and they're exactly what the Biz Reborn module library was built to deliver. Each one below is a single installable module you can launch in a click:"
+          "None of these fixes are a campaign — they're a system, and they're exactly what the Merit Marketing module library was built to deliver. Each one below is a single installable module you can launch in a click:"
         ],
         "bullets": [
           "Give the algorithm a monthly batch it can't ignore. 15 short-form videos a month — signature dishes, behind-the-line energy, plating shots — engineered to win local reach on TikTok and Reels at zero ad spend.",
@@ -514,7 +514,7 @@ export const VERTICAL_ARTICLES: BlogArticle[] = [
       {
         "heading": "The Solutions: A e-commerce marketing System That Actually Converts",
         "paragraphs": [
-          "None of these fixes are a campaign — they're a system, and they're exactly what the Biz Reborn module library was built to deliver. Each one below is a single installable module you can launch in a click:"
+          "None of these fixes are a campaign — they're a system, and they're exactly what the Merit Marketing module library was built to deliver. Each one below is a single installable module you can launch in a click:"
         ],
         "bullets": [
           "Rebuild the store around conversion, not design. A fast, mobile-first storefront with one clear action per page — the highest-leverage fix for the 70% abandonment problem.",
@@ -629,7 +629,7 @@ export const VERTICAL_ARTICLES: BlogArticle[] = [
       {
         "heading": "The Solutions: A professional services marketing System That Actually Converts",
         "paragraphs": [
-          "None of these fixes are a campaign — they're a system, and they're exactly what the Biz Reborn module library was built to deliver. Each one below is a single installable module you can launch in a click:"
+          "None of these fixes are a campaign — they're a system, and they're exactly what the Merit Marketing module library was built to deliver. Each one below is a single installable module you can launch in a click:"
         ],
         "bullets": [
           "Build the funnel high-ticket clients expect. A conversion-engineered site with a single next step — strategy call, diagnostic, or proposal — instead of a brochure that asks nothing.",
@@ -744,7 +744,7 @@ export const VERTICAL_ARTICLES: BlogArticle[] = [
       {
         "heading": "The Solutions: A gym marketing System That Actually Converts",
         "paragraphs": [
-          "None of these fixes are a campaign — they're a system, and they're exactly what the Biz Reborn module library was built to deliver. Each one below is a single installable module you can launch in a click:"
+          "None of these fixes are a campaign — they're a system, and they're exactly what the Merit Marketing module library was built to deliver. Each one below is a single installable module you can launch in a click:"
         ],
         "bullets": [
           "Market to the members you already have. A VIP text club and automated re-engagement sequence that reduces churn and fills classes from your existing roster before you spend a dollar on acquisition.",
@@ -859,7 +859,7 @@ export const VERTICAL_ARTICLES: BlogArticle[] = [
       {
         "heading": "The Solutions: A dental marketing System That Actually Converts",
         "paragraphs": [
-          "None of these fixes are a campaign — they're a system, and they're exactly what the Biz Reborn module library was built to deliver. Each one below is a single installable module you can launch in a click:"
+          "None of these fixes are a campaign — they're a system, and they're exactly what the Merit Marketing module library was built to deliver. Each one below is a single installable module you can launch in a click:"
         ],
         "bullets": [
           "Win the 'dentist near me' map pack. A fully optimized Google Business Profile — categories, service menu, photos, and Q&A — so new-patient searches route to your practice.",
@@ -974,7 +974,7 @@ export const VERTICAL_ARTICLES: BlogArticle[] = [
       {
         "heading": "The Solutions: A automotive marketing System That Actually Converts",
         "paragraphs": [
-          "None of these fixes are a campaign — they're a system, and they're exactly what the Biz Reborn module library was built to deliver. Each one below is a single installable module you can launch in a click:"
+          "None of these fixes are a campaign — they're a system, and they're exactly what the Merit Marketing module library was built to deliver. Each one below is a single installable module you can launch in a click:"
         ],
         "bullets": [
           "Own every 'repair near me' search in your radius. Full GBP optimization — services, service area, photos, and posts — so breakdown searches route to your bays instead of the shop with the better listing.",
@@ -1089,7 +1089,7 @@ export const VERTICAL_ARTICLES: BlogArticle[] = [
       {
         "heading": "The Solutions: A law firm marketing System That Actually Converts",
         "paragraphs": [
-          "None of these fixes are a campaign — they're a system, and they're exactly what the Biz Reborn module library was built to deliver. Each one below is a single installable module you can launch in a click:"
+          "None of these fixes are a campaign — they're a system, and they're exactly what the Merit Marketing module library was built to deliver. Each one below is a single installable module you can launch in a click:"
         ],
         "bullets": [
           "Turn your website into a case-intake machine. A conversion-focused site with case-type landing pages and a single next step — consultation, case evaluation, or callback.",
@@ -1204,7 +1204,7 @@ export const VERTICAL_ARTICLES: BlogArticle[] = [
       {
         "heading": "The Solutions: A education marketing System That Actually Converts",
         "paragraphs": [
-          "None of these fixes are a campaign — they're a system, and they're exactly what the Biz Reborn module library was built to deliver. Each one below is a single installable module you can launch in a click:"
+          "None of these fixes are a campaign — they're a system, and they're exactly what the Merit Marketing module library was built to deliver. Each one below is a single installable module you can launch in a click:"
         ],
         "bullets": [
           "Prove demand with a tripwire offer. A low-priced micro-course or mini-guide that converts cold traffic into buyers cheaply — before you invest in the flagship.",
@@ -1319,7 +1319,7 @@ export const VERTICAL_ARTICLES: BlogArticle[] = [
       {
         "heading": "The Solutions: A creator and influencer marketing System That Actually Converts",
         "paragraphs": [
-          "None of these fixes are a campaign — they're a system, and they're exactly what the Biz Reborn module library was built to deliver. Each one below is a single installable module you can launch in a click:"
+          "None of these fixes are a campaign — they're a system, and they're exactly what the Merit Marketing module library was built to deliver. Each one below is a single installable module you can launch in a click:"
         ],
         "bullets": [
           "Package your audience into an entry offer. A tripwire or micro-offer that turns followers into buyers — the first step from content creator to business owner.",

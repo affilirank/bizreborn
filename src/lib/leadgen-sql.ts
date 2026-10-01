@@ -3,7 +3,7 @@
  * Kept in TS so the admin UI can surface it when the table is missing.
  * A copy lives at supabase/leadgen.sql for repo readers.
  */
-export const LEADGEN_SQL = `-- Biz Reborn · lead-generation module (prospects + pitch videos + proposals)
+export const LEADGEN_SQL = `-- Merit Marketing · lead-generation module (prospects + pitch videos + proposals)
 -- Idempotent: safe to run more than once in the Supabase SQL editor.
 
 create table if not exists public.prospects (

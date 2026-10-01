@@ -205,7 +205,7 @@ function ScenePlayer({
       )}
 
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.35),transparent_60%),radial-gradient(ellipse_at_bottom,rgba(16,185,129,0.2),transparent_60%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(214, 165, 54,0.35),transparent_60%),radial-gradient(ellipse_at_bottom,rgba(16,185,129,0.2),transparent_60%)]" />
       <div className="absolute inset-0 grid-lines opacity-30" />
 
       {/* Scenes */}
@@ -213,7 +213,7 @@ function ScenePlayer({
         {scene === 0 && (
           <div key="s0">
             <p className="animate-pp-rise text-[3.2cqw] font-semibold uppercase tracking-[0.25em] text-brand-300">
-              Biz Reborn Marketing · Growth Audit
+              Merit Marketing · Growth Audit
             </p>
             <h2 className="animate-pp-rise mt-4 text-[9cqw] font-black leading-[1.05] [animation-delay:200ms]">
               Notice something missing on Google, {p.business_name}?
@@ -273,7 +273,7 @@ function ScenePlayer({
               You&apos;re losing calls to {p.competitor_name ?? "the market leader"} daily.
             </h2>
             <div className="mt-9 space-y-6">
-              <Bar label={p.business_name} value={reviews} pct={pct} color="#6366F1" delay={600} />
+              <Bar label={p.business_name} value={reviews} pct={pct} color="#D6A536" delay={600} />
               <Bar label={p.competitor_name ?? "Market leader"} value={comp} pct={100} color="#F87171" delay={1400} />
             </div>
             {roi && (
@@ -289,7 +289,7 @@ function ScenePlayer({
         {scene === 3 && (
           <div key="s3">
             <p className="animate-pp-rise text-[3.2cqw] font-semibold uppercase tracking-[0.25em] text-glow-400">
-              The Biz Reborn fix
+              The Merit Marketing fix
             </p>
             <h2 className="animate-pp-rise mt-3 text-[7.5cqw] font-black leading-tight [animation-delay:150ms]">
               Here&apos;s what the fix is projected to return.
@@ -324,7 +324,7 @@ function ScenePlayer({
               <p className="mt-1 text-[3.4cqw] text-brand-200">www.bizreborn.com</p>
             </div>
             <p className="animate-pp-rise mt-8 text-[3cqw] uppercase tracking-[0.25em] text-ink-400 [animation-delay:1800ms]">
-              Biz Reborn Marketing
+              Merit Marketing
             </p>
           </div>
         )}

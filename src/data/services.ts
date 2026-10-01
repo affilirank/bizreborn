@@ -201,7 +201,7 @@ export const PILLARS: Pillar[] = [
     name: "Local SEO & Google Maps Dominance",
     tagline: "Own the map pack. Be the first name in your city's Google search.",
     icon: "MapPin",
-    accent: "from-indigo-500 to-violet-600",
+    accent: "from-brand-500 to-brand-600",
     services: [
       {
         id: 1,
@@ -411,7 +411,7 @@ export const PILLARS: Pillar[] = [
     name: "Websites, Landing Pages & Funnels",
     tagline: "Pages built to convert cold traffic into booked appointments.",
     icon: "LayoutTemplate",
-    accent: "from-violet-500 to-indigo-600",
+    accent: "from-brand-500 to-brand-600",
     services: [
       {
         id: 21,
@@ -828,7 +828,7 @@ export const PILLARS: Pillar[] = [
     name: "Social Media Management & Branding",
     tagline: "Look like the market leader you intend to be — on every platform.",
     icon: "Palette",
-    accent: "from-fuchsia-500 to-purple-600",
+    accent: "from-brand-500 to-brand-600",
     services: [
       {
         id: 61,

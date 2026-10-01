@@ -65,7 +65,7 @@ function intent(m: string) {
   if (GREETINGS.test(m.toLowerCase())) return "greeting";
 
   // "How should I price MY business" is a novel strategy question, not a
-  // request for Biz Reborn's pricing — let it fall through to the LLM.
+  // request for Merit Marketing's pricing — let it fall through to the LLM.
   const selfPricing =
     /(price|pricing|charge|cost)\b[^.]*\b(my|our)\b/.test(lower) ||
     /(my|our)\s+(price|pricing|prices)\b/.test(lower) ||
@@ -133,7 +133,7 @@ export function chatWithAssistant(message: string): ChatReply {
     case "greeting":
       return buildReply(
         pick([
-          "Hey there! I'm the Biz Reborn growth assistant. Ask me about pricing, our 100 service modules, which pillar to start with, or what the AI audit will tell you — I'm trained on the whole playbook.",
+          "Hey there! I'm the Merit Marketing growth assistant. Ask me about pricing, our 100 service modules, which pillar to start with, or what the AI audit will tell you — I'm trained on the whole playbook.",
           "Hi! I can walk you through the 10 pillars, recommend a stack for your industry, explain pricing, or set you up with the free audit. What's your business?",
         ]),
         [],
@@ -208,7 +208,7 @@ export function chatWithAssistant(message: string): ChatReply {
 
     case "about":
       return buildReply(
-        "Biz Reborn Marketing is a modular, AI-accelerated local growth system. Instead of a one-size agency retainer, you pick exactly the modules you need across 10 pillars — Local SEO, short-form video, websites & funnels, reviews, SMS retention, paid ads, social branding, digital products, commercial real estate, and automation. 100 services, 6 industry stacks, transparent pricing, and live ROI math.",
+        "Merit Marketing is a modular, AI-accelerated local growth system. Instead of a one-size agency retainer, you pick exactly the modules you need across 10 pillars — Local SEO, short-form video, websites & funnels, reviews, SMS retention, paid ads, social branding, digital products, commercial real estate, and automation. 100 services, 6 industry stacks, transparent pricing, and live ROI math.",
         [{ label: "See the homepage", href: "/" }],
       );
 
@@ -252,7 +252,7 @@ export function chatWithAssistant(message: string): ChatReply {
       const docs = searchKnowledgeBase(message, 5);
       if (docs.length === 0) {
         return {
-          text: `Good question. Here's the honest version: I'm a marketing assistant with deep playbook knowledge — I can answer most anything about local marketing strategy, and I'm exact on Biz Reborn's services, pricing, the 10 pillars, the audit engine, and industry stacks.\n\nFor a quick win on that, run the free AI Brand Audit — it scores your site, GBP, socials and reviews and lists exactly what's hurting you. Or tell me a bit more (your industry, what you're trying to fix) and I'll point you at the right modules. If you'd rather talk to a human, the Contact form routes to a strategist.`,
+          text: `Good question. Here's the honest version: I'm a marketing assistant with deep playbook knowledge — I can answer most anything about local marketing strategy, and I'm exact on Merit Marketing's services, pricing, the 10 pillars, the audit engine, and industry stacks.\n\nFor a quick win on that, run the free AI Brand Audit — it scores your site, GBP, socials and reviews and lists exactly what's hurting you. Or tell me a bit more (your industry, what you're trying to fix) and I'll point you at the right modules. If you'd rather talk to a human, the Contact form routes to a strategist.`,
           suggestions: [
             { label: "Run the free audit", href: "/audit" },
             { label: "See pricing", href: "/services" },

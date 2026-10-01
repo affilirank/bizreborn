@@ -36,7 +36,7 @@ export function FinalCTA() {
           <div className="mt-9 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
               href="/audit"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-8 py-4 text-base font-semibold text-white shadow-[0_12px_40px_-8px_rgba(99,102,241,0.9)] transition hover:bg-brand-400 sm:w-auto"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-8 py-4 text-base font-semibold text-white shadow-[0_12px_40px_-8px_rgba(214, 165, 54,0.9)] transition hover:bg-brand-400 sm:w-auto"
             >
               Run Free AI Brand Audit <ArrowRight className="h-5 w-5" />
             </Link>

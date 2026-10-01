@@ -31,14 +31,12 @@ export function Footer() {
           <div className="flex flex-col gap-5">
             <Logo />
             <p className="max-w-sm text-sm leading-relaxed text-fog">
-              AI-driven local audit systems, high-converting content infrastructure,
-              and modular marketing pipelines engineered to dominate your local
-              market — without agency lock-in.
+              Merit Marketing builds practical growth systems for ambitious local businesses.
             </p>
             <div className="flex items-center gap-2 rounded-xl border border-glow-500/25 bg-glow-500/10 px-4 py-3">
               <span className="h-2 w-2 animate-pulse rounded-full bg-glow-400" />
               <p className="text-xs font-medium text-glow-400">
-                Systems online · New client slots opening monthly
+                Independent marketing · Built around measurable growth
               </p>
             </div>
           </div>
@@ -84,15 +82,18 @@ export function Footer() {
             </p>
             <Link
               href="/audit"
-              className="inline-flex w-fit items-center gap-2 rounded-xl bg-brand-500 px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_30px_-8px_rgba(99,102,241,0.8)] transition hover:bg-brand-400"
+              className="inline-flex w-fit items-center gap-2 rounded-xl bg-brand-500 px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_30px_-8px_rgba(214, 165, 54,0.8)] transition hover:bg-brand-400"
             >
-              Run Free AI Brand Audit <ArrowRight className="h-4 w-4" />
+              Run Free Marketing Audit <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </div>
 
         <div className="mt-14 flex flex-col items-center justify-between gap-4 border-t border-white/5 pt-8 text-xs text-mute sm:flex-row">
-          <p>© {new Date().getFullYear()} Biz Reborn Marketing. All rights reserved.</p>
+          <div className="space-y-1 text-center sm:text-left">
+            <p>© {new Date().getFullYear()} Merit Marketing. All rights reserved.</p>
+            <p>Merit Marketing is part of Merit Media &amp; Marketing LLC.</p>
+          </div>
           <p className="flex items-center gap-4">
             <span className="cursor-pointer transition-colors hover:text-fog">Privacy</span>
             <span className="cursor-pointer transition-colors hover:text-fog">Terms</span>

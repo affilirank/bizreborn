@@ -65,7 +65,7 @@ export async function POST(req: Request) {
           currency: "usd",
           product_data: {
             name: `${line.name} (Setup)`,
-            description: "Biz Reborn one-time setup fee",
+            description: "Merit Marketing one-time setup fee",
           },
           unit_amount: line.unit * 100,
         },
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
       customer_email: email || undefined,
       line_items: lineItems,
       metadata: {
-        businessName: businessName ?? "Biz Reborn Client",
+        businessName: businessName ?? "Merit Marketing Client",
         email: email ?? "",
         services: services.join(","),
         tier: tier ?? "none",

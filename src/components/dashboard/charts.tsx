@@ -59,8 +59,8 @@ export function PerformanceChart() {
           <AreaChart data={LEAD_CHART} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
             <defs>
               <linearGradient id="leadGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#6366F1" stopOpacity={0.5} />
-                <stop offset="100%" stopColor="#6366F1" stopOpacity={0.02} />
+                <stop offset="0%" stopColor="#D6A536" stopOpacity={0.5} />
+                <stop offset="100%" stopColor="#D6A536" stopOpacity={0.02} />
               </linearGradient>
               <linearGradient id="callGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#10B981" stopOpacity={0.45} />
@@ -71,7 +71,7 @@ export function PerformanceChart() {
             <XAxis dataKey="month" stroke="#64748B" fontSize={11} tickLine={false} axisLine={false} />
             <YAxis stroke="#64748B" fontSize={11} tickLine={false} axisLine={false} />
             <Tooltip contentStyle={TOOLTIP_STYLE} />
-            <Area type="monotone" dataKey="leads" stroke="#6366F1" strokeWidth={2} fill="url(#leadGrad)" />
+            <Area type="monotone" dataKey="leads" stroke="#D6A536" strokeWidth={2} fill="url(#leadGrad)" />
             <Area type="monotone" dataKey="calls" stroke="#10B981" strokeWidth={2} fill="url(#callGrad)" />
           </AreaChart>
         </ResponsiveContainer>
@@ -81,7 +81,7 @@ export function PerformanceChart() {
 }
 
 export function SpendChart() {
-  const colors = ["#6366F1", "#F472B6", "#10B981", "#F59E0B", "#A78BFA", "#64748B"];
+  const colors = ["#D6A536", "#F472B6", "#10B981", "#F59E0B", "#E7BF5B", "#64748B"];
   return (
     <Card className="p-6">
       <h4 className="font-display text-base font-bold text-white">Budget Allocation</h4>

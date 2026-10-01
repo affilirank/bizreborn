@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 export const metadata: Metadata = {
   title: "Contact Us",
   description:
-    "Reach the Biz Reborn Marketing team. Email is required — a real growth strategist replies within one business day.",
+    "Reach the Merit Marketing team. Email is required — a real growth strategist replies within one business day.",
 };
 
 export default function ContactPage() {

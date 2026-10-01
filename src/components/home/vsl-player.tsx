@@ -143,7 +143,7 @@ export function VSLPlayer({ compact = false }: { compact?: boolean }) {
       </AnimatePresence>
 
       {/* Full player */}
-      <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-ink-950 shadow-[0_30px_80px_-30px_rgba(99,102,241,0.5)]">
+      <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-ink-950 shadow-[0_30px_80px_-30px_rgba(214, 165, 54,0.5)]">
         <div className="relative aspect-video w-full overflow-hidden">
           {useVideo ? (
             <video
@@ -173,7 +173,7 @@ export function VSLPlayer({ compact = false }: { compact?: boolean }) {
           {!playing && (
             <button
               onClick={toggle}
-              className="absolute left-1/2 top-1/2 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-brand-500/95 text-white shadow-[0_0_60px_-5px_rgba(99,102,241,0.9)] ring-glow transition-transform duration-300 hover:scale-110 sm:h-24 sm:w-24"
+              className="absolute left-1/2 top-1/2 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-brand-500/95 text-white shadow-[0_0_60px_-5px_rgba(214, 165, 54,0.9)] ring-glow transition-transform duration-300 hover:scale-110 sm:h-24 sm:w-24"
               aria-label="Play video"
             >
               <Play className="ml-1 h-9 w-9 sm:h-11 sm:w-11" fill="currentColor" />
@@ -294,7 +294,7 @@ function Scene({
         <div className="mt-1 flex items-center gap-2 rounded-full bg-white/5 px-4 py-1.5 text-xs text-fog backdrop-blur">
           <span
             className="h-1.5 w-1.5 animate-pulse rounded-full"
-            style={{ background: glowX > 60 ? "#10B981" : "#6366F1" }}
+            style={{ background: glowX > 60 ? "#10B981" : "#D6A536" }}
           />
           Live demo render · {Math.floor(current)}s
         </div>

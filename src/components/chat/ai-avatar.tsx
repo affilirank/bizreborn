@@ -17,11 +17,11 @@ export function AiAvatar({
       fill="none"
       className={className}
       role="img"
-      aria-label="Biz Reborn AI assistant"
+      aria-label="Merit Marketing AI assistant"
     >
       <defs>
         <linearGradient id={gid} x1="0" y1="0" x2="64" y2="64">
-          <stop offset="0" stopColor="#6366F1" />
+          <stop offset="0" stopColor="#D6A536" />
           <stop offset="1" stopColor="#10B981" />
         </linearGradient>
       </defs>

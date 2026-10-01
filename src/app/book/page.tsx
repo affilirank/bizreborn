@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 export const metadata: Metadata = {
   title: "Book Your Strategy Call",
   description:
-    "Book a free strategy call with Biz Reborn Marketing. Walk through your growth audit, review our service recommendations, and see a live demo of what we do.",
+    "Book a free strategy call with Merit Marketing. Walk through your growth audit, review our service recommendations, and see a live demo of what we do.",
 };
 
 export default function BookPage() {

@@ -40,7 +40,7 @@ function mailtoForReport(report: MonthlyReport): string {
     "",
     "Great momentum this period — full details inside.",
     "",
-    "The Biz Reborn Team",
+    "The Merit Marketing Team",
   ].join("\n");
   return `mailto:${report.clientEmail || ""}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }

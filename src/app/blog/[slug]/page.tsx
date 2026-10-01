@@ -72,7 +72,7 @@ export default async function BlogPostPage({
     datePublished: article.published,
     dateModified: article.updated,
     keywords: article.keywords,
-    publisher: { "@type": "Organization", name: "Biz Reborn Marketing" },
+    publisher: { "@type": "Organization", name: "Merit Marketing" },
     mainEntityOfPage: `https://www.bizreborn.com/blog/${article.slug}`,
   };
 

@@ -239,7 +239,7 @@ export default async function OfferPage({
                       href={offer.stripePaymentLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex h-13 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-500 px-8 text-base font-semibold text-white shadow-[0_8px_30px_-8px_rgba(99,102,241,0.7)] transition hover:bg-brand-400"
+                      className="inline-flex h-13 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-500 px-8 text-base font-semibold text-white shadow-[0_8px_30px_-8px_rgba(214, 165, 54,0.7)] transition hover:bg-brand-400"
                     >
                       Pay ${offer.offerPrice.toLocaleString()} &amp; get started
                       <ArrowRight className="h-4 w-4" />
@@ -258,7 +258,7 @@ export default async function OfferPage({
         </div>
 
         <p className="mt-6 flex items-center justify-center gap-1.5 text-center text-xs text-mute">
-          <Lock className="h-3 w-3" /> Private link · only you and the Biz Reborn
+          <Lock className="h-3 w-3" /> Private link · only you and the Merit Marketing
           team can see this proposal
         </p>
       </Container>

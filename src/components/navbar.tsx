@@ -28,7 +28,7 @@ export default function Navbar() {
           </div>
           <div className="flex flex-col leading-tight">
             <span className="text-sm font-bold tracking-tight text-white">
-              Biz Reborn
+              Merit Marketing
             </span>
             <span className="text-[10px] font-medium tracking-wider text-brand-400 uppercase">
               Marketing
