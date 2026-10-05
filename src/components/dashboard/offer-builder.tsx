@@ -424,7 +424,7 @@ export function OfferBuilder() {
                 <input
                   value={videoUrl}
                   onChange={(e) => setVideoUrl(e.target.value)}
-                  placeholder="https://www.bizreborn.com/pitch/… or an .mp4"
+                  placeholder="https://meritmarketingfl.com/pitch/… or an .mp4"
                   className="w-full rounded-xl border border-white/10 bg-ink-800 px-3 py-2.5 text-sm text-white placeholder:text-mute outline-none transition focus:border-brand-400/60"
                 />
               </label>

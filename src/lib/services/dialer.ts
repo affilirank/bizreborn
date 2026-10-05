@@ -58,7 +58,7 @@ async function twilioDial(p: Prospect, e164: string): Promise<DialResult> {
   if (!sid || !token || !from) {
     return { ok: false, error: "Twilio is not configured (TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_PHONE_NUMBER)." };
   }
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://meritmarketingfl.com";
   const body = new URLSearchParams({
     To: e164,
     From: from,

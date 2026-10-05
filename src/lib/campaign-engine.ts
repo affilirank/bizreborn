@@ -31,7 +31,7 @@ export async function advanceProspectCampaign(
   }
 
   const stage = (prospect.campaign_stage || "welcome") as string;
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://meritmarketingfl.com";
 
   if (!force && prospect.last_contacted_at) {
     const elapsed = Date.now() - new Date(prospect.last_contacted_at).getTime();

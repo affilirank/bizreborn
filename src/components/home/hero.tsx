@@ -95,7 +95,7 @@ export function Hero() {
                 document.getElementById("vsl")?.scrollIntoView({ behavior: "smooth" })
               }
             >
-              Watch the 76-Second Breakdown
+              Watch the 96-Second Breakdown
             </Button>
           </motion.div>
 

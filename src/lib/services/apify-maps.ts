@@ -419,8 +419,8 @@ async function emailScanSummary(
     const key = process.env.RESEND_API_KEY;
     if (!key) return false;
     const to = process.env.REPLY_TO_EMAIL || "bizrebornmarketing@gmail.com";
-    const from = process.env.EMAIL_FROM || "Merit Marketing <hello@bizreborn.com>";
-    const dash = `${process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com"}/admin/prospects`;
+    const from = process.env.EMAIL_FROM || "Merit Marketing <hello@meritmarketingfl.com>";
+    const dash = `${process.env.NEXT_PUBLIC_SITE_URL || "https://meritmarketingfl.com"}/admin/prospects`;
 
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",

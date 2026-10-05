@@ -160,7 +160,7 @@ export async function POST(req: Request) {
   const authToken = process.env.TWILIO_AUTH_TOKEN;
   const twilioNumber = process.env.TWILIO_PHONE_NUMBER;
 
-  const host = req.headers.get("host") || "www.bizreborn.com";
+  const host = req.headers.get("host") || "meritmarketingfl.com";
   const protocol = host.includes("localhost") ? "http" : "https";
   const twimlUrl = `${protocol}://${host}/api/voice/twiml${prospectId ? `?prospectId=${prospectId}` : ""}`;
 

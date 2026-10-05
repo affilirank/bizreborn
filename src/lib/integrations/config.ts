@@ -27,7 +27,7 @@ export const config = {
     mode: (process.env.VIDEO_MODE || "auto") as "auto" | "remotion" | "mock",
   },
   storage: {
-    publicBaseUrl: process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com",
+    publicBaseUrl: process.env.NEXT_PUBLIC_SITE_URL || "https://meritmarketingfl.com",
   },
 };
 

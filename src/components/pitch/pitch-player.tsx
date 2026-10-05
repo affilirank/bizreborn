@@ -321,7 +321,7 @@ function ScenePlayer({
             </p>
             <div className="animate-pp-pop mx-auto mt-8 rounded-2xl border border-brand-400/40 bg-brand-500/15 px-6 py-4 [animation-delay:1200ms]">
               <p className="text-[4.2cqw] font-bold text-white">{contactEmail}</p>
-              <p className="mt-1 text-[3.4cqw] text-brand-200">www.bizreborn.com</p>
+              <p className="mt-1 text-[3.4cqw] text-brand-200">meritmarketingfl.com</p>
             </div>
             <p className="animate-pp-rise mt-8 text-[3cqw] uppercase tracking-[0.25em] text-ink-400 [animation-delay:1800ms]">
               Merit Marketing

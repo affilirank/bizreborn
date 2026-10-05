@@ -2,7 +2,7 @@ import type { Offer } from "@/lib/types";
 import { SITE, LEADGEN } from "@/lib/config";
 import { canReceiveEmail } from "@/lib/services/email-validate";
 
-const FROM = () => process.env.EMAIL_FROM || `Merit Marketing <hello@bizreborn.com>`;
+const FROM = () => process.env.EMAIL_FROM || `Merit Marketing <hello@meritmarketingfl.com>`;
 const REPLY_TO = () => process.env.REPLY_TO_EMAIL || "bizrebornmarketing@gmail.com";
 
 export interface EmailResult {
@@ -17,7 +17,7 @@ const TERMS = [6, 12, 24] as const;
 
 /** Primary CTA + secondary Stripe button rendered as HTML table buttons. */
 function ctaButtons(offer: Offer): string {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://meritmarketingfl.com";
   const reviewUrl = `${base}/offer/${offer.token}`;
   const primary = `
     <td align="center">
@@ -118,7 +118,7 @@ function priceBlock(offer: Offer): string {
 
 /** Renders a branded, responsive proposal email (mirrors the agency's outreach design). */
 export function renderOfferEmailHtml(offer: Offer): string {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://meritmarketingfl.com";
   const reviewUrl = `${base}/offer/${offer.token}`;
   const agencyName = SITE.name;
   const agencyEmail = LEADGEN.email;

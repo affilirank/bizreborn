@@ -13,5 +13,5 @@ jobs:
         run: |
           curl -fsS -m 120 \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "https://bizreborn.com/api/prospects/campaign/run" \
+            "https://meritmarketingfl.com/api/prospects/campaign/run" \
             || echo "campaign run failed (non-blocking)"

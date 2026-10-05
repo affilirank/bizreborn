@@ -69,7 +69,7 @@ export function buildPosterSvg(p: Prospect): string {
   ${lost ? `<text x="60" y="1120" fill="#F87171" font-size="44" font-weight="700" font-family="sans-serif">Leaking ≈ $${Math.round(lost).toLocaleString("en-US")}/mo to the market leader</text>` : ""}
   <circle cx="540" cy="1400" r="110" fill="#ffffff" opacity="0.1"/><polygon points="505,1340 505,1460 615,1400" fill="#ffffff"/>
   <text x="540" y="1580" text-anchor="middle" fill="#ffffff" font-size="48" font-weight="700" font-family="sans-serif">Watch your 45-second audit</text>
-  <text x="540" y="1760" text-anchor="middle" fill="#94A3B8" font-size="34" font-family="sans-serif">${esc(LEADGEN.email)} · www.bizreborn.com</text>
+  <text x="540" y="1760" text-anchor="middle" fill="#94A3B8" font-size="34" font-family="sans-serif">${esc(LEADGEN.email)} · meritmarketingfl.com</text>
 </svg>`;
 }
 

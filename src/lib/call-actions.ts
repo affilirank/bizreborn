@@ -17,7 +17,7 @@ import type { CallIntentFlags } from "@/lib/call-intent";
  * booking rows, real CRM state.
  */
 
-const BASE = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
+const BASE = process.env.NEXT_PUBLIC_SITE_URL || "https://meritmarketingfl.com";
 
 /** Next weekday 10:00 AM ET (placeholder slot the admin confirms). */
 export function nextBusinessSlotISO(): string {

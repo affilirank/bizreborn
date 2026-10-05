@@ -239,7 +239,7 @@ Tone: warm, curious, straightforward, and professional. Be transparent that this
     });
   }
 
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://meritmarketingfl.com";
 
   // Latency: per-turn <Play> of a serverless-rendered ElevenLabs MP3 added
   // 2-5s of dead air per response (Twilio fetches the URL, the function

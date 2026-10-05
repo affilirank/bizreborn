@@ -1,7 +1,7 @@
 export const SITE = {
   name: "Merit Marketing",
   tagline: "Dominate Your Local Market",
-  email: "hello@bizreborn.com",
+  email: "hello@meritmarketingfl.com",
   phone: "772-290-1756",
 };
 

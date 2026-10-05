@@ -27,11 +27,12 @@ const DEMO_LINES: { at: number; text: string }[] = [
 
 export function VSLPlayer({ compact = false }: { compact?: boolean }) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
+  const miniVideoRef = React.useRef<HTMLVideoElement>(null);
   // Demo mode (no VSL source) autoplays the cinematic preview.
   const demoAutoPlays = !VSL_SRC && !compact;
   const [playing, setPlaying] = React.useState(demoAutoPlays);
   const [muted, setMuted] = React.useState(true);
-  const [duration, setDuration] = React.useState(76);
+  const [duration, setDuration] = React.useState(96);
   const [current, setCurrent] = React.useState(0);
   const [videoFailed, setVideoFailed] = React.useState(false);
   const [started, setStarted] = React.useState(demoAutoPlays);
@@ -56,6 +57,18 @@ export function VSLPlayer({ compact = false }: { compact?: boolean }) {
     onScroll();
     return () => window.removeEventListener("scroll", onScroll);
   }, [compact, dismissed]);
+
+  React.useEffect(() => {
+    const mini = miniVideoRef.current;
+    const main = videoRef.current;
+    if (!isSticky || !useVideo || !mini || !main) return;
+
+    if (Math.abs(mini.currentTime - main.currentTime) > 0.5) {
+      mini.currentTime = main.currentTime;
+    }
+    if (playing && mini.paused) void mini.play().catch(() => {});
+    else if (!playing && !mini.paused) mini.pause();
+  }, [current, isSticky, playing, useVideo]);
 
   const toggle = () => {
     const v = videoRef.current;
@@ -104,7 +117,18 @@ export function VSLPlayer({ compact = false }: { compact?: boolean }) {
             className="glass-strong fixed bottom-5 right-5 z-[90] w-80 overflow-hidden rounded-2xl shadow-2xl"
           >
             <div className="relative h-40 w-full cursor-pointer" onClick={toggle}>
-              <MiniScene current={current} />
+              {useVideo ? (
+                <video
+                  ref={miniVideoRef}
+                  src={VSL_SRC}
+                  className="pointer-events-none h-full w-full object-cover"
+                  muted
+                  playsInline
+                  preload="metadata"
+                />
+              ) : (
+                <MiniScene current={current} />
+              )}
               {!playing && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/20">
                   <span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-500/90 text-white shadow-lg">
@@ -112,11 +136,13 @@ export function VSLPlayer({ compact = false }: { compact?: boolean }) {
                   </span>
                 </div>
               )}
-              <div className="absolute inset-x-0 bottom-0 px-2 pb-3">
-                <p className="rounded-lg bg-black/65 px-2.5 py-1.5 text-[11px] font-medium leading-snug text-white backdrop-blur">
-                  {caption}
-                </p>
-              </div>
+              {!useVideo && (
+                <div className="absolute inset-x-0 bottom-0 px-2 pb-3">
+                  <p className="rounded-lg bg-black/65 px-2.5 py-1.5 text-[11px] font-medium leading-snug text-white backdrop-blur">
+                    {caption}
+                  </p>
+                </div>
+              )}
               <div className="absolute inset-x-0 bottom-0 h-0.5 bg-white/20">
                 <div
                   className="h-full bg-gradient-to-r from-brand-400 to-glow-400 transition-[width] duration-300"
@@ -220,11 +246,13 @@ export function VSLPlayer({ compact = false }: { compact?: boolean }) {
         </div>
 
         {/* Caption strip — full width, below the video so it never covers the visuals */}
-        <div className="w-full border-t border-white/5 bg-ink-950/80 px-4 py-4 sm:px-6 sm:py-5">
-          <p className="mx-auto max-w-3xl text-center text-base font-semibold leading-snug text-white [text-shadow:0_2px_8px_rgba(0,0,0,0.9)] sm:text-xl">
-            {caption}
-          </p>
-        </div>
+        {!useVideo && (
+          <div className="w-full border-t border-white/5 bg-ink-950/80 px-4 py-4 sm:px-6 sm:py-5">
+            <p className="mx-auto max-w-3xl text-center text-base font-semibold leading-snug text-white [text-shadow:0_2px_8px_rgba(0,0,0,0.9)] sm:text-xl">
+              {caption}
+            </p>
+          </div>
+        )}
       </div>
 
       {!useVideo && !compact && (
@@ -286,7 +314,7 @@ function Scene({
           </svg>
         </motion.span>
         <p className="font-display text-xl font-bold text-white sm:text-2xl">
-          Reborn In 76 Seconds
+          Reborn In 96 Seconds
         </p>
         <p className="max-w-md text-sm text-fog">
           The exact system that turns invisible local businesses into category leaders.

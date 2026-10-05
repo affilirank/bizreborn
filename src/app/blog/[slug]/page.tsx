@@ -73,7 +73,7 @@ export default async function BlogPostPage({
     dateModified: article.updated,
     keywords: article.keywords,
     publisher: { "@type": "Organization", name: "Merit Marketing" },
-    mainEntityOfPage: `https://www.bizreborn.com/blog/${article.slug}`,
+    mainEntityOfPage: `https://meritmarketingfl.com/blog/${article.slug}`,
   };
 
   const faqLd = {

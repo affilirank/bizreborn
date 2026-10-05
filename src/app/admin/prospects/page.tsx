@@ -70,7 +70,7 @@ function absPitch(p: Prospect) {
   const base =
     typeof window !== "undefined"
       ? window.location.origin
-      : process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
+      : process.env.NEXT_PUBLIC_SITE_URL || "https://meritmarketingfl.com";
   return `${base}/pitch/${p.slug ?? ""}`;
 }
 
@@ -168,7 +168,7 @@ function emailHtml(p: Prospect) {
       : "",
     `<p style="text-align:center;margin:20px 0;"><a href="${url}" style="display:inline-block;background:#D6A536;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:bold;">Watch your audit →</a></p>`,
     `<p>Want 10 minutes this week to walk through it? Just reply, or email <a href="mailto:${LEADGEN.email}" style="color:#D6A536;">${LEADGEN.email}</a>.</p>`,
-    `<p style="color:#64748b;font-size:13px;border-top:1px solid #e2e8f0;padding-top:14px;">— Merit Marketing · <a href="https://www.bizreborn.com" style="color:#D6A536;">www.bizreborn.com</a></p>`,
+    `<p style="color:#64748b;font-size:13px;border-top:1px solid #e2e8f0;padding-top:14px;">— Merit Marketing · <a href="https://meritmarketingfl.com" style="color:#D6A536;">meritmarketingfl.com</a></p>`,
     `</div>`,
   ].join("");
 }

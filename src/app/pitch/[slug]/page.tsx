@@ -193,7 +193,7 @@ export default async function PitchPage({
           >
             <p className="font-sora text-xl font-bold text-white sm:text-2xl">Schedule Your 10-Min Strategy Call</p>
             <p className="mt-1 text-sm text-white/80">
-              {LEADGEN.email} · www.bizreborn.com
+              {LEADGEN.email} · meritmarketingfl.com
             </p>
           </a>
           <p className="mt-3 text-center text-xs text-ink-500">

@@ -162,7 +162,7 @@ export async function POST(req: Request) {
     const base =
       process.env.NEXT_PUBLIC_SITE_URL ||
       (typeof req !== "undefined" ? new URL(req.url).origin : "") ||
-      "https://www.bizreborn.com";
+      "https://meritmarketingfl.com";
     const pitchUrl = prospect?.slug ? `${base}/pitch/${prospect.slug}` : null;
 
     // Display report: prefer the live AI report; fall back to the sealed engine

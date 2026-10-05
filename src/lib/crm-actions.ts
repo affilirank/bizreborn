@@ -89,7 +89,7 @@ function makeUid(seed: string): string {
 }
 
 function injectTrackingPixel(html: string, uid: string): string {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://meritmarketingfl.com";
   const pixel = `<img src="${base}/api/tracking/open/${encodeURIComponent(uid)}" width="1" height="1" alt="" style="display:none;width:1px;height:1px;border:0;" />`;
   if (html.includes("</body>")) {
     return html.replace("</body>", `${pixel}</body>`);
@@ -140,7 +140,7 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
   const mjPrivateKey = process.env.MJ_API_KEY_PRIVATE;
   const brevoSmtpKey = process.env.BREVO_SMTP_KEY;
   const brevoKey = process.env.BREVO_API_KEY;
-  const fromEmail = process.env.EMAIL_FROM || `Merit Marketing <hello@bizreborn.com>`;
+  const fromEmail = process.env.EMAIL_FROM || `Merit Marketing <hello@meritmarketingfl.com>`;
   // Every prospect reply should land in the operator's real inbox, not a
   // brand-only From address that may have no mailbox behind it.
   const replyTo = process.env.REPLY_TO_EMAIL || "bizrebornmarketing@gmail.com";

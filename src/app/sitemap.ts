@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { fetchAllSlugs } from "@/lib/blog-db";
 import { BLOG_BY_SLUG } from "@/data/blog";
 
-const BASE = "https://www.bizreborn.com";
+const BASE = "https://meritmarketingfl.com";
 
 export const dynamic = "force-static";
 

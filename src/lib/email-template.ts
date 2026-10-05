@@ -36,10 +36,10 @@ const STANDARD_REPLACEMENTS: Record<string, string> = {
   "phone number": SITE.phone,
   "your phone": SITE.phone,
   "phone #": SITE.phone,
-  "your site": "https://www.bizreborn.com",
-  website: "https://www.bizreborn.com",
-  "your website": "https://www.bizreborn.com",
-  "website link": "https://www.bizreborn.com",
+  "your site": "https://meritmarketingfl.com",
+  website: "https://meritmarketingfl.com",
+  "your website": "https://meritmarketingfl.com",
+  "website link": "https://meritmarketingfl.com",
 };
 
 /**
@@ -50,7 +50,7 @@ const STANDARD_REPLACEMENTS: Record<string, string> = {
  */
 export function sanitizeOutreachCopy(text: string, prospect?: Prospect | null): string {
   if (!text) return text;
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://meritmarketingfl.com";
   const pitchUrl = `${base}/pitch/${prospect?.slug ?? ""}`;
 
   const perProspect: Record<string, string> = {
@@ -90,7 +90,7 @@ interface EmailTemplateProps {
  */
 export function renderProfessionalEmailHtml(props: EmailTemplateProps): string {
   const { prospect, subject, body, stepNumber } = props;
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bizreborn.com";
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://meritmarketingfl.com";
   const pitchUrl = `${base}/pitch/${prospect?.slug ?? ""}`;
   const agencyName = SITE.name;
   const agencyEmail = LEADGEN.email;

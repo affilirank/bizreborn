@@ -2,7 +2,7 @@ import { renderProfessionalEmailHtml } from "@/lib/email-template";
 import type { BookingRow } from "@/lib/booking-store";
 import { BOOKING } from "@/lib/config";
 
-const FROM = () => process.env.EMAIL_FROM || `Merit Marketing <hello@bizreborn.com>`;
+const FROM = () => process.env.EMAIL_FROM || `Merit Marketing <hello@meritmarketingfl.com>`;
 const REPLY_TO = () => process.env.REPLY_TO_EMAIL || "bizrebornmarketing@gmail.com";
 const OPERATOR = () => process.env.REPLY_TO_EMAIL || "bizrebornmarketing@gmail.com";
 
@@ -103,7 +103,7 @@ export function operatorNotification(booking: BookingRow): { subject: string; ht
     `  Duration: ${booking.duration_min || 60} minutes`,
     `  Notes: ${booking.notes || "n/a"}`,
     ``,
-    `Manage it here: https://www.bizreborn.com/admin/bookings`,
+    `Manage it here: https://meritmarketingfl.com/admin/bookings`,
   ].join("\n");
   return { subject, html: renderProfessionalEmailHtml({ prospect: null, subject, body, stepNumber: 1 }) };
 }
