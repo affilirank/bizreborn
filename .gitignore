@@ -4,3 +4,6 @@ node_modules/
 .env*.local
 .vercel/
 .vercel
+
+# OpenNext
+.open-next
