@@ -26,7 +26,7 @@ entire funnel works end-to-end:
 4. Watch the **live ROI calculator** project revenue impact.
 5. Complete **checkout** (simulated Stripe in demo mode) → track
    **fulfillment in the client dashboard**.
-6. Ask the **AI chat assistant** (bottom-right) anything about the 100 modules,
+6. Ask the **AI chat assistant** (bottom-right) anything about the 100+ modules,
    10 pillars, pricing, or the audit — it's trained on the knowledge base.
 7. Send a message via **/contact** (email required) → lead lands in the admin
    portal and in the **MailerLite autoresponder** when configured.
@@ -110,7 +110,7 @@ src/
     chat/              # Floating AI assistant widget
     contact/           # Contact form (email required)
     dashboard/         # KPIs, charts, asset vault, admin boards
-  data/services.ts     # 100 services, 10 pillars, 6 verticals, pricing
+  data/services.ts     # 100+ services, 10 pillars, 6 verticals, pricing
   lib/
     audit.ts           # deterministic multi-point audit engine
     knowledge-base.ts  # searchable docs for the AI assistant
@@ -145,7 +145,7 @@ unlock the scan, and the lead is stored locally and pushed to `/api/leads`.
 
 ### The AI assistant
 
-`src/lib/knowledge-base.ts` serializes the product (100 services, 10 pillars,
+`src/lib/knowledge-base.ts` serializes the product (100+ services, 10 pillars,
 6 verticals, 3 pricing tiers, marketing stats, FAQ) into searchable docs.
 `src/lib/chat.ts` classifies intents (pricing, pillars, verticals, audit, ROI,
 tiers, timeline, contact…) and answers from the KB with suggested-service links.

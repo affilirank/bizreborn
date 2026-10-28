@@ -120,7 +120,7 @@ function buildDocs(): KbDoc[] {
     ],
     [
       "How does it work?",
-      "Three steps. 1) Run the free AI Brand Audit — it scores your Local SEO, social velocity, conversion, and reputation out of 100 and names the exact gaps. 2) Build your menu — 100 services across 10 pillars, with a live ROI slider that projects monthly revenue. 3) Pay once (or subscribe) and watch fulfillment status in your client dashboard. Demo mode simulates everything; add Stripe keys to take live payments.",
+      "Three steps. 1) Run the free AI Brand Audit — it scores your Local SEO, social velocity, conversion, and reputation out of 100 and names the exact gaps. 2) Build your menu — 100+ services across 10 pillars, with a live ROI slider that projects monthly revenue. 3) Pay once (or subscribe) and watch fulfillment status in your client dashboard. Demo mode simulates everything; add Stripe keys to take live payments.",
       ["how", "work", "process", "steps", "get started"],
     ],
     [
@@ -181,7 +181,7 @@ function buildDocs(): KbDoc[] {
     title: "Merit Marketing",
     href: "/",
     keywords: ["merit marketing", "marketing", "about", "agency", "company"],
-    body: "Merit Marketing is a modular, AI-accelerated local growth system: 10 pillars, 100 services, and 6 industry stacks — with a free AI audit, transparent pricing, live ROI math, and dashboards for clients and admins.",
+    body: "Merit Marketing is a modular, AI-accelerated local growth system: 10 pillars, 100+ services, and 6 industry stacks — with a free AI audit, transparent pricing, live ROI math, and dashboards for clients and admins.",
   });
 
   return docs;

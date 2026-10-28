@@ -129,7 +129,7 @@ export default async function BlogPostPage({
                 <Clock className="h-3.5 w-3.5" /> {article.readTime} min read
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <BookOpen className="h-3.5 w-3.5" /> 100-module service library
+                <BookOpen className="h-3.5 w-3.5" /> 100+ module service library
               </span>
             </div>
 

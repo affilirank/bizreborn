@@ -507,6 +507,17 @@ export const PILLARS: Pillar[] = [
         blurb:
           "WCAG-compliant structure, accessible media, and privacy infrastructure that keeps you out of court and in search.",
       },
+      {
+        id: 101,
+        title: "Edge Cloud Hosting & System Maintenance",
+        oneTime: 0,
+        monthly: 150,
+        tags: ["Ongoing", "Hosting"],
+        popular: true,
+        recommended: ["professional", "ecommerce"],
+        blurb:
+          "High-speed Edge CDN hosting, SSL security management, Supabase database & storage backups, 99.9% uptime monitoring, and routine copy updates. Client rate available on a recurring commitment.",
+      },
     ],
   },
   {

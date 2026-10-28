@@ -19,7 +19,7 @@ function BuilderShell() {
 
       <Container className="relative">
         <div className="mx-auto mb-10 max-w-3xl text-center">
-          <Eyebrow className="mb-4">The 100-Module Service Menu</Eyebrow>
+          <Eyebrow className="mb-4">The 100+ Module Service Menu</Eyebrow>
           <h1 className="font-display text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">
             Build Your Marketing Machine,{" "}
             <span className="text-gradient-brand">Module by Module.</span>

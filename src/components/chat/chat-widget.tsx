@@ -22,7 +22,7 @@ const QUICK_PROMPTS = [
 
 const INTRO: Msg = {
   role: "assistant",
-  text: "Hey, I'm the Merit Marketing growth assistant — trained on the full playbook. Ask me about our 100 service modules, pricing, the free audit, or what stack fits your business.",
+  text: "Hey, I'm the Merit Marketing growth assistant — trained on the full playbook. Ask me about our 100+ service modules, pricing, the free audit, or what stack fits your business.",
   suggestions: [
     { label: "Run the free audit", href: "/audit" },
     { label: "Build my menu", href: "/services" },

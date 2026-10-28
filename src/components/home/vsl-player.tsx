@@ -19,7 +19,7 @@ const DEMO_LINES: { at: number; text: string }[] = [
   { at: 14, text: "In this video, I'll show you the exact system we use to make local businesses the only name in town." },
   { at: 22, text: "Three engines. One mission: turn invisible businesses into local category leaders." },
   { at: 30, text: "Engine One — the AI Brand Audit. We find every leak in your marketing in seconds." },
-  { at: 38, text: "Engine Two — a 100-module service menu. Pick exactly what you need. No agency lock-in." },
+  { at: 38, text: "Engine Two — a 100+ module service menu. Pick exactly what you need. No agency lock-in." },
   { at: 46, text: "Engine Three — automated reviews, SMS, and content that work while you sleep." },
   { at: 54, text: "Every dollar tracked. Every lead attributed. Every result reported." },
   { at: 62, text: "If you're ready to stop guessing and start dominating — run your free AI audit now." },

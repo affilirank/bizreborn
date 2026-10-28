@@ -28,9 +28,9 @@ const ENGINES = [
   {
     num: "02",
     icon: LayoutGrid,
-    title: "100-Module Service Menu",
+    title: "100+ Module Service Menu",
     body: "A modular 'menu-style' customizer across 10 strategic pillars. Pick exactly what you need, priced transparently — no $3,000/mo agency lock-in.",
-    bullets: ["10 pillars · 100 modules", "Vertical-matched recommendations", "Live ROI calculator"],
+    bullets: ["10 pillars · 100+ modules", "Vertical-matched recommendations", "Live ROI calculator"],
     cta: "Build your menu",
     href: "/services",
     accent: "from-glow-500 to-teal-600",

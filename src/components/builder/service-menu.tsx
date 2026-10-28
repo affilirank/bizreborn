@@ -62,7 +62,7 @@ export function ServiceMenu() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="font-display text-xl font-bold text-white">
-              Step 2 — The 100-Module Menu
+              Step 2 — The 100+ Module Menu
             </h3>
             <p className="mt-1 text-sm text-fog">
               Toggle the exact services you need across 10 strategic pillars.
@@ -81,7 +81,7 @@ export function ServiceMenu() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search 100 services — e.g. 'reviews', 'schema', 'geo-fence'…"
+              placeholder="Search 100+ services — e.g. 'reviews', 'schema', 'geo-fence'…"
               className="w-full rounded-xl border border-white/10 bg-ink-800/70 py-3 pl-10 pr-4 text-sm text-white placeholder:text-mute outline-none transition focus:border-brand-400/60 focus:ring-2 focus:ring-brand-400/20"
             />
           </div>

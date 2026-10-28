@@ -37,11 +37,11 @@ export function PillarsPreview() {
     <section className="relative border-y border-white/5 bg-ink-950/40 py-20 sm:py-28">
       <Container>
         <SectionHeading
-          eyebrow="The 100-Module Menu"
+          eyebrow="The 100+ Module Menu"
           title={
             <>
               10 Strategic Pillars.{" "}
-              <span className="text-gradient-brand">100 Revenue Modules.</span>
+              <span className="text-gradient-brand">100+ Revenue Modules.</span>
             </>
           }
           description="Everything we do is modular — a menu, not a maze. Stack the modules you need, skip the ones you don't."
