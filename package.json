@@ -39,7 +39,6 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "wrangler": "^4.0.0",
-    "@opennextjs/cloudflare": "^1.0.0-beta.3",
     "@cloudflare/workers-types": "^4.20250109.0"
   }
 }
