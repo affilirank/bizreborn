@@ -155,6 +155,17 @@ export function renderProfessionalEmailHtml(props: EmailTemplateProps): string {
                 ${formattedBody}
               </div>
 
+              <!-- Triple-Threat Callouts -->
+              <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 24px 0;width:100%;">
+                <tr>
+                  <td style="padding:10px;background:#0B0F17;border-radius:10px;color:#fff;font-family:Arial,sans-serif;font-size:13px;line-height:1.5;">
+                    <strong style="color:#F4D889;">Video Audit:</strong> <a href="${pitchUrl}" style="color:#F4D889;text-decoration:underline;">Watch your 45-second growth video →</a><br>
+                    <strong style="color:#F4D889;">AI Site Preview:</strong> <a href="${base}/ai-site/${prospect ? prospect.id : ''}" style="color:#F4D889;text-decoration:underline;">Your live landing page mock-up →</a><br>
+                    <strong style="color:#F4D689;">Voice Receptionist:</strong> <a href="${base}/ai-site/${prospect ? prospect.id : ''}" style="color:#F4D689;text-decoration:underline;">Listen to your 24/7 AI front desk →</a>
+                  </td>
+                </tr>
+              </table>
+
               <!-- CTA Button -->
               <table role="presentation" cellspacing="0" cellpadding="0" style="margin:32px 0 24px 0;" width="100%">
                 <tr>

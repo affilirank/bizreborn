@@ -481,3 +481,7 @@ create policy "work logs manage admin"
 -- Lead generation module (prospects, pitch videos, proposal video):
 -- see supabase/leadgen.sql (idempotent, safe on an existing database).
 commit;
+
+-- AI site generator cache (branch off scrape -> site pipeline)
+alter table public.prospects add column if not exists generated_site_data jsonb default null;
+alter table public.prospects add column if not exists site_preview_url text default null;

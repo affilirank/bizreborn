@@ -128,6 +128,13 @@ export async function deliverEmail(opts: DeliverEmailOptions): Promise<DeliverEm
   const trackingUid = makeUid(prospect.id);
   // Backstop: no placeholder like [Your Name] may ever reach a recipient,
   // even from hand-written custom HTML or the welcome template.
+  // Build Triple-Threat links from prospect fields
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://meritmarketingfl.com";
+  const videoUrl = prospect.video_url || `${base}/pitch/${prospect.slug ?? ""}`;
+  const siteUrl = prospect.site_preview_url || `${base}/ai-site/${prospect.id}`;
+  const audioUrl = (prospect as any).receptionist_audio_url || `${base}/ai-site/${prospect.id}`;
+
+  // Backstop: never send with dangling placeholders
   const cleanSubject = sanitizeOutreachCopy(subject, prospect);
   const cleanHtml = sanitizeOutreachCopy(html, prospect);
   const htmlWithPixel = injectTrackingPixel(cleanHtml, trackingUid);
