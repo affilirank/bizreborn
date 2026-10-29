@@ -2,17 +2,33 @@ import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { generateSitePayload, buildPreviewForProspect } from "@/lib/ai-site-generator";
 
-export default async function AIPreviewPage({ params }: { params: { id: string; slug?: string[] } }) {
+type PageProps = {
+  params: Promise<{ id: string; slug?: string[] }>;
+};
+
+export default async function AIPreviewPage({ params }: PageProps) {
   const { id } = await params;
   let payload = null;
   let url = `/ai-site/${id}`;
+  let prospect: any = null;
 
   // Try to load cached payload first
   const admin = createServiceClient();
+  const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host : 'unknown';
+  console.log('[ai-site] Querying DB host:', supabaseHost, '| Request ID:', id);
   if (admin) {
-    const { data } = await admin.from("prospects").select("business_name,city,generated_site_data,google_rating,google_maps_link,recommended_services").eq("id", id).single();
-    if (data?.generated_site_data) {
-      payload = data.generated_site_data;
+    const queryResult = await admin.from("prospects").select("id,business_name,generated_site_data,receptionist_audio_url,google_rating,reviews_count").eq("id", id).maybeSingle();
+    const queryData = queryResult.data;
+    const queryError = queryResult.error;
+    console.log('[ai-site] Query result:', {
+      hasData: Boolean(queryData),
+      hasSiteData: Boolean(queryData?.generated_site_data),
+      error: queryError ? queryError.message : null,
+    });
+    if (queryError) console.error("[ai-site] prospect not found:", id, queryError);
+    prospect = queryData;
+    if (prospect?.generated_site_data) {
+      payload = prospect.generated_site_data;
     }
   }
 
@@ -27,18 +43,20 @@ export default async function AIPreviewPage({ params }: { params: { id: string; 
   // Load receptionist audio if cached
   let receptionistUrl: string | null = null;
   if (admin) {
-    const { data: r } = await admin.from("prospects").select("receptionist_audio_url,business_name").eq("id", id).single();
+    const { data: r, error: rErr } = await admin.from("prospects").select("receptionist_audio_url,business_name").eq("id", id).single();
+    if (rErr) console.error("Supabase audio query error:", rErr);
     receptionistUrl = r?.receptionist_audio_url ?? null;
   }
 
   const p = payload as { hero: { headline: string; subheadline: string; badge: string; cta_text: string }; services: Array<{ title: string; blurb: string; icon: string }>; testimonials: Array<{ quote: string; name: string; stars: number }>; faq: Array<{ q: string; a: string }>; meta: { title: string; description: string } };
-  const name = payload ? (payload as any).business_name || "Your Business" : "Your Business";
+  const name = prospect ? prospect.business_name || "Your Business" : "Your Business";
 
   return (
     <div className="min-h-screen bg-[#0B0F17] text-gray-100 font-sans">
       <header className="sticky top-0 z-50 bg-[#0B0F17]/80 backdrop-blur-md border-b border-white/10">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
           <a href="/" className="font-display font-bold text-brand-cyan text-lg tracking-tight">Merit Media &amp; Marketing</a>
+          <a href="tel:+17725550199" className="hidden sm:inline-flex ml-4 px-3 py-1.5 rounded-full bg-brand-cyan/10 text-brand-cyan text-xs font-extrabold hover:bg-brand-cyan/20 transition">Call (772) 555-0199</a>
           <a href="/" className="text-xs text-brand-cyan hover:underline">Back to site</a>
         </div>
       </header>
@@ -120,8 +138,8 @@ export default async function AIPreviewPage({ params }: { params: { id: string; 
         <section id="contact" className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-cyan/15 to-brand-blue/10 border border-brand-cyan/30 p-8 md:p-12 space-y-6">
           <div className="absolute -top-16 -right-16 w-60 h-60 bg-brand-cyan/15 rounded-full blur-3xl pointer-events-none"></div>
           <h2 className="text-2xl md:text-3xl font-extrabold text-white font-display relative z-10">AI Voice Receptionist</h2>
-          <p className="text-gray-300 relative z-10">This space will host the AI voice receptionist widget — call routing, 24/7 answering, and automatic booking. Next branch.</p>
-          <a href="#" className="inline-block relative z-10 px-6 py-3 bg-brand-cyan text-brand-obsidian font-extrabold rounded-xl hover:brightness-110 transition shadow-lg text-sm">Request Demo</a>
+          <p className="text-gray-300 relative z-10">Claim your preview site and 24/7 AI front desk. Schedule a walkthrough to activate the full pipeline.</p>
+          <a href="#" className="inline-block relative z-10 px-6 py-3 bg-brand-cyan text-brand-obsidian font-extrabold rounded-xl hover:brightness-110 transition shadow-lg text-sm">Claim Your Website & AI Receptionist</a>
         </section>
       </main>
 
