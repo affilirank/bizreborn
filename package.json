@@ -6,10 +6,7 @@
     "dev": "next dev",
     "build": "NODE_OPTIONS='--max-old-space-size=4096' next build",
     "start": "next start",
-    "lint": "eslint",
-    "preview": "opennextjs-cloudflare build && wrangler pages dev",
-    "deploy": "opennextjs-cloudflare build && wrangler pages deploy",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts"
+    "lint": "eslint"
   },
   "dependencies": {
     "@stripe/stripe-js": "^9.12.1",
@@ -37,8 +34,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "wrangler": "^4.0.0",
-    "@cloudflare/workers-types": "^4.20250109.0"
+    "typescript": "^5"
   }
 }

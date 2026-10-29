@@ -71,7 +71,7 @@ export async function buildPreviewForProspect(prospectId: string, slug?: string)
 
   const { data: prospect, error } = await admin
     .from("prospects")
-    .select("id,business_name,city,google_rating,google_maps_link,recommended_services,generated_site_data")
+    .select("id,business_name,city,google_rating,google_maps_link,recommended_services,generated_site_data,audit_report")
     .eq("id", prospectId)
     .single();
 

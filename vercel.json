@@ -2,8 +2,5 @@
   "crons": [
     { "path": "/api/prospects/campaign/run", "schedule": "0 14 * * 1-5" },
     { "path": "/api/prospects/call/auto-run", "schedule": "30 14 * * 1-5" }
-  ],
-  "build": {
-    "installCommand": "npm install --no-audit --prefer-offline --legacy-peer-deps"
-  }
+  ]
 }
