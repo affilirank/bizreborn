@@ -1,0 +1,6 @@
+id,business_name,city,state,vertical,website_url,google_rating,phone
+batch-01,Fort Pierce Roofing Pros,Fort Pierce,FL,roofing,https://fortpierceroofing.com,4.8,(772) 555-0101
+batch-02,Port St Lucie Landscaping,Port St Lucie,FL,landscaping,https://portstlucielawns.com,4.6,(772) 555-0202
+batch-03,Melbourne Plumbing & Drain,Melbourne,FL,plumbing,https://melbourneplumbingfl.com,4.9,(321) 555-0303
+batch-04,Fort Pierce Fence & Deck,Fort Pierce,FL,contractor,https://fencefortpierce.com,4.7,(772) 555-0404
+batch-05,Port St Lucie HVAC Services,Port St Lucie,FL,hvac,https://psl hvacservices.com,4.5,(772) 555-0505
