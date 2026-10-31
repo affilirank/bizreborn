@@ -485,3 +485,7 @@ commit;
 -- AI site generator cache (branch off scrape -> site pipeline)
 alter table public.prospects add column if not exists generated_site_data jsonb default null;
 alter table public.prospects add column if not exists site_preview_url text default null;
+alter table public.prospects add column if not exists receptionist_audio_url text default null;
+alter table public.prospects add column if not exists reception_script text default null;
+alter table public.prospects add column if not exists reviews_count integer default null;
+

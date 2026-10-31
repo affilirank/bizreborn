@@ -17,7 +17,7 @@ export default async function AIPreviewPage({ params }: PageProps) {
   const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host : 'unknown';
   console.log('[ai-site] Querying DB host:', supabaseHost, '| Request ID:', id);
   if (admin) {
-    const queryResult = await admin.from("prospects").select("id,business_name,generated_site_data,receptionist_audio_url,google_rating,reviews_count").eq("id", id).maybeSingle();
+    const queryResult = await admin.from("prospects").select("id,business_name,generated_site_data,receptionist_audio_url,google_rating,review_count").eq("id", id).maybeSingle();
     const queryData = queryResult.data;
     const queryError = queryResult.error;
     console.log('[ai-site] Query result:', {
