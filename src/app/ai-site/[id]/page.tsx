@@ -7,7 +7,7 @@ type PageProps = {
 };
 
 export default async function AIPreviewPage({ params }: PageProps) {
-  const { id } = await params;
+  const { id, slug } = await params;
   let payload = null;
   let url = `/ai-site/${id}`;
   let prospect: any = null;
@@ -34,7 +34,7 @@ export default async function AIPreviewPage({ params }: PageProps) {
 
   // Fallback: generate on first visit (cached after)
   if (!payload) {
-    const result = await buildPreviewForProspect(id, Array.isArray(params.slug) ? params.slug.join("/") : params.slug);
+    const result = await buildPreviewForProspect(id, Array.isArray(slug) ? slug.join("/") : slug);
     if (!result) return notFound();
     payload = result.payload;
     url = result.url;
