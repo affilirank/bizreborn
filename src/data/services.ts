@@ -514,7 +514,6 @@ export const PILLARS: Pillar[] = [
         monthly: 49,
         tags: ["Add-On", "Next.js Build", "Recurring"],
         popular: false,
-        recommended: ["custom-nextjs"],
         blurb:
           "Dedicated Next.js build hosting via Edge CDN, SSL management, database backups, and routine maintenance. Strictly an add-on tier ($49/mo recurring) for clients requiring isolated runtime environments. Primary managed service remains $150/mo standard growth tier.",
       },
