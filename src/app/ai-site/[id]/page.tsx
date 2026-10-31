@@ -82,10 +82,10 @@ export default async function AIPreviewPage({ params }: PageProps) {
         {/* Trust Bar */}
         <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { label: "Rating", value: (payload as any).rating ? `${(payload as any).rating}/5` : "—", sub: "Local Authority" },
-            { label: "Reviews", value: String((payload as any).reviews || 0), sub: "Verified Feedback" },
+            { label: "Rating", value: prospect?.google_rating != null ? `${prospect.google_rating}/5` : "—", sub: "Local Authority" },
+            { label: "Reviews", value: prospect?.review_count != null ? String(prospect.review_count) : "0", sub: "Verified Feedback" },
             { label: "Response", value: "24/7 AI", sub: "Instant DM & Call" },
-            { label: "Location", value: String((payload as any).city || "—"), sub: "Geographic Reach" },
+            { label: "Location", value: prospect?.city ? String(prospect.city) : "—", sub: "Geographic Reach" },
           ].map((s) => (
             <div key={s.label} className="bg-[#0E1526]/60 border border-white/8 rounded-2xl p-5 text-center space-y-1 hover:border-brand-cyan/20 transition">
               <div className="text-2xl font-black text-brand-cyan font-display">{s.value}</div>
