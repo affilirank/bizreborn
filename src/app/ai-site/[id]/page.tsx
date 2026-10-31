@@ -17,7 +17,7 @@ export default async function AIPreviewPage({ params }: PageProps) {
   const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host : 'unknown';
   console.log('[ai-site] Querying DB host:', supabaseHost, '| Request ID:', id);
   if (admin) {
-    const queryResult = await admin.from("prospects").select("id,business_name,generated_site_data,receptionist_audio_url,google_rating,review_count").eq("id", id).maybeSingle();
+    const queryResult = await admin.from("prospects").select("id,business_name,city,phone,generated_site_data,receptionist_audio_url,google_rating,review_count").eq("id", id).maybeSingle();
     const queryData = queryResult.data;
     const queryError = queryResult.error;
     console.log('[ai-site] Query result:', {
@@ -43,20 +43,25 @@ export default async function AIPreviewPage({ params }: PageProps) {
   // Load receptionist audio if cached
   let receptionistUrl: string | null = null;
   if (admin) {
-    const { data: r, error: rErr } = await admin.from("prospects").select("receptionist_audio_url,business_name").eq("id", id).single();
+    const { data: r, error: rErr } = await admin.from("prospects").select("receptionist_audio_url,business_name").eq("id", id).maybeSingle();
     if (rErr) console.error("Supabase audio query error:", rErr);
     receptionistUrl = r?.receptionist_audio_url ?? null;
   }
 
   const p = payload as { hero: { headline: string; subheadline: string; badge: string; cta_text: string }; services: Array<{ title: string; blurb: string; icon: string }>; testimonials: Array<{ quote: string; name: string; stars: number }>; faq: Array<{ q: string; a: string }>; meta: { title: string; description: string } };
   const name = prospect ? prospect.business_name || "Your Business" : "Your Business";
+  const city = prospect?.city || "your area";
+  const phone = prospect?.phone ? String(prospect.phone) : "(772) 555-0199";
+  const phoneHref = `tel:${phone.replace(/[^0-9+]/g, "")}`;
+  const voiceScript = `Thanks for calling ${name} in ${city}! This is your 24/7 AI front desk. Whether you need to schedule an urgent estimate, ask about our services, or check availability, I can help you right away. Who am I speaking with today?`;
+  const audioSrc = receptionistUrl || `/api/voice/audio?text=${encodeURIComponent(voiceScript)}`;
 
   return (
     <div className="min-h-screen bg-[#0B0F17] text-gray-100 font-sans">
       <header className="sticky top-0 z-50 bg-[#0B0F17]/80 backdrop-blur-md border-b border-white/10">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
           <a href="/" className="font-display font-bold text-brand-cyan text-lg tracking-tight">Merit Media &amp; Marketing</a>
-          <a href="tel:+17725550199" className="hidden sm:inline-flex ml-4 px-3 py-1.5 rounded-full bg-brand-cyan/10 text-brand-cyan text-xs font-extrabold hover:bg-brand-cyan/20 transition">Call (772) 555-0199</a>
+          <a href={phoneHref} className="hidden sm:inline-flex ml-4 px-3 py-1.5 rounded-full bg-brand-cyan/10 text-brand-cyan text-xs font-extrabold hover:bg-brand-cyan/20 transition">Call {phone}</a>
           <a href="/" className="text-xs text-brand-cyan hover:underline">Back to site</a>
         </div>
       </header>
@@ -67,7 +72,8 @@ export default async function AIPreviewPage({ params }: PageProps) {
           <div className="absolute -top-24 -right-24 w-72 h-72 bg-brand-cyan/10 rounded-full blur-3xl pointer-events-none"></div>
           <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-brand-gold/10 rounded-full blur-3xl pointer-events-none"></div>
           <div className="relative z-10 space-y-6">
-            <span className="inline-block px-3 py-1 rounded-full bg-brand-cyan/10 border border-brand-cyan/30 text-brand-cyan text-[11px] font-extrabold uppercase tracking-wider">AI-Generated Preview</span>
+            <span className="inline-block px-3 py-1 rounded-full bg-brand-cyan/10 border border-brand-cyan/30 text-brand-cyan text-[11px] font-extrabold uppercase tracking-wider">AI-Generated Preview for {name}</span>
+            <div className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">{name} &middot; {city}</div>
             <h1 className="text-3xl md:text-6xl font-extrabold text-white font-display leading-[1.1] tracking-tight">
               {p.hero.headline}
             </h1>
@@ -139,29 +145,23 @@ export default async function AIPreviewPage({ params }: PageProps) {
           <div className="absolute -top-16 -right-16 w-60 h-60 bg-brand-cyan/15 rounded-full blur-3xl pointer-events-none"></div>
           <h2 className="text-2xl md:text-3xl font-extrabold text-white font-display relative z-10">AI Voice Receptionist</h2>
           <p className="text-gray-300 relative z-10">Claim your preview site and 24/7 AI front desk. Schedule a walkthrough to activate the full pipeline.</p>
-          <a href="#" className="inline-block relative z-10 px-6 py-3 bg-brand-cyan text-brand-obsidian font-extrabold rounded-xl hover:brightness-110 transition shadow-lg text-sm">Claim Your Website & AI Receptionist</a>
+          <a href="/book" className="inline-block relative z-10 px-6 py-3 bg-brand-cyan text-brand-obsidian font-extrabold rounded-xl hover:brightness-110 transition shadow-lg text-sm">Claim Your Website &amp; AI Receptionist</a>
         </section>
-      </main>
 
-      {/* Voice Receptionist Section */}
-      <section id="receptionist" className="bg-gradient-to-b from-brand-navy to-brand-obsidian border border-brand-cyan/20 rounded-3xl p-8 md:p-10 space-y-6">
+        {/* Voice Receptionist Section */}
+        <section id="receptionist" className="bg-gradient-to-b from-brand-navy to-brand-obsidian border border-brand-cyan/20 rounded-3xl p-8 md:p-10 space-y-6">
         <div className="flex items-center gap-3">
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand-cyan/20 text-brand-cyan font-extrabold text-lg">&#128222;</span>
-          <h2 className="text-xl md:text-2xl font-bold text-white font-display">24/7 AI Receptionist Preview</h2>
+          <h2 className="text-xl md:text-2xl font-bold text-white font-display">24/7 AI Receptionist Preview for {name}</h2>
           <span className="ml-auto px-2 py-0.5 rounded bg-brand-gold/10 text-brand-gold text-[10px] font-bold uppercase tracking-wider">Live Audio</span>
         </div>
-        <p className="text-sm text-gray-300">Listen to how your new AI front desk answers when a prospect calls.</p>
-        {receptionistUrl ? (
-          <div className="bg-brand-obsidian/60 border border-white/10 rounded-2xl p-4 space-y-3">
-            <audio controls preload="metadata" src={receptionistUrl} className="w-full rounded-xl" aria-label="AI Receptionist Preview" />
-            <p className="text-xs text-brand-cyan font-medium">Preview for {name}</p>
-          </div>
-        ) : (
-          <div className="bg-brand-obsidian/60 border border-dashed border-white/10 rounded-2xl p-6 text-center">
-            <p className="text-sm text-gray-400">Audio demo will generate after first visit via AI Voice Pipeline.</p>
-          </div>
-        )}
-      </section>
+        <p className="text-sm text-gray-300">Listen to how your new AI front desk answers when a prospect calls in {city}.</p>
+        <div className="bg-brand-obsidian/60 border border-white/10 rounded-2xl p-4 space-y-3">
+          <audio controls preload="metadata" src={audioSrc} className="w-full rounded-xl" aria-label={`AI Receptionist Preview for ${name}`} />
+          <p className="text-xs text-brand-cyan font-medium">Preview for {name} &middot; {city}</p>
+        </div>
+        </section>
+      </main>
 
       <footer className="max-w-4xl mx-auto px-4 py-8 text-center text-xs text-gray-500">
         Generated via AI Site Generator &bull; Merit Media & Marketing, LLC &bull; <a href="/" className="text-brand-cyan hover:underline">Back to site</a>

@@ -80,10 +80,36 @@ export async function buildPreviewForProspect(prospectId: string, slug?: string)
     return null;
   }
 
-  // If already generated, return cached URL
+  // If already generated, return cached URL (and still ensure voice audio exists)
   if (prospect.generated_site_data) {
     const url = `/ai-site/${prospect.id}${slug ? `/${slug}` : ""}`;
-    return { url, payload: prospect.generated_site_data as SiteGenerationPayload };
+    let receptionistUrl: string | null = null;
+    try {
+      const { data: existing } = await admin
+        .from("prospects")
+        .select("receptionist_audio_url")
+        .eq("id", prospectId)
+        .maybeSingle();
+      if (existing?.receptionist_audio_url) {
+        receptionistUrl = existing.receptionist_audio_url;
+      } else {
+        const category = String(prospect.recommended_services?.[0] ?? "service");
+        const voiceRes = await import("@/lib/voice-receptionist-generator").then((m) =>
+          m.generateReceptionistAudio(prospectId, prospect.business_name, prospect.city, category),
+        );
+        if (voiceRes?.receptionist_audio_url) {
+          receptionistUrl = voiceRes.receptionist_audio_url;
+          await admin.from("prospects").update({ receptionist_audio_url: receptionistUrl }).eq("id", prospectId);
+        }
+      }
+    } catch {
+      // best-effort; the preview page falls back to /api/voice/audio
+    }
+    return {
+      url,
+      payload: prospect.generated_site_data as SiteGenerationPayload,
+      receptionist_audio_url: receptionistUrl,
+    };
   }
 
   // Derive vertical from recommended_services / audit context if available; else default
@@ -100,7 +126,7 @@ export async function buildPreviewForProspect(prospectId: string, slug?: string)
   try {
     const admin = createServiceClient();
     if (admin) {
-      const { data: existing } = await admin.from("prospects").select("receptionist_audio_url").eq("id", prospectId).single();
+      const { data: existing } = await admin.from("prospects").select("receptionist_audio_url").eq("id", prospectId).maybeSingle();
       if (!existing?.receptionist_audio_url) {
         const voiceRes = await import("@/lib/voice-receptionist-generator").then(m => m.generateReceptionistAudio(prospectId, prospect.business_name, prospect.city, vertical));
         if (voiceRes?.receptionist_audio_url) {
