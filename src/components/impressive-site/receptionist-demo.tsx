@@ -11,7 +11,7 @@ import {
   RefreshCw,
   CheckCircle2,
   Sparkles,
-  Header,
+  Headset,
   Link,
 } from "lucide-react";
 
@@ -140,7 +140,7 @@ export default function ReceptionistDemo({
 }: ReceptionistDemoProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState<string[]>([]);
+  const [transcript, setTranscript] = useState<Array<{ speaker: "user" | "ai"; text: string }>>([]);
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [demoStep, setDemoStep] = useState<"idle" | "greeting" | "listening" | "responding" | "complete">("idle");
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -337,7 +337,7 @@ export default function ReceptionistDemo({
                           ? "bg-brand-cyan/20 text-brand-cyan border border-brand-cyan/30"
                           : "bg-white/10 text-white border border-white/10"
                       }`}>
-                        {item.speaker === "ai" ? <Header size={14} strokeWidth={2} /> : <User size={14} strokeWidth={2} />}
+                        {item.speaker === "ai" ? <Headset size={14} strokeWidth={2} /> : <User />}
                       </div>
                       <div className="flex-1">
                         <span className={`text-xs font-bold uppercase tracking-wider ${

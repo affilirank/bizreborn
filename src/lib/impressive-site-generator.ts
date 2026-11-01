@@ -10,6 +10,7 @@
 
 import { callAi, parseAiJson } from "@/lib/ai-router";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { generateReceptionistAudio } from "@/lib/voice-receptionist-generator";
 
 export interface ImpressiveSitePayload {
   niche: string;
