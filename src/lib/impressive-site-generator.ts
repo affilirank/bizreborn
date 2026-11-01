@@ -13,7 +13,9 @@ import { createServiceClient } from "@/lib/supabase/admin";
 import { generateReceptionistAudio } from "@/lib/voice-receptionist-generator";
 
 export interface ImpressiveSitePayload {
-  niche: string;
+  // Architecture
+  niche: string;         // one of 10 from NICHE_SKINS IDs (roofing, plumbing, hvac, landscaping, barber, electrical, pest, auto, realestate, contractor)
+  archetype: string;     // one of 3: DirectCall | PortfolioShowcase | LocalAuthority
   business_name: string;
   city: string | null;
   // Hero
