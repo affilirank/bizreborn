@@ -22,7 +22,7 @@ export default function ArchetypeDirectCall({ niche, businessName, city, phone, 
       <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-2.5 text-[11px] md:text-xs bg-black/30 backdrop-blur-xl border-b border-white/5">
         <span className="text-white/90 font-medium">Preview built exclusively for <strong className="text-amber-400">{businessName}</strong></span>
         <a href="#contact" className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold text-[10px] hover:brightness-110 transition shadow-lg shadow-amber-500/20">
-          Claim Your Site & AI Agent · $150/mo <ArrowRight size={10} />
+          Claim Your Site & AI Agent — Tier 2 ($299/mo) or Tier 3 ($599/mo) <ArrowRight size={10} />
         </a>
       </div>
 
