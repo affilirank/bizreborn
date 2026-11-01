@@ -57,7 +57,7 @@ export default async function ImpressiveSitePage({ params }: PageProps) {
   const skin = NICHE_SKINS.find((n) => n.id === nicheId) || NICHE_SKINS[0];
 
   // Archetype selection: from payload or auto by niche preference
-  const archetypeId = p.archetype || (skin.archetypes[0] ?? "DirectCall");
+  const archetypeId = p.archetype || (p.archetype === null ? "DirectCall" : (skin.archetypes[0] ?? "DirectCall"));
   const services = (p.services || [
     { title: p.services?.[0]?.title || "Inspection & Repair", blurb: "Licensed professionals delivering quality work on every job." },
     { title: p.services?.[1]?.title || "Installation", blurb: "Premium materials with manufacturer warranties included." },

@@ -126,6 +126,16 @@ City / Area: ${city ?? "local market"}
 Niche: ${niche}
 Google Rating: ${ratingText}
 Review Count: ${reviewText}
+State / Metro: ${city ?? "local market"}
+
+REGIONAL COPY RULES (never mention Florida/storm/hurricane unless state or city indicates Florida):
+- If niche = roofing: use "hail damage repair" / "ice dam mitigation" for northern/midwest/mountain markets; use "storm resistance" / "salt-air durability" ONLY if Florida address.
+- If niche = hvac: use "winter furnace lockouts" / "frozen heat pumps" for northern markets; use "AC emergency" / "humidity control" for Sunbelt.
+- If niche = plumbing: use "frozen pipe bursts" / "winterization" for cold markets; use "slab leaks" / "hard water" for Sunbelt.
+- If niche = landscaping: use "snow removal" / "spring clean-up" for northern; use "storm clean-up" / "palm trimming" ONLY for Florida.
+- If niche = electrical: use "solar array" / "winter power outages" for northern; use "panel upgrades" / "storm backup" for Sunbelt.
+- Never invent weather events or geographic references not supported by the prospect's city/state.
+- Never mention "Treasure Coast", "Port St. Lucie", "PGA Village", or "Florida storm" unless the scraped city confirms Florida.
 
 You must return ONLY structured JSON (no markdown, no commentary) with these
 exact keys:
