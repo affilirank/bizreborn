@@ -324,7 +324,7 @@ export default async function ImpressiveSitePage({ params }: PageProps) {
             <a href="/privacy" className="hover:text-brand-400 transition-colors">Privacy</a>
             <a href="/terms" className="hover:text-brand-400 transition-colors">Terms</a>
           </div>
-          <div className="text-[10px]">Generated via Impressive AI Site Builder · No $49 tiers</div>
+          <div className="text-[10px]">Generated via Impressive AI Site Builder v2 · No $49 tiers</div>
         </div>
       </footer>
     </div>
