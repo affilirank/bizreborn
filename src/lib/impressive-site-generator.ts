@@ -200,7 +200,28 @@ export async function generateImpressiveSitePayload(
   rating: number | null,
   reviewCount: number | null,
 ): Promise<ImpressiveSitePayload | null> {
-  const prompt = buildPrompt(businessName, city, niche, rating, reviewCount);
+  // Keyword guard — enforce niche before AI classification
+  const realtyRe = /\b(realty|realtor|real\s*estate|brokerage|properties|broker)\b/i;
+  const roofingRe = /\b(roof|roofing|exterior|shingle|shingles|storm\s*damage)\b/i;
+  const plumbingRe = /\b(plumb|plumbing|drain|leak|pipe)\b/i;
+  const hvacRe = /\b(hvac|air\s*conditioning|heating|ac\s*unit|climate)\b/i;
+  const landscapingRe = /\b(landscap|lawn|yard|outdoor\s*living|garden)\b/i;
+  const electricianRe = /\b(electric|solar|panel|wiring)\b/i;
+  const barberRe = /\b(barber|barbershop|salon|groom|fade)\b/i;
+  const autoRe = /\b(detail|ceramic|car\s*detail|auto\s*shine)\b/i;
+  
+  // Override niche based on business name / category keywords
+  let enforcedNiche = niche;
+  if (realtyRe.test(businessName) || /real[_\s]?estate/i.test(String(businessName))) enforcedNiche = "real_estate";
+  else if (roofingRe.test(businessName)) enforcedNiche = "roofing";
+  else if (plumbingRe.test(businessName)) enforcedNiche = "plumbing";
+  else if (hvacRe.test(businessName)) enforcedNiche = "hvac";
+  else if (landscapingRe.test(businessName)) enforcedNiche = "landscaping";
+  else if (electricianRe.test(businessName)) enforcedNiche = "electrical";
+  else if (barberRe.test(businessName)) enforcedNiche = "barbershop";
+  else if (autoRe.test(businessName)) enforcedNiche = "auto_detailing";
+
+  const prompt = buildPrompt(businessName, city, enforcedNiche, rating, reviewCount);
   const result = await callAi({
     prompt,
     systemPrompt:
