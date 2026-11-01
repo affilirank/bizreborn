@@ -8,6 +8,7 @@ import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { buildImpressiveSiteForProspect } from "@/lib/impressive-site-generator";
 import ReceptionistDemo from "@/components/impressive-site/receptionist-demo";
+import AIChatAgent from "@/components/ai-chat-agent";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -312,6 +313,8 @@ export default async function ImpressiveSitePage({ params }: PageProps) {
           </div>
         </section>
       </main>
+
+      <AIChatAgent businessName={name} city={city} niche={p.niche || "roofing"} />
 
       <footer className="border-t border-white/10 bg-ink-950 py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-500">
