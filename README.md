@@ -220,6 +220,15 @@ curl -X POST http://localhost:3000/api/outreach/manual \
   -d '{"id":"<log-uuid>","action":"bridge"}'
 ```
 
+Machine-to-machine intake (local scraper/cron) can skip the admin session with
+`Authorization: Bearer $SCRAPER_WEBHOOK_SECRET` (or `CRON_SECRET`, or the
+`x-bizreborn-secret` header). The Maps scraper no longer drops leads that lack
+an email: social/phone-only businesses are saved and, once their pitch video is
+rendered, automatically queued when `OUTREACH_QUEUE_ON_READY=1`. Scope a batch
+with `OUTREACH_QUEUE_CITIES` (e.g. `Vero Beach,Indian River,Sebastian,Stuart`)
+and choose platforms with `OUTREACH_QUEUE_CHANNELS` (default
+`instagram,facebook,tiktok`; add `whatsapp` only after template approval).
+
 Manual rows show **Open** (deep link to the IG/Messenger/TikTok profile or a
 prefilled `wa.me` chat), **Copy** (pitch text), **Bridge** (when
 `MANUAL_DM_BRIDGE_URL` is set), **Mark sent**, and **Skip** in

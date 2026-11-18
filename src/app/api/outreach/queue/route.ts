@@ -22,6 +22,23 @@ const MAX_LEADS = 100;
 
 type LeadInput = Record<string, unknown>;
 
+/**
+ * Machine auth for local scraper batches. Send either
+ * `Authorization: Bearer $SCRAPER_WEBHOOK_SECRET` (or CRON_SECRET), or the
+ * `x-bizreborn-secret` header. Admin sessions still work in the UI.
+ */
+function isAutomationAuthorized(req: Request): boolean {
+  const auth = req.headers.get("authorization") ?? "";
+  const header = req.headers.get("x-bizreborn-secret") ?? "";
+  const scraperSecret = process.env.SCRAPER_WEBHOOK_SECRET?.trim();
+  const cronSecret = process.env.CRON_SECRET?.trim();
+  if (scraperSecret && (auth === `Bearer ${scraperSecret}` || header === scraperSecret)) {
+    return true;
+  }
+  if (cronSecret && auth === `Bearer ${cronSecret}`) return true;
+  return false;
+}
+
 function prospectHandle(
   prospect: Prospect | null,
   channel: OutreachChannel,
@@ -60,7 +77,8 @@ function leadList(body: Record<string, unknown>): LeadInput[] {
  * or a single lead object at the top level.
  */
 export async function POST(req: Request) {
-  if (!(await isAdminOrDemo())) {
+  const automation = isAutomationAuthorized(req);
+  if (!automation && !(await isAdminOrDemo())) {
     return NextResponse.json({ error: "Admin access required." }, { status: 401 });
   }
 

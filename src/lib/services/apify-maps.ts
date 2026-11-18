@@ -14,6 +14,8 @@
  * once the run succeeds.
  */
 
+import { coldQueueEnabled } from "@/lib/services/messaging/cold-queue-config";
+
 const ACTOR_ID = "compass~crawler-google-places";
 const API_BASE = "https://api.apify.com/v2";
 
@@ -55,6 +57,7 @@ export interface MapsBusiness {
   phone: string;
   instagram: string;
   facebook: string;
+  tiktok: string;
   google_rating: number | null;
   review_count: number | null;
   unanswered_reviews: number | null;
@@ -359,15 +362,22 @@ export async function processMapsResults(
     await Promise.all(Array.from({ length: 8 }, () => worker()));
   }
 
-  // Keep only leads with a deliverable email — the campaign engine is
-  // email-driven and the operator asked to produce email-ready leads only.
-  const emailReady = businesses.filter((b) => b.email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(b.email));
+  // Email leads feed the campaign engine; social/phone leads feed the manual
+  // cold-outreach queue. Keep both when cold queueing is enabled (default),
+  // otherwise fall back to the historical email-only behavior.
+  const hasValidEmail = (b: MapsBusiness) =>
+    Boolean(b.email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(b.email));
+  const hasColdHandle = (b: MapsBusiness) =>
+    Boolean(b.instagram || b.facebook || b.tiktok || b.phone);
+  const deliverable = coldQueueEnabled()
+    ? businesses.filter((b) => hasValidEmail(b) || hasColdHandle(b))
+    : businesses.filter(hasValidEmail);
 
   const existing = await listProspects();
   const existingKeys = new Set(
     existing.map((p) => `${(p.business_name || "").toLowerCase()}|${(p.city || "").toLowerCase()}`),
   );
-  const fresh = emailReady.filter(
+  const fresh = deliverable.filter(
     (b) => !existingKeys.has(`${b.business_name.toLowerCase()}|${b.city.toLowerCase()}`),
   );
 
@@ -382,6 +392,7 @@ export async function processMapsResults(
         google_maps_link: b.google_maps_link || null,
         instagram: b.instagram || null,
         facebook: b.facebook || null,
+        tiktok: b.tiktok || null,
         google_rating: b.google_rating,
         review_count: b.review_count,
         unanswered_reviews: b.unanswered_reviews,
@@ -398,11 +409,11 @@ export async function processMapsResults(
     keyword,
     city,
     fresh.length,
-    fresh.length,
+    deliverable.filter(hasValidEmail).length,
     businesses.length,
   );
 
-  return { saved: fresh.length, businesses: emailReady, emailed };
+  return { saved: fresh.length, businesses: deliverable, emailed };
 }
 
 /** Email the admin a scan-completion summary (best-effort, never throws). */
@@ -500,6 +511,7 @@ export async function fetchMapsResults(datasetId: string): Promise<MapsBusiness[
     const email = (item.emails || []).map((e) => String(e).trim()).find((e) => e.includes("@")) || "";
     const instagram = (item.instagrams || [])[0] || "";
     const facebook = (item.facebooks || [])[0] || "";
+    const tiktok = (item.tiktoks || [])[0] || "";
     const mapsLink = item.url && /^https:\/\/(www\.)?google\.com\/maps/i.test(item.url) ? item.url : "";
 
     // Real unanswered-review count from the recent-review sample (owner never
@@ -534,6 +546,7 @@ export async function fetchMapsResults(datasetId: string): Promise<MapsBusiness[
       phone: String(item.phoneUnformatted || item.phone || "").trim(),
       instagram,
       facebook,
+      tiktok,
       google_rating: item.totalScore != null && !isNaN(Number(item.totalScore)) ? Number(item.totalScore) : null,
       review_count: totalReviews,
       unanswered_reviews: unanswered,

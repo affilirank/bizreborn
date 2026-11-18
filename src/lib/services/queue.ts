@@ -173,12 +173,28 @@ export async function processProspectPipeline(
     const rendered = await renderPitchVideo(next);
     await setProspectStatus(id, "ready", rendered);
 
+    // 5b. Queue the rendered lead for manual cold outreach (IG/Messenger/TikTok
+    // handles that the official APIs cannot message cold). Deduped per handle.
+    const finalized = (await getProspectById(id))!;
+    try {
+      const { queueProspectForColdOutreach } = await import(
+        "@/lib/services/messaging/cold-queue"
+      );
+      const queued = await queueProspectForColdOutreach(finalized);
+      if (queued?.queued) {
+        console.log(
+          `[queue] ${queued.queued} manual outreach row(s) queued for ${finalized.business_name}`,
+        );
+      }
+    } catch (err) {
+      console.warn("[queue] cold-outreach queueing failed for", prospect.business_name, err);
+    }
+
     // 6. Enroll in the campaign the moment the audit completes: welcome
     // email goes out immediately, pitch fires 1h later. Idempotent —
     // welcomeProspect skips leads that were already welcomed at import.
     try {
       const { welcomeProspect } = await import("@/lib/crm-actions");
-      const finalized = (await getProspectById(id))!;
       await welcomeProspect(finalized);
     } catch (err) {
       console.warn("[queue] welcome email failed for", prospect.business_name, err);
