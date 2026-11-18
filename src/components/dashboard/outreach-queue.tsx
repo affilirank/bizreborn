@@ -5,20 +5,31 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowLeft,
+  Check,
   CheckCircle2,
   Clock,
+  Copy,
+  ExternalLink,
   MessageCircle,
   RefreshCw,
   RotateCcw,
   Send,
   Smartphone,
+  XCircle,
+  Zap,
 } from "lucide-react";
-import type { OutreachChannel, OutreachLog, OutreachStatus } from "@/lib/supabase-types";
+import type {
+  OutreachChannel,
+  OutreachDeliveryMode,
+  OutreachLog,
+  OutreachStatus,
+} from "@/lib/supabase-types";
 import { cn } from "@/lib/utils";
 
 interface LogsResponse {
   logs: OutreachLog[];
   counts: Record<string, number>;
+  bridgeConfigured?: boolean;
   store?: { backend: "supabase" | "memory"; tableMissing: boolean; lastError: string | null };
 }
 
@@ -60,6 +71,12 @@ const CHANNEL_LABEL: Record<OutreachChannel, string> = {
   tiktok: "TikTok",
 };
 
+const DELIVERY_FILTERS: { id: "" | OutreachDeliveryMode; label: string }[] = [
+  { id: "", label: "API + manual" },
+  { id: "manual", label: "Manual queue" },
+  { id: "api", label: "API sends" },
+];
+
 function statusIcon(status: OutreachStatus) {
   switch (status) {
     case "failed":
@@ -82,14 +99,41 @@ function formatDate(value: string | null): string {
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString();
 }
 
+function isManual(log: OutreachLog): boolean {
+  return (log.delivery_mode ?? "api") === "manual";
+}
+
+function manualOpenLink(log: OutreachLog): string | null {
+  if (!log.recipient || log.recipient === "unresolved") return null;
+  const raw = log.recipient.trim().replace(/^@/, "");
+  switch (log.channel) {
+    case "instagram":
+      return `https://ig.me/m/${encodeURIComponent(raw)}`;
+    case "facebook":
+      return `https://m.me/${encodeURIComponent(raw)}`;
+    case "whatsapp": {
+      const digits = log.recipient.replace(/[^\d]/g, "");
+      if (!digits) return null;
+      const text = log.message ? `?text=${encodeURIComponent(log.message)}` : "";
+      return `https://wa.me/${digits}${text}`;
+    }
+    case "tiktok":
+      return `https://www.tiktok.com/@${encodeURIComponent(raw)}`;
+  }
+}
+
 export function OutreachQueue() {
   const [logs, setLogs] = useState<OutreachLog[]>([]);
   const [store, setStore] = useState<LogsResponse["store"] | null>(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<FilterStatus>("all");
   const [channel, setChannel] = useState<"" | OutreachChannel>("");
+  const [delivery, setDelivery] = useState<"" | OutreachDeliveryMode>("");
+  const [bridgeConfigured, setBridgeConfigured] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState<string | null>(null);
+  const [acting, setActing] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -99,6 +143,7 @@ export function OutreachQueue() {
       if (!res.ok) throw new Error(json.error || "Could not load the outreach queue.");
       setLogs(json.logs ?? []);
       setStore(json.store ?? null);
+      setBridgeConfigured(Boolean(json.bridgeConfigured));
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load the outreach queue.");
@@ -123,9 +168,12 @@ export function OutreachQueue() {
   const visible = useMemo(
     () =>
       logs.filter(
-        (log) => (status === "all" || log.status === status) && (!channel || log.channel === channel),
+        (log) =>
+          (status === "all" || log.status === status) &&
+          (!channel || log.channel === channel) &&
+          (!delivery || (log.delivery_mode ?? "api") === delivery),
       ),
-    [logs, status, channel],
+    [logs, status, channel, delivery],
   );
 
   const retry = async (id: string) => {
@@ -149,8 +197,44 @@ export function OutreachQueue() {
     }
   };
 
+  const manualAction = async (id: string, action: "sent" | "cancel" | "bridge") => {
+    setActing(id);
+    setError(null);
+    try {
+      const res = await fetch("/api/outreach/manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action }),
+      });
+      const json = (await res.json()) as { success?: boolean; message?: string; error?: string };
+      if (!res.ok || !json.success) {
+        setError(json.message || json.error || "Manual queue action failed.");
+      }
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Manual queue action failed.");
+    } finally {
+      setActing(null);
+    }
+  };
+
+  const copyMessage = async (log: OutreachLog) => {
+    try {
+      await navigator.clipboard.writeText(log.message ?? "");
+      setCopied(log.id);
+      window.setTimeout(() => setCopied((current) => (current === log.id ? null : current)), 1600);
+    } catch {
+      setError("Could not copy — select the message text manually.");
+    }
+  };
+
+  const manualQueueCount = logs.filter(
+    (log) => isManual(log) && log.status === "queued",
+  ).length;
+
   const kpis: { label: string; value: number; tone: string }[] = [
     { label: "Queued", value: (counts.queued ?? 0) + (counts.sending ?? 0), tone: "text-fog" },
+    { label: "Manual queue", value: manualQueueCount, tone: "text-amber-300" },
     { label: "Sent", value: counts.sent ?? 0, tone: "text-brand-300" },
     { label: "Delivered / read", value: (counts.delivered ?? 0) + (counts.read ?? 0), tone: "text-glow-300" },
     { label: "Replied", value: counts.replied ?? 0, tone: "text-emerald-300" },
@@ -174,6 +258,8 @@ export function OutreachQueue() {
             <p className="mt-1 max-w-2xl text-sm text-fog">
               Every video pitch sent through Instagram, Messenger, WhatsApp, or TikTok — with
               delivery receipts, replies, provider error codes, retries, and GHL sync status.
+              Cold IG/TikTok handles land in the <span className="text-amber-300">manual queue</span>{" "}
+              (platform rules block cold API DMs) for 1-click sending.
             </p>
           </div>
           <button
@@ -202,7 +288,7 @@ export function OutreachQueue() {
           </div>
         )}
 
-        <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
           {kpis.map((kpi) => (
             <div key={kpi.label} className="rounded-2xl border border-white/10 bg-ink-900/60 p-4">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-mute">{kpi.label}</p>
@@ -232,6 +318,17 @@ export function OutreachQueue() {
             className="ml-auto rounded-lg border border-white/10 bg-ink-900 px-3 py-1.5 text-xs font-semibold text-fog outline-none focus:border-brand-400/60"
           >
             {CHANNEL_FILTERS.map((item) => (
+              <option key={item.id || "all"} value={item.id}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={delivery}
+            onChange={(event) => setDelivery(event.target.value as "" | OutreachDeliveryMode)}
+            className="rounded-lg border border-white/10 bg-ink-900 px-3 py-1.5 text-xs font-semibold text-fog outline-none focus:border-brand-400/60"
+          >
+            {DELIVERY_FILTERS.map((item) => (
               <option key={item.id || "all"} value={item.id}>
                 {item.label}
               </option>
@@ -269,6 +366,16 @@ export function OutreachQueue() {
                           <MessageCircle className="h-3.5 w-3.5" />
                         )}
                         {CHANNEL_LABEL[log.channel]}
+                      </span>
+                      <span
+                        className={cn(
+                          "mt-1.5 flex w-fit items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide",
+                          isManual(log)
+                            ? "border-amber-400/40 bg-amber-500/10 text-amber-300"
+                            : "border-white/10 text-mute",
+                        )}
+                      >
+                        {isManual(log) ? "Manual" : "API"}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -314,7 +421,57 @@ export function OutreachQueue() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {log.status === "failed" && log.direction === "outbound" && (
+                      {isManual(log) && (log.status === "queued" || log.status === "failed") ? (
+                        <div className="flex flex-wrap justify-end gap-1.5">
+                          {manualOpenLink(log) && (
+                            <a
+                              href={manualOpenLink(log) ?? "#"}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 rounded-lg border border-sky-400/40 bg-sky-500/10 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-sky-300 transition hover:border-sky-300 hover:text-white"
+                            >
+                              <ExternalLink className="h-3 w-3" /> Open
+                            </a>
+                          )}
+                          <button
+                            onClick={() => void copyMessage(log)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-fog transition hover:border-white/30 hover:text-white"
+                          >
+                            {copied === log.id ? (
+                              <Check className="h-3 w-3" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                            {copied === log.id ? "Copied" : "Copy"}
+                          </button>
+                          {bridgeConfigured && log.recipient !== "unresolved" && (
+                            <button
+                              onClick={() => void manualAction(log.id, "bridge")}
+                              disabled={acting === log.id}
+                              className="inline-flex items-center gap-1 rounded-lg border border-violet-400/40 bg-violet-500/10 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-violet-300 transition hover:border-violet-300 hover:text-white disabled:opacity-60"
+                              title="Send through the configured extension/bridge"
+                            >
+                              <Zap className="h-3 w-3" /> Bridge
+                            </button>
+                          )}
+                          {log.recipient !== "unresolved" && (
+                            <button
+                              onClick={() => void manualAction(log.id, "sent")}
+                              disabled={acting === log.id}
+                              className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-emerald-300 transition hover:border-emerald-300 hover:text-white disabled:opacity-60"
+                            >
+                              <Check className="h-3 w-3" /> Mark sent
+                            </button>
+                          )}
+                          <button
+                            onClick={() => void manualAction(log.id, "cancel")}
+                            disabled={acting === log.id}
+                            className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-mute transition hover:border-red-400/40 hover:text-red-300 disabled:opacity-60"
+                          >
+                            <XCircle className="h-3 w-3" /> Skip
+                          </button>
+                        </div>
+                      ) : log.status === "failed" && log.direction === "outbound" ? (
                         <button
                           onClick={() => void retry(log.id)}
                           disabled={retrying === log.id}
@@ -325,15 +482,17 @@ export function OutreachQueue() {
                           />
                           Retry
                         </button>
-                      )}
+                      ) : null}
                     </td>
                   </tr>
                 ))}
                 {!loading && visible.length === 0 && (
                   <tr>
                     <td colSpan={8} className="px-4 py-14 text-center text-sm text-mute">
-                      No outreach rows match this filter yet. Dispatch a video pitch from the CRM or
-                      via <span className="font-mono text-fog">POST /api/outreach/dispatch</span>.
+                      No outreach rows match this filter yet. Dispatch a video pitch from the CRM,
+                      queue cold leads via{" "}
+                      <span className="font-mono text-fog">POST /api/outreach/queue</span>, or use{" "}
+                      <span className="font-mono text-fog">POST /api/outreach/dispatch</span>.
                     </td>
                   </tr>
                 )}

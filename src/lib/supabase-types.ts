@@ -197,6 +197,14 @@ export type OutreachChannel = "instagram" | "facebook" | "whatsapp" | "tiktok";
 export type OutreachDirection = "outbound" | "inbound";
 
 /**
+ * How a message leaves the building.
+ * - `api`: sent through the official channel API (warm/inbound-eligible leads).
+ * - `manual`: queued for a human/extension bridge because the platform forbids
+ *   cold API outreach (e.g. an Instagram handle with no IGSID).
+ */
+export type OutreachDeliveryMode = "api" | "manual";
+
+/**
  * Delivery lifecycle for one outbound video pitch.
  *
  * queued -> sending -> sent -> delivered -> read -> replied
@@ -218,6 +226,7 @@ export interface OutreachLog {
   prospect_id: string | null;
   channel: OutreachChannel;
   direction: OutreachDirection;
+  delivery_mode: OutreachDeliveryMode;
   recipient: string;
   recipient_name: string | null;
   page_id: string | null;

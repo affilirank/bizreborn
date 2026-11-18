@@ -11,61 +11,16 @@ import {
   type VideoPitchMetadata,
   type VideoPitchPayload,
 } from "@/lib/services/messaging/types";
+import {
+  absoluteUrl,
+  channelsForProspect,
+  channelsFromInput,
+  clean,
+  socialHandle,
+} from "@/lib/services/messaging/request";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
-
-function clean(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-function absoluteUrl(value: string | null): string | null {
-  if (!value) return null;
-  if (/^https?:\/\//i.test(value)) return value;
-  const base =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-  return `${base.replace(/\/$/, "")}${value.startsWith("/") ? value : `/${value}`}`;
-}
-
-/** Safely turns a stored social URL into a handle / numeric id. */
-function socialHandle(value: string | null): string | null {
-  if (!value) return null;
-  const raw = value.trim();
-  if (!/^https?:\/\//i.test(raw)) return raw;
-  try {
-    const url = new URL(raw);
-    const parts = url.pathname.split("/").filter(Boolean);
-    const last = parts[parts.length - 1] ?? "";
-    if (/^\d{5,}$/.test(last)) return last;
-    const first = parts[0]?.replace(/^@/, "") ?? "";
-    return first ? `@${first}` : null;
-  } catch {
-    return raw;
-  }
-}
-
-function normalizeChannels(value: unknown): OutreachChannel[] {
-  if (!Array.isArray(value)) return [];
-  return [
-    ...new Set(
-      value
-        .map((item) => String(item).trim().toLowerCase())
-        .filter((item): item is OutreachChannel =>
-          (OUTREACH_CHANNELS as string[]).includes(item),
-        ),
-    ),
-  ];
-}
-
-function channelsForProspect(p: Prospect): OutreachChannel[] {
-  const channels: OutreachChannel[] = [];
-  if (p.instagram) channels.push("instagram");
-  if (p.facebook) channels.push("facebook");
-  if (p.tiktok) channels.push("tiktok");
-  if (p.phone) channels.push("whatsapp");
-  return channels;
-}
 
 /**
  * POST /api/outreach/dispatch
@@ -104,8 +59,12 @@ export async function POST(req: Request) {
   }
 
   const rawChannels = body.channels ?? nested.channels;
-  const explicitChannels = normalizeChannels(rawChannels);
-  if (Array.isArray(rawChannels) && rawChannels.length > 0 && explicitChannels.length === 0) {
+  const rawChannel = body.channel ?? nested.channel;
+  const explicitChannels = channelsFromInput(rawChannels, rawChannel);
+  const hasChannelHint =
+    (Array.isArray(rawChannels) && rawChannels.length > 0) ||
+    (typeof rawChannel === "string" && rawChannel.trim().length > 0);
+  if (hasChannelHint && explicitChannels.length === 0) {
     return NextResponse.json(
       {
         error: `No valid channels. Use any of: ${OUTREACH_CHANNELS.join(", ")}.`,

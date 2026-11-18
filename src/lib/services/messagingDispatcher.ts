@@ -23,6 +23,7 @@ import {
   updateOutreachLog,
   getOutreachLog,
   dueRetryLogs,
+  findPendingManualOutreach,
 } from "@/lib/services/messaging/outreach-store";
 import { syncOutreachToGhl, type GhlSyncResult } from "@/lib/services/messaging/ghl";
 
@@ -33,6 +34,10 @@ import { syncOutreachToGhl, type GhlSyncResult } from "@/lib/services/messaging/
  * WhatsApp, and TikTok. Each channel attempt is persisted to `outreach_logs`
  * (queued → sending → sent/failed), retried with exponential backoff, mirrored
  * into the prospect's communication log, and tagged in GoHighLevel.
+ *
+ * Cold IG/FB/TikTok handles that the official APIs cannot message go through
+ * `queueManualOutreach` instead — queued as `delivery_mode=manual` and completed
+ * from /admin/outreach or an optional extension bridge.
  */
 
 const ADAPTERS: Record<OutreachChannel, ChannelAdapter> = {
@@ -418,6 +423,11 @@ export async function retryOutreachLog(
   if (log.direction !== "outbound") {
     throw new Error("Only outbound outreach rows can be retried.");
   }
+  if ((log.delivery_mode ?? "api") === "manual") {
+    throw new Error(
+      "This row is in the manual cold-outreach queue. Open /admin/outreach and mark it sent (or use the bridge action) instead of retrying through the API.",
+    );
+  }
 
   const maxAttempts = maxAttemptsFromEnv(options.maxAttempts ?? log.max_attempts);
   if (!options.force && log.status !== "failed") {
@@ -529,5 +539,286 @@ export async function retryDueOutreach(
     failed: results.filter((r) => r.status !== "sent").length,
     results,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Manual cold-outreach queue                                          */
+/* ------------------------------------------------------------------ */
+
+export interface ManualQueueOptions {
+  payload: VideoPitchPayload;
+  channels?: OutreachChannel[];
+  prospect?: Prospect | null;
+  requestedBy?: string | null;
+  /** Skip recipients that already have a queued manual row (default: true). */
+  dedupe?: boolean;
+}
+
+export interface ManualQueueSummary {
+  results: ChannelDispatchResult[];
+  queued: number;
+  failed: number;
+  channels: OutreachChannel[];
+}
+
+export interface MarkManualSentOptions {
+  providerMessageId?: string | null;
+  note?: string | null;
+}
+
+/**
+ * Manual recipients are raw handles/phone numbers — no IGSID/PSID needed. This
+ * is the compliant path for cold Instagram/TikTok/Facebook leads, where the
+ * Graph API cannot open a conversation.
+ */
+function manualRecipientFor(
+  payload: VideoPitchPayload,
+  channel: OutreachChannel,
+): string | null {
+  const direct = payload.handles?.[channel];
+  if (typeof direct === "string" && direct.trim()) return direct.trim();
+
+  if (channel === "whatsapp") {
+    const value =
+      payload.phoneNumbers?.whatsapp ?? payload.phoneNumber ?? payload.platformHandle;
+    return typeof value === "string" && value.trim() ? value.trim() : null;
+  }
+
+  return typeof payload.platformHandle === "string" && payload.platformHandle.trim()
+    ? payload.platformHandle.trim()
+    : null;
+}
+
+/**
+ * Enqueues a video pitch for 1-click manual delivery. Nothing is sent to a
+ * provider here: rows land as `queued` with `delivery_mode = "manual"` and are
+ * completed from /admin/outreach (deep link + copy + mark sent) or an optional
+ * extension/bridge webhook.
+ */
+export async function queueManualOutreach(
+  opts: ManualQueueOptions,
+): Promise<ManualQueueSummary> {
+  const requested = opts.channels?.length ? dedupeChannels(opts.channels) : [];
+  const channels = requested.length ? requested : inferChannels(opts.payload);
+  if (channels.length === 0) {
+    throw new Error(
+      "No channels selected. Pass channels or a platformHandle/phoneNumber for the cold lead.",
+    );
+  }
+
+  const text = (opts.payload.message?.trim() || composeVideoMessage(opts.payload)).trim();
+  const serialized = {
+    ...serializePayload(opts.payload),
+    requestedBy: opts.requestedBy ?? null,
+    deliveryMode: "manual",
+  };
+  const results: ChannelDispatchResult[] = [];
+
+  for (const channel of channels) {
+    const recipient = manualRecipientFor(opts.payload, channel);
+    if (!recipient) {
+      const log = await insertOutreachLog({
+        prospect_id: opts.payload.prospectId ?? opts.prospect?.id ?? null,
+        channel,
+        delivery_mode: "manual",
+        recipient: "unresolved",
+        recipient_name: opts.payload.leadName || null,
+        message: text,
+        video_url: opts.payload.videoUrl,
+        thumbnail_url: opts.payload.thumbnailUrl ?? null,
+        status: "failed",
+        attempt: 0,
+        max_attempts: 1,
+        error_code: "missing_handle",
+        error_message: `No ${channel} handle on this lead — add one before queueing a manual send.`,
+        payload: serialized,
+      });
+      results.push(resultFromLog(log, { retryable: false }));
+      continue;
+    }
+
+    if (opts.dedupe !== false) {
+      const existing = await findPendingManualOutreach(channel, recipient);
+      if (existing) {
+        results.push(
+          resultFromLog(existing, {
+            retryable: false,
+            errorCode: "duplicate",
+            error: "Already waiting in the manual queue.",
+          }),
+        );
+        continue;
+      }
+    }
+
+    const log = await insertOutreachLog({
+      prospect_id: opts.payload.prospectId ?? opts.prospect?.id ?? null,
+      channel,
+      delivery_mode: "manual",
+      recipient,
+      recipient_name: opts.payload.leadName || null,
+      page_id: opts.payload.pageIds?.[channel] ?? opts.payload.pageId ?? null,
+      message: text,
+      video_url: opts.payload.videoUrl,
+      thumbnail_url: opts.payload.thumbnailUrl ?? null,
+      status: "queued",
+      attempt: 0,
+      max_attempts: 1,
+      payload: serialized,
+    });
+    results.push(resultFromLog(log, { retryable: false, nextAttemptAt: null }));
+  }
+
+  return {
+    results,
+    queued: results.filter((r) => r.status === "queued").length,
+    failed: results.filter((r) => r.status !== "queued").length,
+    channels,
+  };
+}
+
+/**
+ * Marks a manual row as sent after a human (or bridge) actually delivered it.
+ * This is the point where the CRM sees `video_sent_<channel>`.
+ */
+export async function markManualOutreachSent(
+  id: string,
+  options: MarkManualSentOptions = {},
+): Promise<ChannelDispatchResult> {
+  const log = await getOutreachLog(id);
+  if (!log) throw new Error("Outreach log not found.");
+  if (log.direction !== "outbound") {
+    throw new Error("Only outbound outreach rows can be marked sent.");
+  }
+  if ((log.delivery_mode ?? "api") !== "manual") {
+    throw new Error("Only manual cold-outreach rows can be marked sent this way.");
+  }
+  if (log.status === "cancelled") {
+    throw new Error("This queued message was cancelled. Re-queue the lead to send it.");
+  }
+  if (["sent", "delivered", "read", "replied"].includes(log.status)) {
+    return resultFromLog(log, { retryable: false });
+  }
+
+  const markedAt = new Date().toISOString();
+  const sentLog =
+    (await updateOutreachLog(id, {
+      status: "sent",
+      attempt: Math.max(1, log.attempt),
+      sent_at: log.sent_at ?? markedAt,
+      next_attempt_at: null,
+      error_code: null,
+      error_message: null,
+      provider_message_id: options.providerMessageId ?? log.provider_message_id,
+      response: {
+        ...(log.response ?? {}),
+        manual: true,
+        markedAt,
+        note: options.note ?? null,
+      },
+    })) ?? log;
+
+  const payload = (sentLog.payload ?? {}) as unknown as VideoPitchPayload;
+  const ghl = await maybeSyncGhl(sentLog, "sent", {
+    skip: payload.metadata?.skipGhl,
+    text: sentLog.message,
+  });
+  await appendProspectLog(sentLog, payload, "sent");
+
+  return resultFromLog(sentLog, { ghl, retryable: false, nextAttemptAt: null });
+}
+
+/** Dismisses a manual queue row that will not be sent. */
+export async function cancelManualOutreach(id: string): Promise<ChannelDispatchResult> {
+  const log = await getOutreachLog(id);
+  if (!log) throw new Error("Outreach log not found.");
+  if ((log.delivery_mode ?? "api") !== "manual") {
+    throw new Error("Only manual cold-outreach rows can be cancelled here.");
+  }
+  if (["sent", "delivered", "read", "replied"].includes(log.status)) {
+    throw new Error("This message was already sent and cannot be cancelled.");
+  }
+
+  const cancelled =
+    (await updateOutreachLog(id, { status: "cancelled", next_attempt_at: null })) ?? log;
+  return resultFromLog(cancelled, { retryable: false });
+}
+
+/**
+ * Hands a manual row to an optional browser-extension / automation bridge.
+ * `MANUAL_DM_BRIDGE_URL` receives the message and should POST back/return
+ * `{ "id": "<provider message id>" }`; success marks the row sent.
+ */
+export async function bridgeManualOutreach(id: string): Promise<ChannelDispatchResult> {
+  const url = process.env.MANUAL_DM_BRIDGE_URL;
+  if (!url) {
+    throw new Error(
+      "MANUAL_DM_BRIDGE_URL is not configured. Add the extension/automation bridge URL or use the copy + mark-sent workflow.",
+    );
+  }
+
+  const log = await getOutreachLog(id);
+  if (!log) throw new Error("Outreach log not found.");
+  if ((log.delivery_mode ?? "api") !== "manual") {
+    throw new Error("Only manual cold-outreach rows can be sent through the bridge.");
+  }
+  if (!["queued", "failed"].includes(log.status)) {
+    return resultFromLog(log, { retryable: false });
+  }
+
+  const payload = (log.payload ?? {}) as unknown as VideoPitchPayload;
+  const secret = process.env.MANUAL_DM_BRIDGE_SECRET;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (secret) {
+    headers["x-bizreborn-secret"] = secret;
+    headers.Authorization = `Bearer ${secret}`;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        outreachLogId: log.id,
+        channel: log.channel,
+        recipient: log.recipient,
+        message: log.message,
+        videoUrl: log.video_url,
+        thumbnailUrl: log.thumbnail_url,
+        leadName: payload.leadName ?? log.recipient_name,
+        businessName: payload.businessName,
+        pageId: log.page_id,
+        prospectId: log.prospect_id,
+      }),
+      signal: AbortSignal.timeout(Number(process.env.MANUAL_DM_BRIDGE_TIMEOUT_MS || 15_000)),
+      cache: "no-store",
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Bridge request failed.";
+    await updateOutreachLog(id, { error_code: "bridge_unreachable", error_message: message });
+    throw new MessagingError(message, { code: "bridge_unreachable", retryable: true });
+  }
+
+  const bodyText = await response.text().catch(() => "");
+  if (!response.ok) {
+    const message = `Manual bridge failed (HTTP ${response.status})${bodyText ? `: ${bodyText.slice(0, 300)}` : ""}`;
+    await updateOutreachLog(id, { error_code: "bridge_failed", error_message: message });
+    throw new MessagingError(message, { code: "bridge_failed", retryable: true });
+  }
+
+  let messageId: string | null = null;
+  try {
+    const json = JSON.parse(bodyText) as Record<string, unknown>;
+    const candidate = json.id ?? json.messageId ?? json.providerMessageId;
+    if (typeof candidate === "string" && candidate.trim()) messageId = candidate.trim();
+  } catch {
+    // Bridge may return plain text/empty 200; the manual row still succeeds.
+  }
+
+  return markManualOutreachSent(id, {
+    providerMessageId: messageId,
+    note: "manual bridge",
+  });
 }
 

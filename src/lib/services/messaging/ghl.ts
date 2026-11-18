@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { OutreachLog } from "@/lib/supabase-types";
+import type { OutreachDeliveryMode, OutreachLog } from "@/lib/supabase-types";
 import { updateOutreachLog } from "@/lib/services/messaging/outreach-store";
 import {
   channelLabel,
@@ -33,6 +33,7 @@ export interface GhlSyncResult {
 export function buildGhlTags(
   channel: OutreachLog["channel"],
   event: GhlEvent,
+  deliveryMode: OutreachDeliveryMode = "api",
 ): string[] {
   const tag = channelTag(channel);
   const tags = [
@@ -41,6 +42,7 @@ export function buildGhlTags(
     `video_${event}_${tag}`,
     `video_${event}`,
   ];
+  if (deliveryMode === "manual") tags.push("video_manual");
   if (event === "replied") tags.push("replied", "video_replied");
   if (event === "sent") tags.push("video_sent");
   return [...new Set(tags)];
@@ -81,11 +83,12 @@ export function ghlPayloadFromLog(
     companyName: stored.businessName || undefined,
     businessName: stored.businessName || undefined,
     leadName,
-    tags: buildGhlTags(log.channel, event),
+    tags: buildGhlTags(log.channel, event, log.delivery_mode ?? "api"),
     channel: log.channel,
     channelLabel: channelLabel(log.channel),
     status: log.status,
     direction: log.direction,
+    deliveryMode: log.delivery_mode ?? "api",
     prospectId: log.prospect_id || stored.prospectId || undefined,
     outreachLogId: log.id,
     providerMessageId: log.provider_message_id || undefined,
@@ -102,7 +105,7 @@ export async function syncOutreachToGhl(
   event: GhlEvent,
   options: { text?: string | null } = {},
 ): Promise<GhlSyncResult> {
-  const tags = buildGhlTags(log.channel, event);
+  const tags = buildGhlTags(log.channel, event, log.delivery_mode ?? "api");
   const url = process.env.GHL_WEBHOOK_URL;
 
   if ((log.payload as { metadata?: { skipGhl?: boolean } } | null)?.metadata?.skipGhl) {

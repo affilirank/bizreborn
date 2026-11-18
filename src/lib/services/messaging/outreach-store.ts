@@ -3,6 +3,7 @@ import "server-only";
 import { createServiceClient } from "@/lib/supabase/admin";
 import type {
   OutreachChannel,
+  OutreachDeliveryMode,
   OutreachDirection,
   OutreachLog,
   OutreachStatus,
@@ -64,6 +65,7 @@ export interface NewOutreachLog {
   prospect_id?: string | null;
   channel: OutreachChannel;
   direction?: OutreachDirection;
+  delivery_mode?: OutreachDeliveryMode;
   recipient: string;
   recipient_name?: string | null;
   page_id?: string | null;
@@ -84,6 +86,7 @@ export interface NewOutreachLog {
 export interface OutreachLogFilters {
   prospectId?: string | null;
   channel?: OutreachChannel | null;
+  deliveryMode?: OutreachDeliveryMode | null;
   status?: OutreachStatus | null;
   limit?: number;
 }
@@ -120,6 +123,7 @@ export async function insertOutreachLog(
     prospect_id: input.prospect_id ?? null,
     channel: input.channel,
     direction: input.direction ?? "outbound",
+    delivery_mode: input.delivery_mode ?? "api",
     recipient: input.recipient,
     recipient_name: input.recipient_name ?? null,
     page_id: input.page_id ?? null,
@@ -214,6 +218,7 @@ export async function listOutreachLogs(
     let query = client.from(TABLE).select("*");
     if (filters.prospectId) query = query.eq("prospect_id", filters.prospectId);
     if (filters.channel) query = query.eq("channel", filters.channel);
+    if (filters.deliveryMode) query = query.eq("delivery_mode", filters.deliveryMode);
     if (filters.status) query = query.eq("status", filters.status);
     const { data, error } = await query
       .order("created_at", { ascending: false })
@@ -225,6 +230,9 @@ export async function listOutreachLogs(
   let rows = [...memory.values()];
   if (filters.prospectId) rows = rows.filter((r) => r.prospect_id === filters.prospectId);
   if (filters.channel) rows = rows.filter((r) => r.channel === filters.channel);
+  if (filters.deliveryMode) {
+    rows = rows.filter((r) => (r.delivery_mode ?? "api") === filters.deliveryMode);
+  }
   if (filters.status) rows = rows.filter((r) => r.status === filters.status);
   return rows
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
@@ -294,7 +302,7 @@ export async function findLatestOutboundForRecipient(
   return rows[0] ?? null;
 }
 
-/** Failed rows whose next_attempt_at is due and that still have attempts left. */
+/** Failed API rows whose next_attempt_at is due and that still have attempts left. */
 export async function dueRetryLogs(limit = 25): Promise<OutreachLog[]> {
   const now = new Date().toISOString();
   const client = db();
@@ -303,6 +311,7 @@ export async function dueRetryLogs(limit = 25): Promise<OutreachLog[]> {
       .from(TABLE)
       .select("*")
       .eq("status", "failed")
+      .eq("delivery_mode", "api")
       .lte("next_attempt_at", now)
       .order("next_attempt_at", { ascending: true })
       .limit(Math.min(Math.max(limit, 1), 100));
@@ -315,10 +324,47 @@ export async function dueRetryLogs(limit = 25): Promise<OutreachLog[]> {
     .filter(
       (r) =>
         r.status === "failed" &&
+        (r.delivery_mode ?? "api") === "api" &&
         r.next_attempt_at != null &&
         r.next_attempt_at <= now &&
         r.attempt < r.max_attempts,
     )
     .sort((a, b) => (a.next_attempt_at ?? "").localeCompare(b.next_attempt_at ?? ""))
     .slice(0, limit);
+}
+
+/**
+ * Dedupe guard for scraper batches: a handle already waiting for a manual send
+ * should not be queued twice on the next scrape run.
+ */
+export async function findPendingManualOutreach(
+  channel: OutreachChannel,
+  recipient: string,
+): Promise<OutreachLog | null> {
+  const client = db();
+  if (client) {
+    const { data, error } = await client
+      .from(TABLE)
+      .select("*")
+      .eq("channel", channel)
+      .eq("recipient", recipient)
+      .eq("delivery_mode", "manual")
+      .eq("status", "queued")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) noteError(error);
+    else if (data) return data as OutreachLog;
+  }
+  for (const row of memory.values()) {
+    if (
+      row.channel === channel &&
+      row.recipient === recipient &&
+      (row.delivery_mode ?? "api") === "manual" &&
+      row.status === "queued"
+    ) {
+      return row;
+    }
+  }
+  return null;
 }

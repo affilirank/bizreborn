@@ -9,6 +9,7 @@ create table if not exists public.outreach_logs (
   prospect_id uuid references public.prospects(id) on delete set null,
   channel text not null check (channel in ('instagram', 'facebook', 'whatsapp', 'tiktok')),
   direction text not null default 'outbound' check (direction in ('outbound', 'inbound')),
+  delivery_mode text not null default 'api' check (delivery_mode in ('api', 'manual')),
   recipient text not null,
   recipient_name text,
   page_id text,
@@ -36,11 +37,23 @@ create table if not exists public.outreach_logs (
 
 -- Columns added after the first release (no-ops when already present).
 alter table public.outreach_logs add column if not exists direction text not null default 'outbound';
+alter table public.outreach_logs add column if not exists delivery_mode text not null default 'api';
 alter table public.outreach_logs add column if not exists thumbnail_url text;
 alter table public.outreach_logs add column if not exists response jsonb;
 alter table public.outreach_logs add column if not exists ghl_synced_at timestamptz;
 alter table public.outreach_logs add column if not exists ghl_error text;
 alter table public.outreach_logs add column if not exists next_attempt_at timestamptz;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'outreach_logs_delivery_mode_check'
+  ) then
+    alter table public.outreach_logs
+      add constraint outreach_logs_delivery_mode_check
+      check (delivery_mode in ('api', 'manual'));
+  end if;
+end $$;
 
 create index if not exists outreach_logs_prospect_idx
   on public.outreach_logs (prospect_id, created_at desc);
@@ -48,6 +61,8 @@ create index if not exists outreach_logs_status_idx
   on public.outreach_logs (status, next_attempt_at);
 create index if not exists outreach_logs_channel_idx
   on public.outreach_logs (channel, created_at desc);
+create index if not exists outreach_logs_delivery_mode_idx
+  on public.outreach_logs (delivery_mode, status, created_at desc);
 create index if not exists outreach_logs_created_idx
   on public.outreach_logs (created_at desc);
 

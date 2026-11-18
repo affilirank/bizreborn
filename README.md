@@ -189,6 +189,45 @@ curl -H "Authorization: Bearer $CRON_SECRET" \
   'http://localhost:3000/api/outreach/retry'
 ```
 
+#### Cold-handle manual queue
+
+Meta and WhatsApp only allow proactive API messages inside their platform
+rules. Handles without an IGSID/PSID (typical scraped IG/TikTok leads) must not
+be sent through Graph. Queue them instead — the scraper posts batches and an
+operator (or an extension bridge) completes each row from the admin queue:
+
+```bash
+# Enqueue scraped cold leads (no provider call, deduped per channel+handle)
+curl -X POST http://localhost:3000/api/outreach/queue \
+  -H 'Content-Type: application/json' \
+  -d '{"leads":[
+    {"leadName":"Dr. Lee","businessName":"Acme Dental",
+     "videoUrl":"https://loom.com/share/abc",
+     "channel":"instagram","platformHandle":"@acmedental"},
+    {"leadName":"Mia","businessName":"Mia Roofing",
+     "videoUrl":"https://loom.com/share/def",
+     "channel":"tiktok","platformHandle":"miaroofing"}
+  ]}'
+
+# Complete a manual row after sending (this fires the GHL video_sent_* tags)
+curl -X POST http://localhost:3000/api/outreach/manual \
+  -H 'Content-Type: application/json' \
+  -d '{"id":"<log-uuid>","action":"sent"}'
+
+# Or hand it to an optional extension/automation bridge
+curl -X POST http://localhost:3000/api/outreach/manual \
+  -H 'Content-Type: application/json' \
+  -d '{"id":"<log-uuid>","action":"bridge"}'
+```
+
+Manual rows show **Open** (deep link to the IG/Messenger/TikTok profile or a
+prefilled `wa.me` chat), **Copy** (pitch text), **Bridge** (when
+`MANUAL_DM_BRIDGE_URL` is set), **Mark sent**, and **Skip** in
+`/admin/outreach`. Nothing is marked sent until a human or bridge confirms it,
+so CRM tags stay honest. API dispatch (`/api/outreach/dispatch`) remains the
+path for warm inbound leads, comment-to-DM triggers, and approved WhatsApp
+template sends.
+
 The queue is visible at **Admin → Outreach Queue** (`/admin/outreach`), and
 every prospect row in the CRM has a **Video DM** action that fans out to the
 handles stored on the lead.
@@ -214,7 +253,9 @@ limits.
 > tags; WhatsApp's 24-hour window or an approved template). The adapters surface
 > the provider's exact error code instead of silently retrying an ineligible
 > send. Instagram/Messenger also require an IGSID/PSID — map known handles via
-> `INSTAGRAM_HANDLE_TO_ID` / `FACEBOOK_HANDLE_TO_ID`.
+> `INSTAGRAM_HANDLE_TO_ID` / `FACEBOOK_HANDLE_TO_ID`, or queue cold handles in
+> the manual cold-outreach queue. Meta message tags do not authorize cold sales
+> outreach; use an approved WhatsApp template for first touch.
 
 ---
 
