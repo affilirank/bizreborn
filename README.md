@@ -159,6 +159,63 @@ answers from the same retrieved context (RAG).
 `MAILERLITE_GROUP_ID`, which fires that group's automation / auto-responder
 sequence. The audit gate and the `/contact` form both POST to `/api/leads`.
 
+### Multi-channel video outreach (DM dispatcher)
+
+`src/lib/services/messagingDispatcher.ts` fans a generated pitch link out to
+Instagram DMs, Facebook Messenger, WhatsApp, and TikTok through one unified
+payload (`leadName`, `businessName`, `videoUrl`, `platformHandle`,
+`phoneNumber`, `pageId`). Channel adapters live in
+`src/lib/services/messaging/` and every attempt is persisted to
+`public.outreach_logs` (run `supabase/migrations/003_outreach_logs.sql`).
+
+```bash
+# Fan out a stored prospect's pitch across every channel it has a handle for
+curl -X POST http://localhost:3000/api/outreach/dispatch \
+  -H 'Content-Type: application/json' \
+  -d '{"prospectId":"<uuid>","channels":["instagram","whatsapp"]}'
+
+# Or dispatch an explicit payload
+curl -X POST http://localhost:3000/api/outreach/dispatch \
+  -H 'Content-Type: application/json' \
+  -d '{"businessName":"Acme Dental","leadName":"Dr. Lee",
+       "videoUrl":"https://loom.com/share/abc",
+       "thumbnailUrl":"https://…/thumb.jpg",
+       "channels":["whatsapp"],"phoneNumber":"7725550123"}'
+
+# Queue status feed / manual retry / cron retry
+curl 'http://localhost:3000/api/outreach/logs?status=failed'
+curl -X POST http://localhost:3000/api/outreach/retry -d '{"id":"<log-uuid>"}'
+curl -H "Authorization: Bearer $CRON_SECRET" \
+  'http://localhost:3000/api/outreach/retry'
+```
+
+The queue is visible at **Admin → Outreach Queue** (`/admin/outreach`), and
+every prospect row in the CRM has a **Video DM** action that fans out to the
+handles stored on the lead.
+
+Webhooks (configure in the Meta app / TikTok partner dashboard):
+
+- `GET|POST /api/webhooks/messaging/instagram`
+- `GET|POST /api/webhooks/messaging/facebook`
+- `GET|POST /api/webhooks/messaging/whatsapp`
+- `POST /api/webhooks/messaging/tiktok`
+
+Delivery/read receipts advance the log (`sent → delivered → read`), inbound
+replies set `replied` and append a communication log to the prospect, and every
+event posts tags to `GHL_WEBHOOK_URL` (e.g. `video_sent_ig`,
+`video_sent_whatsapp`, `video_replied_whatsapp`). Meta and WhatsApp webhooks
+require a valid `X-Hub-Signature-256`; TikTok is signature-checked when
+`TIKTOK_WEBHOOK_SECRET` is set. Failed sends retry with exponential backoff up
+to `MESSAGING_MAX_ATTEMPTS`, honoring `Retry-After` and Graph/WhatsApp rate
+limits.
+
+> **Compliance:** Instagram/Messenger and WhatsApp only allow proactive
+> messages inside their platform rules (Messenger's 24-hour window + approved
+> tags; WhatsApp's 24-hour window or an approved template). The adapters surface
+> the provider's exact error code instead of silently retrying an ineligible
+> send. Instagram/Messenger also require an IGSID/PSID — map known handles via
+> `INSTAGRAM_HANDLE_TO_ID` / `FACEBOOK_HANDLE_TO_ID`.
+
 ---
 
 ## Scripts

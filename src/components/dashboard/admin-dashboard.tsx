@@ -24,6 +24,7 @@ import {
   Timer,
   History,
   CalendarClock,
+  MessageSquare,
 } from "lucide-react";
 import { BlogBuilder } from "@/components/dashboard/blog-builder";
 import { CampaignPulse } from "@/components/dashboard/campaign-pulse";
@@ -342,6 +343,12 @@ export function AdminDashboard() {
             className="flex items-center gap-2 rounded-xl border border-brand-500/40 bg-brand-500/10 px-4 py-2 text-sm font-semibold text-brand-300 transition hover:border-brand-400/60 hover:text-white"
           >
             <Users className="h-4 w-4" /> Full CRM
+          </Link>
+          <Link
+            href="/admin/outreach"
+            className="flex items-center gap-2 rounded-xl border border-brand-500/40 bg-brand-500/10 px-4 py-2 text-sm font-semibold text-brand-300 transition hover:border-brand-400/60 hover:text-white"
+          >
+            <MessageSquare className="h-4 w-4" /> Outreach Queue
           </Link>
           <Link
             href="/admin/bookings"

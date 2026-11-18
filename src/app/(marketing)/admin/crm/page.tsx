@@ -322,6 +322,36 @@ export default function CrmPage() {
     }
   };
 
+  const sendVideoDm = async (p: Prospect) => {
+    const channels: string[] = [];
+    if (p.instagram) channels.push("instagram");
+    if (p.facebook) channels.push("facebook");
+    if (p.tiktok) channels.push("tiktok");
+    if (p.phone) channels.push("whatsapp");
+    if (channels.length === 0) {
+      setToast("Add an Instagram, Facebook, TikTok handle, or phone number before sending DMs.");
+      return;
+    }
+    setToast(`Dispatching video pitch via ${channels.join(", ")}…`);
+    try {
+      const res = await fetch("/api/outreach/dispatch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prospectId: p.id, channels }),
+      });
+      const json = await res.json();
+      if (res.ok && json.sent > 0) {
+        setToast(
+          `Video pitch sent on ${json.sent}/${json.channels?.length ?? channels.length} channels. Track delivery in Outreach Queue.`,
+        );
+      } else {
+        setToast(json.message || json.error || "Video dispatch failed — check the Outreach Queue.");
+      }
+    } catch {
+      setToast("Video dispatch failed to send");
+    }
+  };
+
   const loadNewsletter = async (p: Prospect) => {
     setToast("Generating custom 3-part newsletter drip…");
     try {
@@ -555,6 +585,12 @@ export default function CrmPage() {
               className="flex items-center gap-2 rounded-xl border border-glow-500/40 bg-glow-500/10 px-4 py-2 text-xs font-semibold text-glow-300 transition hover:border-glow-400/60 hover:text-white"
             >
               <CalendarClock className="h-4 w-4" /> Call Bookings
+            </Link>
+            <Link
+              href="/admin/outreach"
+              className="flex items-center gap-2 rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-2 text-xs font-semibold text-violet-300 transition hover:border-violet-400/60 hover:text-white"
+            >
+              <MessageSquareText className="h-4 w-4" /> Outreach Queue
             </Link>
             <button
               onClick={() => void fetchData()}
@@ -792,6 +828,13 @@ export default function CrmPage() {
                                 title="Send Direct Email"
                               >
                                 <Send className="h-3 w-3" /> Email
+                              </button>
+                              <button
+                                onClick={() => void sendVideoDm(p)}
+                                className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-[11px] font-semibold text-violet-300 hover:bg-violet-500/20 transition flex items-center gap-1"
+                                title="Send video pitch via IG / Messenger / WhatsApp / TikTok"
+                              >
+                                <MessageSquareText className="h-3 w-3" /> Video DM
                               </button>
                               <button
                                 onClick={() => void loadNewsletter(p)}
@@ -1143,6 +1186,12 @@ export default function CrmPage() {
                   className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-ink-950 px-4 py-2.5 text-xs font-semibold text-fog hover:text-white transition"
                 >
                   <Send className="h-4 w-4" /> Direct Email
+                </button>
+                <button
+                  onClick={() => void sendVideoDm(previewProspect)}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2.5 text-xs font-semibold text-violet-300 transition hover:bg-violet-500/20"
+                >
+                  <MessageSquareText className="h-4 w-4" /> Video DM
                 </button>
                 <button
                   onClick={() => {

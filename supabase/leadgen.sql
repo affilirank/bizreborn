@@ -169,3 +169,66 @@ create policy "bookings admin all"
   to authenticated
   using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
   with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+
+-- ---------------------------------------------------------------------------
+-- Multi-channel video messaging queue (Instagram / Messenger / WhatsApp / TikTok)
+-- Canonical copy also lives in supabase/migrations/003_outreach_logs.sql.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.outreach_logs (
+  id uuid primary key default gen_random_uuid(),
+  prospect_id uuid references public.prospects(id) on delete set null,
+  channel text not null check (channel in ('instagram', 'facebook', 'whatsapp', 'tiktok')),
+  direction text not null default 'outbound' check (direction in ('outbound', 'inbound')),
+  recipient text not null,
+  recipient_name text,
+  page_id text,
+  message text,
+  video_url text,
+  thumbnail_url text,
+  status text not null default 'queued'
+    check (status in ('queued', 'sending', 'sent', 'delivered', 'read', 'replied', 'failed', 'cancelled')),
+  attempt integer not null default 0,
+  max_attempts integer not null default 3,
+  provider_message_id text,
+  error_code text,
+  error_message text,
+  next_attempt_at timestamptz,
+  payload jsonb,
+  response jsonb,
+  ghl_synced_at timestamptz,
+  ghl_error text,
+  sent_at timestamptz,
+  delivered_at timestamptz,
+  replied_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists outreach_logs_prospect_idx
+  on public.outreach_logs (prospect_id, created_at desc);
+create index if not exists outreach_logs_status_idx
+  on public.outreach_logs (status, next_attempt_at);
+create index if not exists outreach_logs_channel_idx
+  on public.outreach_logs (channel, created_at desc);
+create index if not exists outreach_logs_created_idx
+  on public.outreach_logs (created_at desc);
+
+create unique index if not exists outreach_logs_provider_message_idx
+  on public.outreach_logs (channel, provider_message_id)
+  where provider_message_id is not null;
+
+alter table public.outreach_logs enable row level security;
+
+drop policy if exists "outreach logs read admin" on public.outreach_logs;
+create policy "outreach logs read admin"
+  on public.outreach_logs for select
+  to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+
+drop policy if exists "outreach logs manage admin" on public.outreach_logs;
+create policy "outreach logs manage admin"
+  on public.outreach_logs for all
+  to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));

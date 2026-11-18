@@ -188,6 +188,60 @@ export interface CommunicationLog {
   };
 }
 
+/* ------------------------------------------------------------------ */
+/* Multi-channel outreach (video pitch dispatcher)                     */
+/* ------------------------------------------------------------------ */
+
+export type OutreachChannel = "instagram" | "facebook" | "whatsapp" | "tiktok";
+
+export type OutreachDirection = "outbound" | "inbound";
+
+/**
+ * Delivery lifecycle for one outbound video pitch.
+ *
+ * queued -> sending -> sent -> delivered -> read -> replied
+ *                                          \-> failed (retryable)
+ */
+export type OutreachStatus =
+  | "queued"
+  | "sending"
+  | "sent"
+  | "delivered"
+  | "read"
+  | "replied"
+  | "failed"
+  | "cancelled";
+
+/** Persisted in `public.outreach_logs` (supabase/migrations/003_outreach_logs.sql). */
+export interface OutreachLog {
+  id: string;
+  prospect_id: string | null;
+  channel: OutreachChannel;
+  direction: OutreachDirection;
+  recipient: string;
+  recipient_name: string | null;
+  page_id: string | null;
+  message: string | null;
+  video_url: string | null;
+  thumbnail_url: string | null;
+  status: OutreachStatus;
+  attempt: number;
+  max_attempts: number;
+  provider_message_id: string | null;
+  error_code: string | null;
+  error_message: string | null;
+  next_attempt_at: string | null;
+  payload: Record<string, unknown> | null;
+  response: Record<string, unknown> | null;
+  ghl_synced_at: string | null;
+  ghl_error: string | null;
+  sent_at: string | null;
+  delivered_at: string | null;
+  replied_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Prospect {
   qualifying_score?: number | null;
   missing_gbp_apple?: boolean | null;
