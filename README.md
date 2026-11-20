@@ -225,9 +225,12 @@ Machine-to-machine intake (local scraper/cron) can skip the admin session with
 `x-bizreborn-secret` header). The Maps scraper no longer drops leads that lack
 an email: social/phone-only businesses are saved and, once their pitch video is
 rendered, automatically queued when `OUTREACH_QUEUE_ON_READY=1`. Scope a batch
-with `OUTREACH_QUEUE_CITIES` (e.g. `Vero Beach,Indian River,Sebastian,Stuart`)
+with `OUTREACH_QUEUE_CITIES` (e.g. `Vero Beach,Fellsmere,Sebastian,Indian River
+Shores,Orchid,Wabasso,Fort Pierce,Port St. Lucie,Stuart,Palm Bay,Melbourne`)
 and choose platforms with `OUTREACH_QUEUE_CHANNELS` (default
 `instagram,facebook,tiktok`; add `whatsapp` only after template approval).
+Leads already in `sent`/`delivered`/`read`/`replied` (or with a `sent_at`) are
+never re-queued, so repeat Apify runs and re-renders cannot double-pitch.
 
 Manual rows show **Open** (deep link to the IG/Messenger/TikTok profile or a
 prefilled `wa.me` chat), **Copy** (pitch text), **Bridge** (when

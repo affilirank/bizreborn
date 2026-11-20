@@ -5,6 +5,7 @@ import {
   queueManualOutreach,
   type ManualQueueSummary,
 } from "@/lib/services/messagingDispatcher";
+import { hasContactedOutreach } from "@/lib/services/messaging/outreach-store";
 import {
   absoluteUrl,
   channelsForProspect,
@@ -34,7 +35,8 @@ function httpThumbnail(value: string | null | undefined): string | null {
  *
  * Called automatically after the audit/video pipeline reaches `ready`, and
  * reusable from any future admin "queue for DM" action. Returns null when the
- * lead is filtered out (disabled, wrong city, no social handle, no video URL).
+ * lead is filtered out (disabled, wrong city, no social handle, no video URL,
+ * or already contacted).
  */
 export async function queueProspectForColdOutreach(
   prospect: Prospect,
@@ -45,24 +47,38 @@ export async function queueProspectForColdOutreach(
     if (!cityMatchesColdQueue(prospect.city)) return null;
   }
 
-  const requested = options.channels?.length
-    ? options.channels
-    : configuredColdChannels();
-  const available = channelsForProspect(prospect);
-  const channels = requested.filter((channel) => available.includes(channel));
-  if (channels.length === 0) return null;
-
-  const videoUrl = absoluteUrl(
-    prospect.video_url || (prospect.slug ? `/pitch/${prospect.slug}` : null),
-  );
-  if (!videoUrl) return null;
-
   const handles: Partial<Record<OutreachChannel, string | null>> = {
     instagram: socialHandle(prospect.instagram ?? null),
     facebook: socialHandle(prospect.facebook ?? null),
     tiktok: socialHandle(prospect.tiktok ?? null),
     whatsapp: prospect.phone ?? null,
   };
+
+  const available = channelsForProspect(prospect);
+  const videoUrl = absoluteUrl(
+    prospect.video_url || (prospect.slug ? `/pitch/${prospect.slug}` : null),
+  );
+  if (!videoUrl) return null;
+
+  const requested = options.channels?.length
+    ? options.channels
+    : configuredColdChannels();
+  let channels = requested.filter((channel) => available.includes(channel));
+
+  // Hard safety rail: a repeat Apify run or a re-rendered video must never
+  // produce a second pitch to a lead that was already reached on any channel.
+  if (!options.force) {
+    if (await hasContactedOutreach({ prospectId: prospect.id })) return null;
+    const untouched: OutreachChannel[] = [];
+    for (const channel of channels) {
+      const recipient = handles[channel];
+      if (!recipient || !(await hasContactedOutreach({ channel, recipient }))) {
+        untouched.push(channel);
+      }
+    }
+    channels = untouched;
+  }
+  if (channels.length === 0) return null;
 
   return queueManualOutreach({
     payload: {

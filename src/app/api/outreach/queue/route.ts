@@ -14,6 +14,7 @@ import {
   isRecord,
   socialHandle,
 } from "@/lib/services/messaging/request";
+import { hasContactedOutreach } from "@/lib/services/messaging/outreach-store";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -100,6 +101,7 @@ export async function POST(req: Request) {
     channels: OutreachChannel[];
     queued: number;
     failed: number;
+    skipped?: number;
     error?: string;
     results?: Awaited<ReturnType<typeof queueManualOutreach>>["results"];
   }> = [];
@@ -236,9 +238,37 @@ export async function POST(req: Request) {
       continue;
     }
 
+    // Never re-pitch a lead that was already contacted (status sent/delivered/
+    // read/replied, or a stored sent_at). Check the prospect itself and each
+    // channel recipient, so repeat Apify runs and re-renders are harmless.
+    const contactedProspect = await hasContactedOutreach({
+      prospectId: prospect?.id ?? prospectId ?? null,
+    });
+    const eligible: OutreachChannel[] = [];
+    for (const channel of channels) {
+      const recipient = payload.handles?.[channel] ?? null;
+      if (!recipient || !(await hasContactedOutreach({ channel, recipient }))) {
+        eligible.push(channel);
+      }
+    }
+
+    if (contactedProspect || eligible.length === 0) {
+      results.push({
+        index,
+        leadName,
+        businessName,
+        channels,
+        queued: 0,
+        failed: 0,
+        skipped: channels.length,
+        error: "Already contacted on these channels — not re-queued.",
+      });
+      continue;
+    }
+
     const summary = await queueManualOutreach({
       payload,
-      channels,
+      channels: eligible,
       prospect,
       requestedBy,
     });
@@ -249,21 +279,24 @@ export async function POST(req: Request) {
       channels,
       queued: summary.queued,
       failed: summary.failed,
+      skipped: channels.length - eligible.length,
       results: summary.results,
     });
   }
 
   const queued = results.reduce((sum, lead) => sum + lead.queued, 0);
   const failed = results.reduce((sum, lead) => sum + lead.failed, 0);
+  const skipped = results.reduce((sum, lead) => sum + (lead.skipped ?? 0), 0);
 
   return NextResponse.json({
     success: failed === 0,
     queued,
     failed,
+    skipped,
     leads: results,
     message:
       failed === 0
-        ? `${queued} message${queued === 1 ? "" : "s"} waiting in the manual queue. Open /admin/outreach to send.`
-        : `${queued} queued, ${failed} could not be queued.`,
+        ? `${queued} message${queued === 1 ? "" : "s"} waiting in the manual queue${skipped ? `, ${skipped} already-contacted channel(s) skipped` : ""}. Open /admin/outreach to send.`
+        : `${queued} queued, ${failed} could not be queued${skipped ? `, ${skipped} skipped` : ""}.`,
   });
 }

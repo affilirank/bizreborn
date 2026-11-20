@@ -334,6 +334,64 @@ export async function dueRetryLogs(limit = 25): Promise<OutreachLog[]> {
 }
 
 /**
+ * Statuses that mean a human/provider actually reached the lead. Used to
+ * prevent repeat Apify runs or re-rendered videos from double-pitching.
+ */
+export const CONTACTED_OUTREACH_STATUSES: OutreachStatus[] = [
+  "sent",
+  "delivered",
+  "read",
+  "replied",
+];
+
+/**
+ * True when this prospect (or a specific channel recipient) has already been
+ * contacted. Checks both status history and `sent_at` as a safety net.
+ */
+export async function hasContactedOutreach(filters: {
+  prospectId?: string | null;
+  channel?: OutreachChannel | null;
+  recipient?: string | null;
+}): Promise<boolean> {
+  const matches = (row: OutreachLog) =>
+    (CONTACTED_OUTREACH_STATUSES.includes(row.status) || Boolean(row.sent_at)) &&
+    ((filters.prospectId != null && row.prospect_id === filters.prospectId) ||
+      (filters.channel != null &&
+        filters.recipient != null &&
+        row.channel === filters.channel &&
+        row.recipient === filters.recipient));
+
+  if (!filters.prospectId && !(filters.channel && filters.recipient)) return false;
+
+  const client = db();
+  if (client) {
+    if (filters.prospectId) {
+      const { data, error } = await client
+        .from(TABLE)
+        .select("id")
+        .eq("prospect_id", filters.prospectId)
+        .in("status", CONTACTED_OUTREACH_STATUSES)
+        .limit(1);
+      if (!error && Array.isArray(data) && data.length > 0) return true;
+      if (error) noteError(error);
+    }
+    if (filters.channel && filters.recipient) {
+      const { data, error } = await client
+        .from(TABLE)
+        .select("id")
+        .eq("channel", filters.channel)
+        .eq("recipient", filters.recipient)
+        .in("status", CONTACTED_OUTREACH_STATUSES)
+        .limit(1);
+      if (!error && Array.isArray(data) && data.length > 0) return true;
+      if (error) noteError(error);
+    }
+  }
+
+  return [...memory.values()].some(matches);
+}
+
+/**
  * Dedupe guard for scraper batches: a handle already waiting for a manual send
  * should not be queued twice on the next scrape run.
  */
