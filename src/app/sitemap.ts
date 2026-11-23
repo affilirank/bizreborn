@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { fetchAllSlugs } from "@/lib/blog-db";
 import { BLOG_BY_SLUG } from "@/data/blog";
+import { GROWTH_BUNDLE_FUNNEL_ID } from "@/lib/funnel-bridge";
 
 const BASE = "https://meritmarketingfl.com";
 
@@ -13,6 +14,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/services`, changeFrequency: "weekly", priority: 0.9 },
     { url: `${BASE}/blog`, changeFrequency: "daily", priority: 0.9 },
     { url: `${BASE}/contact`, changeFrequency: "yearly", priority: 0.5 },
+    { url: `${BASE}/swipe-file`, changeFrequency: "weekly", priority: 0.9 },
+    { url: `${BASE}/f/${GROWTH_BUNDLE_FUNNEL_ID}`, changeFrequency: "weekly", priority: 0.8 },
   ];
 
   const slugs = await fetchAllSlugs();
