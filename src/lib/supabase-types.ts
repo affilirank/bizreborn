@@ -252,6 +252,8 @@ export interface OutreachLog {
 }
 
 export interface Prospect {
+  vertical?: string | null;
+  ghl_contact_id?: string | null;
   qualifying_score?: number | null;
   missing_gbp_apple?: boolean | null;
   temperature?: string | null;

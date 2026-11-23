@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { subscribeToMailerLite } from "@/lib/mailerlite";
+import { syncProspectToGhl } from "@/lib/ghl-bridge";
 
 const LeadSchema = z.object({
   name: z.string().min(1, "Name is required.").max(120),
@@ -13,6 +14,7 @@ const LeadSchema = z.object({
     .default("contact"),
   message: z.string().max(2000).optional().default(""),
   vertical: z.string().max(80).optional().default(""),
+  prospectId: z.string().uuid().optional(),
 });
 
 export async function POST(req: Request) {
@@ -40,6 +42,15 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "Could not subscribe the contact.", mailerlite: false },
         { status: 502 },
+      );
+    }
+
+    // Non-blocking GHL v2 sync for high-intent lead capture.
+    if (lead.prospectId) {
+      void syncProspectToGhl(
+        lead.prospectId,
+        "lead_capture",
+        { name: lead.name, email: lead.email, phone: lead.phone },
       );
     }
 
