@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Send, Bot, User, X, Sparkles, Clock, Phone } from "lucide-react";
+import { trackImpressiveEvent } from "@/lib/preview/tracking";
 
 const AI_RESPONSES = [
   "Thanks for reaching out, {name}. What's the best time to call you back? We can book a free roof inspection today.",
@@ -11,7 +12,23 @@ const AI_RESPONSES = [
   "We're open 7am–7pm Mon–Sat, with 24/7 emergency line. Would you like me to text you a booking link?",
 ];
 
-export default function AIChatAgent({ businessName, city, niche }: { businessName: string; city: string; niche: string }) {
+interface AIChatAgentProps {
+  businessName: string;
+  city: string;
+  niche: string;
+  prospectId?: string;
+  bridgeToken?: string;
+  bridgeExpiry?: number;
+}
+
+export default function AIChatAgent({
+  businessName,
+  city,
+  niche,
+  prospectId,
+  bridgeToken,
+  bridgeExpiry,
+}: AIChatAgentProps) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: "user" | "ai"; text: string }[]>([
     { role: "ai", text: `Hi — I'm the AI assistant for ${businessName}. How can I help you with ${niche} in ${city}?` },
@@ -27,6 +44,17 @@ export default function AIChatAgent({ businessName, city, niche }: { businessNam
   const send = () => {
     if (!input.trim()) return;
     const userText = input.trim();
+
+    // High-intent signal — deduped to one fire per session in trackImpressiveEvent.
+    if (prospectId) {
+      trackImpressiveEvent({
+        prospectId,
+        eventType: "chat_interaction",
+        token: bridgeToken,
+        expiresAt: bridgeExpiry,
+      });
+    }
+
     setMessages((m) => [...m, { role: "user", text: userText }]);
     setInput("");
     setTyping(true);

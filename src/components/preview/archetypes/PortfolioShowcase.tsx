@@ -2,6 +2,7 @@
 
 import { ArrowRight, Check, Sparkles, Play, Image as ImageIcon, ShieldCheck } from "lucide-react";
 import AIChatAgent from "@/components/ai-chat-agent";
+import { trackImpressiveEvent } from "@/lib/preview/tracking";
 import type { NicheSkin } from "@/lib/preview/niche-skins";
 
 interface Props {
@@ -12,10 +13,19 @@ interface Props {
   rating: string;
   reviews: string;
   services: { title: string; blurb: string; icon: string }[];
+  prospectId: string;
+  bridgeToken?: string;
+  bridgeExpiry?: number;
 }
 
-export default function ArchetypePortfolioShowcase({ niche, businessName, city, phone, rating, reviews, services }: Props) {
+export default function ArchetypePortfolioShowcase({ niche, businessName, city, phone, rating, reviews, services, prospectId, bridgeToken, bridgeExpiry }: Props) {
   const colors = niche.colors;
+  const trackAudio = () => trackImpressiveEvent({
+    prospectId,
+    eventType: "audio_played",
+    token: bridgeToken,
+    expiresAt: bridgeExpiry,
+  });
   return (
     <div style={{ backgroundColor: colors.bg, color: colors.text }} className="min-h-screen font-sans selection:bg-amber-500/30">
       {/* Floating banner */}
@@ -50,6 +60,23 @@ export default function ArchetypePortfolioShowcase({ niche, businessName, city, 
           <span>{reviews} Verified Reviews</span>
           <span>Same-Day Service</span>
           <span>Licensed & Insured</span>
+        </div>
+      </section>
+
+      {/* AI Receptionist audio proof */}
+      <section id="audio-demo" className="py-10 px-4 sm:px-6 lg:px-8 border-y border-white/5 bg-black/30">
+        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center gap-6">
+          <div className="flex-1 w-full">
+            <h2 className="text-xl md:text-2xl font-extrabold text-white mb-2">Hear {businessName}'s AI answer at 8:30 PM</h2>
+            <p className="text-sm text-gray-400 mb-3">Real-time estimate booking — even after hours.</p>
+            <audio controls onPlay={trackAudio} preload="none" className="w-full rounded-xl bg-white/5 border border-white/10">
+              <source src="/api/voice/audio" type="audio/mpeg" />
+            </audio>
+          </div>
+          <div className="glass rounded-2xl px-6 py-4 text-center border border-white/10 shrink-0">
+            <div className="text-3xl font-black text-amber-400">100%</div>
+            <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Calls Answered</div>
+          </div>
         </div>
       </section>
 
@@ -127,7 +154,7 @@ export default function ArchetypePortfolioShowcase({ niche, businessName, city, 
       {/* AI Receptionist */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-transparent to-black/50">
         <div className="max-w-4xl mx-auto">
-          <AIChatAgent businessName={businessName} city={city} niche={niche.id} />
+          <AIChatAgent businessName={businessName} city={city} niche={niche.id} prospectId={prospectId} bridgeToken={bridgeToken} bridgeExpiry={bridgeExpiry} />
         </div>
       </section>
     </div>

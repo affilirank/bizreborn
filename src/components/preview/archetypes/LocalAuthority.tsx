@@ -2,6 +2,7 @@
 
 import { ArrowRight, Phone, ShieldCheck, Award, Sparkles, Check } from "lucide-react";
 import AIChatAgent from "@/components/ai-chat-agent";
+import { trackImpressiveEvent } from "@/lib/preview/tracking";
 import type { NicheSkin } from "@/lib/preview/niche-skins";
 
 interface Props {
@@ -12,10 +13,19 @@ interface Props {
   rating: string;
   reviews: string;
   services: { title: string; blurb: string; icon: string }[];
+  prospectId: string;
+  bridgeToken?: string;
+  bridgeExpiry?: number;
 }
 
-export default function ArchetypeLocalAuthority({ niche, businessName, city, phone, rating, reviews }: Props) {
+export default function ArchetypeLocalAuthority({ niche, businessName, city, phone, rating, reviews, prospectId, bridgeToken, bridgeExpiry }: Props) {
   const colors = niche.colors;
+  const trackAudio = () => trackImpressiveEvent({
+    prospectId,
+    eventType: "audio_played",
+    token: bridgeToken,
+    expiresAt: bridgeExpiry,
+  });
   return (
     <div style={{ backgroundColor: colors.bg, color: colors.text }} className="min-h-screen font-sans">
       {/* Floating banner */}
@@ -46,6 +56,23 @@ export default function ArchetypeLocalAuthority({ niche, businessName, city, pho
             <span>{reviews} Verified Reviews</span>
             <span className="w-1 h-1 rounded-full bg-white/20" />
             <span>Serving {city}</span>
+          </div>
+        </div>
+      </section>
+
+      {/* AI Receptionist audio proof */}
+      <section id="audio-demo" className="py-10 px-4 sm:px-6 lg:px-8 border-y border-white/5 bg-black/30">
+        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center gap-6">
+          <div className="flex-1 w-full">
+            <h2 className="text-xl md:text-2xl font-extrabold text-white mb-2">Hear how calls get answered after hours</h2>
+            <p className="text-sm text-gray-400 mb-3">{businessName}'s AI books estimates while you're on the job.</p>
+            <audio controls onPlay={trackAudio} preload="none" className="w-full rounded-xl bg-white/5 border border-white/10">
+              <source src="/api/voice/audio" type="audio/mpeg" />
+            </audio>
+          </div>
+          <div className="glass rounded-2xl px-6 py-4 text-center border border-white/10 shrink-0">
+            <div className="text-3xl font-black text-amber-400">100%</div>
+            <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Calls Answered</div>
           </div>
         </div>
       </section>
@@ -123,7 +150,7 @@ export default function ArchetypeLocalAuthority({ niche, businessName, city, pho
         <div className="max-w-md mx-auto mb-16">
           <a href={`tel:${phone}`} className="flex items-center justify-center gap-2 w-full py-5 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-extrabold rounded-2xl text-lg shadow-xl shadow-amber-500/25 hover:brightness-110 transition">Call {phone}<Phone size={20} /></a>
         </div>
-        <AIChatAgent businessName={businessName} city={city} niche={niche.id} />
+        <AIChatAgent businessName={businessName} city={city} niche={niche.id} prospectId={prospectId} bridgeToken={bridgeToken} bridgeExpiry={bridgeExpiry} />
       </section>
     </div>
   );

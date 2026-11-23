@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { buildImpressiveSiteForProspect } from "@/lib/impressive-site-generator";
 import { NICHE_SKINS, ARCHETYPES } from "@/lib/preview/niche-skins";
+import { mintBridgeToken } from "@/lib/preview/bridge-token";
 import ArchetypeDirectCall from "@/components/preview/archetypes/DirectCall";
 import ArchetypePortfolioShowcase from "@/components/preview/archetypes/PortfolioShowcase";
 import ArchetypeLocalAuthority from "@/components/preview/archetypes/LocalAuthority";
@@ -65,7 +66,21 @@ export default async function ImpressiveSitePage({ params }: PageProps) {
     { title: p.services?.[3]?.title || "Maintenance", blurb: "Scheduled upkeep to protect your investment long-term." },
   ]);
 
-  const props = { niche: skin, businessName, city, phone, rating, reviews, services };
+  // Short-lived scoped token lets the client fire high-intent events to the
+  // protected /api/merit-bridge without exposing the master secret.
+  const bridge = mintBridgeToken(id);
+  const props = {
+    niche: skin,
+    businessName,
+    city,
+    phone,
+    rating,
+    reviews,
+    services,
+    prospectId: id,
+    bridgeToken: bridge?.token,
+    bridgeExpiry: bridge?.expiresAt,
+  };
 
   // Render the correct archetype — fully isolated from Merit Marketing layout
   if (archetypeId === "PortfolioShowcase") return <ArchetypePortfolioShowcase {...props} />;

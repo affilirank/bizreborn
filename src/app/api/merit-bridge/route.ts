@@ -1,13 +1,13 @@
 /**
  * GoHighLevel v2 High-Intent Bridge — /api/merit-bridge
  *
- * Trigger `syncProspectToGhl` by prospect ID + event type.
- * Used by external automation, manual curl tests, or CI verification.
+ * Two auth paths:
+ *  1. Master secret (x-merit-bridge-token === MERIT_BRIDGE_SECRET or
+ *     SUPABASE_SERVICE_ROLE_KEY) — external automation, any event type.
+ *  2. Short-lived prospect-scoped HMAC token minted by the isolated preview
+ *     page — browser client events only (audio_played / chat_interaction).
  *
- * Protected via `x-merit-bridge-token` header matching
- * `process.env.MERIT_BRIDGE_SECRET` (fallback: `process.env.SUPABASE_SERVICE_ROLE_KEY`).
- *
- * Example:
+ * Example (automation):
  *   curl -X POST http://localhost:3000/api/merit-bridge \\
  *     -H "Content-Type: application/json" \\
  *     -H "x-merit-bridge-token: <secret>" \\
@@ -15,60 +15,81 @@
  */
 import { NextResponse } from "next/server";
 import { syncProspectToGhl, type GhlEventType } from "@/lib/ghl-bridge";
+import { verifyBridgeToken } from "@/lib/preview/bridge-token";
 
 const EVENT_TYPES = new Set<GhlEventType>([
   "audio_played",
   "chat_interaction",
   "lead_capture",
 ]);
+const CLIENT_EVENT_TYPES = new Set<GhlEventType>([
+  "audio_played",
+  "chat_interaction",
+]);
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function verifyAuth(req: Request): boolean {
-  const secret = process.env.MERIT_BRIDGE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!secret) return false;
-  const token = req.headers.get("x-merit-bridge-token") ?? "";
-  // Simple constant-time-ish comparison to avoid timing leaks.
-  if (token.length !== secret.length) return false;
-  let match = true;
-  for (let i = 0; i < token.length; i++) {
-    if (token.charCodeAt(i) !== secret.charCodeAt(i)) match = false;
-  }
-  return match;
-}
-
 export async function POST(req: Request) {
   try {
-    if (!verifyAuth(req)) {
+    const body = (await req.json()) as {
+      prospectId?: string;
+      eventType?: GhlEventType;
+      expiresAt?: number;
+      name?: string;
+      email?: string;
+      phone?: string;
+    };
+
+    const token = req.headers.get("x-merit-bridge-token") ?? "";
+    const masterSecret =
+      process.env.MERIT_BRIDGE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || null;
+    const prospectId = body.prospectId ?? "";
+
+    const isMaster = Boolean(
+      masterSecret && token && token === masterSecret,
+    );
+    const isScoped = verifyBridgeToken({
+      presented: token,
+      masterSecret,
+      prospectId,
+      expiresAt: body.expiresAt,
+    });
+
+    if (!isMaster && !isScoped) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { prospectId, eventType, name, email, phone } = body ?? {};
-
-    if (!prospectId || typeof prospectId !== "string") {
+    if (typeof body.prospectId !== "string" || !body.prospectId) {
       return NextResponse.json(
         { error: "prospectId (string) is required." },
         { status: 400 },
       );
     }
 
-    if (!eventType || !EVENT_TYPES.has(eventType)) {
+    if (!body.eventType || !EVENT_TYPES.has(body.eventType)) {
       return NextResponse.json(
         { error: `eventType must be one of: ${Array.from(EVENT_TYPES).join(", ")}` },
         { status: 400 },
       );
     }
 
+    // Scoped browser tokens may never trigger PII-bearing lead_capture syncs.
+    if (isScoped && !isMaster && !CLIENT_EVENT_TYPES.has(body.eventType)) {
+      return NextResponse.json(
+        { error: "This event type requires master-secret authorization." },
+        { status: 403 },
+      );
+    }
+
     // Non-blocking GHL sync — fire-and-forget so the caller isn't blocked.
-    void syncProspectToGhl(prospectId, eventType, {
-      name,
-      email,
-      phone,
+    void syncProspectToGhl(body.prospectId, body.eventType, {
+      name: body.name,
+      email: body.email,
+      phone: body.phone,
     });
 
-    return NextResponse.json({ queued: true, prospectId, eventType });
+    return NextResponse.json({ queued: true, prospectId: body.prospectId, eventType: body.eventType });
   } catch {
     return NextResponse.json({ error: "Bridge request failed." }, { status: 500 });
   }

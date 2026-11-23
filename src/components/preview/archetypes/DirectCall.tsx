@@ -2,6 +2,7 @@
 
 import { ArrowRight, Phone, Check, ShieldCheck, Award, Clock, Sparkles } from "lucide-react";
 import AIChatAgent from "@/components/ai-chat-agent";
+import { trackImpressiveEvent } from "@/lib/preview/tracking";
 import type { NicheSkin } from "@/lib/preview/niche-skins";
 
 interface Props {
@@ -12,10 +13,19 @@ interface Props {
   rating: string;
   reviews: string;
   services: { title: string; blurb: string; icon: string }[];
+  prospectId: string;
+  bridgeToken?: string;
+  bridgeExpiry?: number;
 }
 
-export default function ArchetypeDirectCall({ niche, businessName, city, phone, rating, reviews, services }: Props) {
+export default function ArchetypeDirectCall({ niche, businessName, city, phone, rating, reviews, services, prospectId, bridgeToken, bridgeExpiry }: Props) {
   const colors = niche.colors;
+  const trackAudio = () => trackImpressiveEvent({
+    prospectId,
+    eventType: "audio_played",
+    token: bridgeToken,
+    expiresAt: bridgeExpiry,
+  });
   return (
     <div style={{ backgroundColor: colors.bg, color: colors.text }} className="min-h-screen font-sans">
       {/* Top floating banner */}
@@ -32,7 +42,7 @@ export default function ArchetypeDirectCall({ niche, businessName, city, phone, 
           <div className="flex-1">
             <h2 className="text-2xl md:text-3xl font-extrabold text-white mb-3">Test Drive {businessName}'s 24/7 AI Receptionist</h2>
             <p className="text-gray-300 text-sm mb-4">Listen to how our AI answers a $12,000 estimate call at 8:30 PM while you're on a job site.</p>
-            <audio controls className="w-full rounded-xl bg-white/10 border border-white/10" preload="auto">
+            <audio controls onPlay={trackAudio} className="w-full rounded-xl bg-white/10 border border-white/10" preload="auto">
               <source src="/api/voice/audio" type="audio/mpeg" />
             </audio>
           </div>
@@ -140,7 +150,7 @@ export default function ArchetypeDirectCall({ niche, businessName, city, phone, 
         <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-8 items-center">
           <div className="flex-1">
             <h3 className="text-2xl font-extrabold text-white mb-2">Listen: AI Answers Emergency Estimates at 8:30 PM</h3>
-            <audio controls className="w-full rounded-xl bg-white/10 border border-white/10" preload="none"><source src="/api/voice/audio" type="audio/mpeg" /></audio>
+            <audio controls onPlay={trackAudio} className="w-full rounded-xl bg-white/10 border border-white/10" preload="none"><source src="/api/voice/audio" type="audio/mpeg" /></audio>
           </div>
           <div className="flex-1 glass rounded-2xl p-5 border border-white/10 text-center">
             <div className="text-4xl font-black text-amber-400 mb-1">100%</div>
@@ -153,7 +163,7 @@ export default function ArchetypeDirectCall({ niche, businessName, city, phone, 
       {/* AI Receptionist Widget — Sticky visible */}
       <section className="py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto">
-          <AIChatAgent businessName={businessName} city={city} niche={niche.id} />
+          <AIChatAgent businessName={businessName} city={city} niche={niche.id} prospectId={prospectId} bridgeToken={bridgeToken} bridgeExpiry={bridgeExpiry} />
         </div>
       </section>
     </div>
