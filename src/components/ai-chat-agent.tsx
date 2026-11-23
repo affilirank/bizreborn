@@ -17,8 +17,6 @@ interface AIChatAgentProps {
   city: string;
   niche: string;
   prospectId?: string;
-  bridgeToken?: string;
-  bridgeExpiry?: number;
 }
 
 export default function AIChatAgent({
@@ -26,8 +24,6 @@ export default function AIChatAgent({
   city,
   niche,
   prospectId,
-  bridgeToken,
-  bridgeExpiry,
 }: AIChatAgentProps) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: "user" | "ai"; text: string }[]>([
@@ -50,8 +46,6 @@ export default function AIChatAgent({
       trackImpressiveEvent({
         prospectId,
         eventType: "chat_interaction",
-        token: bridgeToken,
-        expiresAt: bridgeExpiry,
       });
     }
 

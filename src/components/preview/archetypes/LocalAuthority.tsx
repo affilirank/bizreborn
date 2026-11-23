@@ -14,17 +14,13 @@ interface Props {
   reviews: string;
   services: { title: string; blurb: string; icon: string }[];
   prospectId: string;
-  bridgeToken?: string;
-  bridgeExpiry?: number;
 }
 
-export default function ArchetypeLocalAuthority({ niche, businessName, city, phone, rating, reviews, prospectId, bridgeToken, bridgeExpiry }: Props) {
+export default function ArchetypeLocalAuthority({ niche, businessName, city, phone, rating, reviews, prospectId }: Props) {
   const colors = niche.colors;
   const trackAudio = () => trackImpressiveEvent({
     prospectId,
     eventType: "audio_played",
-    token: bridgeToken,
-    expiresAt: bridgeExpiry,
   });
   return (
     <div style={{ backgroundColor: colors.bg, color: colors.text }} className="min-h-screen font-sans">
@@ -150,7 +146,7 @@ export default function ArchetypeLocalAuthority({ niche, businessName, city, pho
         <div className="max-w-md mx-auto mb-16">
           <a href={`tel:${phone}`} className="flex items-center justify-center gap-2 w-full py-5 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-extrabold rounded-2xl text-lg shadow-xl shadow-amber-500/25 hover:brightness-110 transition">Call {phone}<Phone size={20} /></a>
         </div>
-        <AIChatAgent businessName={businessName} city={city} niche={niche.id} prospectId={prospectId} bridgeToken={bridgeToken} bridgeExpiry={bridgeExpiry} />
+        <AIChatAgent businessName={businessName} city={city} niche={niche.id} prospectId={prospectId} />
       </section>
     </div>
   );

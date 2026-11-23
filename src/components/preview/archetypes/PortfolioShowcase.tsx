@@ -14,17 +14,13 @@ interface Props {
   reviews: string;
   services: { title: string; blurb: string; icon: string }[];
   prospectId: string;
-  bridgeToken?: string;
-  bridgeExpiry?: number;
 }
 
-export default function ArchetypePortfolioShowcase({ niche, businessName, city, phone, rating, reviews, services, prospectId, bridgeToken, bridgeExpiry }: Props) {
+export default function ArchetypePortfolioShowcase({ niche, businessName, city, phone, rating, reviews, services, prospectId }: Props) {
   const colors = niche.colors;
   const trackAudio = () => trackImpressiveEvent({
     prospectId,
     eventType: "audio_played",
-    token: bridgeToken,
-    expiresAt: bridgeExpiry,
   });
   return (
     <div style={{ backgroundColor: colors.bg, color: colors.text }} className="min-h-screen font-sans selection:bg-amber-500/30">
@@ -154,7 +150,7 @@ export default function ArchetypePortfolioShowcase({ niche, businessName, city, 
       {/* AI Receptionist */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-transparent to-black/50">
         <div className="max-w-4xl mx-auto">
-          <AIChatAgent businessName={businessName} city={city} niche={niche.id} prospectId={prospectId} bridgeToken={bridgeToken} bridgeExpiry={bridgeExpiry} />
+          <AIChatAgent businessName={businessName} city={city} niche={niche.id} prospectId={prospectId} />
         </div>
       </section>
     </div>
